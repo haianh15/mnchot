@@ -847,9 +847,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, message: 'Mã phòng không hợp lệ hoặc đã tồn tại', field: 'roomCode', code: 'EF-02' };
     }
 
-    // BR-UC.PH.02-02 & EF-01: Tầng là số nguyên từ 0 trở lên
-    if (floor === undefined || isNaN(floor) || floor < 0 || !Number.isInteger(floor)) {
-      return { success: false, message: 'Tầng trống hoặc sai định dạng (phải là số nguyên từ 0 trở lên).', field: 'floor', code: 'EF-01' };
+    // BR-UC.PH.02-02 & EF-01: Tầng là số nguyên lớn hơn 0
+    if (floor === undefined || isNaN(floor) || floor <= 0 || !Number.isInteger(floor)) {
+      return { success: false, message: 'Tầng trống hoặc sai định dạng (phải là số nguyên lớn hơn 0).', field: 'floor', code: 'EF-01' };
     }
 
     // BR-UC.PH.02-02 & EF-01: Diện tích là số dương > 0
@@ -913,9 +913,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, message: 'Không tìm thấy phòng tương ứng.', code: 'NOT_FOUND' };
     }
 
-    // BR-UC.PH.02-02 & EF-01: Tầng là số nguyên từ 0 trở lên
-    if (floor === undefined || isNaN(floor) || floor < 0 || !Number.isInteger(floor)) {
-      return { success: false, message: 'Tầng trống hoặc sai định dạng (phải là số nguyên từ 0 trở lên).', field: 'floor', code: 'EF-01' };
+    // BR-UC.PH.02-02 & EF-01: Tầng là số nguyên lớn hơn 0
+    if (floor === undefined || isNaN(floor) || floor <= 0 || !Number.isInteger(floor)) {
+      return { success: false, message: 'Tầng trống hoặc sai định dạng (phải là số nguyên lớn hơn 0).', field: 'floor', code: 'EF-01' };
     }
 
     // BR-UC.PH.02-02 & EF-01: Diện tích là số dương > 0

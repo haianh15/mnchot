@@ -1,22 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, FileText, History, ShieldCheck, Users, UserRound, Pencil } from 'lucide-react';
+import { ArrowLeft, FileText, ShieldCheck, Users, UserRound, Pencil } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { HSKT01RegisterTenant } from './tenants/HSKT01RegisterTenant';
 import { HSKT02CoTenants } from './tenants/HSKT02CoTenants';
 import { HSKT03VerifyChanges } from './tenants/HSKT03VerifyChanges';
 import { HSKT04UpdateTenant } from './tenants/HSKT04UpdateTenant';
-import { HSKT05HistoryAudit } from './tenants/HSKT05HistoryAudit';
 
 // These are workflow screens, not global navigation tabs.
 export type TenantTabKey = 'tenants' | 'co_tenants' | 'verify' | 'update' | 'history';
 type TenantScreen = TenantTabKey | 'detail';
 
 export const TenantsView: React.FC<{initialTenantId?: string}> = ({initialTenantId}) => {
-  const { tenants, coTenants, contracts, tenantHistory } = useApp();
-  const [screen, setScreen] = useState<TenantScreen>(initialTenantId ? 'detail' : 'tenants');
+  const { tenants, coTenants, contracts } = useApp();
+  const [screen, setScreen] = useState<TenantScreen>('tenants');
   const [selectedTenantId, setSelectedTenantId] = useState<string | undefined>(initialTenantId);
   const [selectedProposalId, setSelectedProposalId] = useState<string | undefined>();
-  const [detailSection, setDetailSection] = useState<'information' | 'co_tenants' | 'history'>('information');
+  const [detailSection, setDetailSection] = useState<'information' | 'co_tenants'>('information');
   const selectedTenant = tenants.find(t => t.id === selectedTenantId);
   const relatedContracts = contracts.filter(c => c.tenantId === selectedTenantId);
   const latestContract = relatedContracts.find(c => ['Hiệu lực','Chờ hiệu lực','Đã ký'].includes(c.status)) || relatedContracts[0];
@@ -24,7 +23,7 @@ export const TenantsView: React.FC<{initialTenantId?: string}> = ({initialTenant
   useEffect(() => {
     if (initialTenantId) {
       setSelectedTenantId(initialTenantId);
-      setScreen('detail');
+      setScreen('tenants'); // Làm nổi bật hồ sơ trong danh sách, không tự bật form chi tiết
       setDetailSection('information');
     }
   }, [initialTenantId]);
@@ -46,7 +45,7 @@ export const TenantsView: React.FC<{initialTenantId?: string}> = ({initialTenant
   const goToWorkflow = (tab: TenantTabKey) => {
     setScreen(tab);
     if (tab === 'co_tenants') setDetailSection('co_tenants');
-    if (tab === 'history') setDetailSection('history');
+    if (tab === 'history') { setScreen('detail'); setDetailSection('information'); }
   };
 
   const buttonStyle = 'inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50';
@@ -57,13 +56,14 @@ export const TenantsView: React.FC<{initialTenantId?: string}> = ({initialTenant
           <div>
             <p className="text-xs font-medium text-blue-700">Quản lý hồ sơ</p>
             <h1 className="text-xl font-bold text-slate-900">Hồ sơ khách thuê</h1>
-            <p className="text-xs text-slate-500 mt-1">Tra cứu và chọn khách thuê để xem người ở cùng, kiểm tra thay đổi và lịch sử hồ sơ.</p>
+            <p className="text-xs text-slate-500 mt-1">Chọn hồ sơ khách thuê để xem thông tin, người ở cùng hoặc cập nhật hồ sơ.</p>
           </div>
           {screen !== 'tenants' && <button className={buttonStyle} onClick={() => setScreen('tenants')}><ArrowLeft className="w-4 h-4"/> Danh sách khách thuê</button>}
         </div>
       </div>
 
       {screen === 'tenants' && <HSKT01RegisterTenant
+        highlightedTenantId={selectedTenantId}
         onNavigateToTab={goToWorkflow}
         onSelectTenantForUpdate={openUpdate}
         onSelectTenant={openTenant}
@@ -89,8 +89,7 @@ export const TenantsView: React.FC<{initialTenantId?: string}> = ({initialTenant
             <div className="flex gap-2 border-b border-slate-200 overflow-x-auto" role="tablist" aria-label="Chi tiết khách thuê">
               {([
                 ['information','Thông tin hồ sơ',FileText],
-                ['co_tenants',`Người ở cùng (${coTenants.filter(t=>t.tenantId===selectedTenantId).length})`,Users],
-                ['history',`Lịch sử thay đổi (${tenantHistory.filter(t=>t.tenantId===selectedTenantId).length})`,History]
+                ['co_tenants',`Người ở cùng (${coTenants.filter(t=>t.tenantId===selectedTenantId).length})`,Users]
               ] as const).map(([tab,label,Icon]) => <button key={tab} role="tab" aria-selected={detailSection===tab} onClick={()=>setDetailSection(tab)} className={`inline-flex shrink-0 gap-2 items-center text-xs sm:text-sm font-semibold px-3 py-3 border-b-2 ${detailSection===tab?'text-blue-700 border-blue-600':'border-transparent text-slate-600 hover:text-blue-700'}`}><Icon className="w-4 h-4"/>{label}</button>)}
             </div>
             {detailSection === 'information' && <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
@@ -109,12 +108,10 @@ export const TenantsView: React.FC<{initialTenantId?: string}> = ({initialTenant
             </div>}
           </div>
           {detailSection === 'co_tenants' && <HSKT02CoTenants tenantId={selectedTenant.id}/>}
-          {detailSection === 'history' && <HSKT05HistoryAudit tenantId={selectedTenant.id}/>}
         </div>
       )}
 
       {screen === 'co_tenants' && <HSKT02CoTenants tenantId={selectedTenantId}/>}
-      {screen === 'history' && <HSKT05HistoryAudit tenantId={selectedTenantId}/>}
       {screen === 'verify' && <HSKT03VerifyChanges initialTenantId={selectedTenantId} onNavigateToTab={goToWorkflow} onSelectProposalForUpdate={openProposal}/>}
       {screen === 'update' && <HSKT04UpdateTenant initialTenantId={selectedTenantId} initialProposalId={selectedProposalId} onNavigateToTab={goToWorkflow}/>}
     </section>

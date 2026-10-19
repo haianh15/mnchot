@@ -1,5 +1,5 @@
 import { toUserMessage } from '../../../utils/userMessages';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '../../../context/AppContext';
 import { LeaseConditionDraft } from '../../../types';
 import {
@@ -9,13 +9,17 @@ import {
 } from 'lucide-react';
 
 interface HDT01Props {
+  onInitialRoomConsumed?: () => void;
+  initialRoomCode?: string;
   onNavigateToTab?: (tab: 'conditions' | 'draft' | 'negotiate' | 'sign' | 'schedules' | 'renewal' | 'activate') => void;
   onSelectConditionForDraft?: (condition: LeaseConditionDraft) => void;
 }
 
 export const HDT01LeaseConditions: React.FC<HDT01Props> = ({
   onNavigateToTab,
-  onSelectConditionForDraft
+  onSelectConditionForDraft,
+  initialRoomCode,
+  onInitialRoomConsumed
 }) => {
   const {
     leaseConditions,
@@ -37,7 +41,6 @@ export const HDT01LeaseConditions: React.FC<HDT01Props> = ({
   const [showEditModal, setShowEditModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
-  const [showHistoryModal, setShowHistoryModal] = useState(false);
 
   // Form State
   const [formRequestCode, setFormRequestCode] = useState('');
@@ -72,7 +75,7 @@ export const HDT01LeaseConditions: React.FC<HDT01Props> = ({
     return matchesSearch && matchesStatus;
   });
 
-  const handleOpenCreateModal = (fromRequestCode?: string) => {
+  const handleOpenCreateModal = (fromRequestCode?: string, preferredRoomCode?: string) => {
     setIsEditingExisting(false);
     setExistingId(undefined);
     setCheckResultState(null);
@@ -93,7 +96,7 @@ export const HDT01LeaseConditions: React.FC<HDT01Props> = ({
       setFormProspectiveName('');
       setFormProspectivePhone('');
       setFormProspectiveId('');
-      setFormRoomCode('');
+      setFormRoomCode(preferredRoomCode || '');
       setFormTenantId('');
     }
 
@@ -106,6 +109,14 @@ export const HDT01LeaseConditions: React.FC<HDT01Props> = ({
     setFormTermsNote('Hợp đồng thuê 6 tháng theo lịch đợt chung, thanh toán chuyển khoản.');
     setShowEditModal(true);
   };
+
+  // Khi bắt đầu từ phòng trống, mở ngay biểu mẫu và chọn sẵn phòng đó.
+  useEffect(() => {
+    if (initialRoomCode) {
+      handleOpenCreateModal(undefined, initialRoomCode);
+      onInitialRoomConsumed?.();
+    }
+  }, [initialRoomCode]);
 
   const handleOpenEditModal = (condition: LeaseConditionDraft) => {
     setIsEditingExisting(true);
@@ -372,18 +383,6 @@ export const HDT01LeaseConditions: React.FC<HDT01Props> = ({
               {/* Card Actions Footer */}
               <div className="border-t border-slate-100 pt-2.5 flex flex-wrap items-center justify-between gap-1.5">
                 <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => {
-                      setSelectedCondition(cond);
-                      setShowHistoryModal(true);
-                    }}
-                    title="Xem lịch sử điều chỉnh điều kiện"
-                    className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md cursor-pointer text-xs flex items-center gap-1"
-                  >
-                    <History className="w-3.5 h-3.5" />
-                    <span className="text-[11px]">Lịch sử ({cond.history?.length || 1})</span>
-                  </button>
-
                   {cond.status !== 'Đã hủy' && cond.status !== 'Đã tạo hợp đồng' && (
                     <button
                       onClick={() => handleOpenEditModal(cond)}
@@ -741,62 +740,6 @@ export const HDT01LeaseConditions: React.FC<HDT01Props> = ({
                   Lưu bộ điều kiện (a) </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* ==================== MODAL: AUDIT HISTORY ==================== */}
-      {showHistoryModal && selectedCondition && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full p-6 space-y-4 max-h-[85vh] overflow-y-auto text-xs">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="font-bold text-slate-900 text-base">
-                  Nhật ký điều chỉnh điều kiện thuê </h3>
-                <p className="text-slate-500 text-xs">
-                  Mã yêu cầu: <strong className="font-mono text-blue-700">{selectedCondition.requestCode}</strong> | Phòng: {selectedCondition.roomCode}
-                </p>
-              </div>
-              <button
-                onClick={() => setShowHistoryModal(false)}
-                className="p-1 text-slate-400 hover:text-slate-700 cursor-pointer"
-              >
-                ✕ </button>
-            </div>
-
-            <div className="space-y-3">
-              {(selectedCondition.history || []).map((h, idx) => (
-                <div key={idx} className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
-                  <div className="flex justify-between items-center">
-                    <span className="font-mono font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded text-[11px]">
-                      Phiên bản v{h.version}
-                    </span>
-                    <span className="text-[10px] text-slate-400 font-mono">
-                      {new Date(h.timestamp).toLocaleString('vi-VN')}
-                    </span>
-                  </div>
-                  <div className="text-slate-800 font-medium text-xs pt-1">
-                    {h.changes}
-                  </div>
-                  {h.note && (
-                    <div className="text-[11px] text-slate-500 italic">
-                      Ghi chú: {h.note}
-                    </div>
-                  )}
-                  <div className="text-[10px] text-slate-400 pt-0.5">
-                    Người thực hiện: <span className="text-slate-600 font-semibold">{h.by}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex justify-end pt-2 border-t border-slate-100">
-              <button
-                onClick={() => setShowHistoryModal(false)}
-                className="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg font-semibold cursor-pointer"
-              >
-                Đóng </button>
-            </div>
           </div>
         </div>
       )}

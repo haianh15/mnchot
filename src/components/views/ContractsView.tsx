@@ -27,7 +27,7 @@ export type ContractTabKey =
   | 'renewal'
   | 'activate';
 
-export const ContractsView: React.FC<{initialContractId?: string; onBackToRooms?: (roomCode: string) => void}> = ({initialContractId, onBackToRooms}) => {
+export const ContractsView: React.FC<{initialContractId?: string; initialRoomCode?: string; initialAction?: 'create'; onBackToRooms?: (roomCode: string) => void}> = ({initialContractId, initialRoomCode, initialAction, onBackToRooms}) => {
   const {
     contracts,
     leaseConditions,
@@ -40,8 +40,18 @@ export const ContractsView: React.FC<{initialContractId?: string; onBackToRooms?
   const [activeTab, setActiveTab] = useState<ContractTabKey>('overview');
 
   const [selectedContractId, setSelectedContractId] = useState(initialContractId || '');
+  const [pendingCreateRoomCode, setPendingCreateRoomCode] = useState<string | undefined>(initialAction === 'create' ? initialRoomCode : undefined);
   const [searchContract, setSearchContract] = useState('');
-  useEffect(() => { if (initialContractId) {setSelectedContractId(initialContractId); setActiveTab('overview');} }, [initialContractId]);
+  useEffect(() => {
+    if (initialAction === 'create' && initialRoomCode) {
+      setSelectedContractId('');
+      setPendingCreateRoomCode(initialRoomCode);
+      setActiveTab('conditions');
+    } else if (initialContractId) {
+      setSelectedContractId(initialContractId);
+      setActiveTab('overview');
+    }
+  }, [initialContractId, initialRoomCode, initialAction]);
   const selectedContract = contracts.find(c => c.id === selectedContractId);
   const linkedSlips = settlementSlips.filter(s => s.leaseId === selectedContract?.leaseId);
   const firstPayment = initialPaymentRecords.find(r => r.leaseId === selectedContract?.leaseId);
@@ -140,6 +150,8 @@ export const ContractsView: React.FC<{initialContractId?: string; onBackToRooms?
       <div>
         {activeTab === 'conditions' && (
           <HDT01LeaseConditions
+            initialRoomCode={pendingCreateRoomCode}
+            onInitialRoomConsumed={() => setPendingCreateRoomCode(undefined)}
             onNavigateToTab={handleNavigateToTab}
             onSelectConditionForDraft={handleSelectConditionForDraft}
           />

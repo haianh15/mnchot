@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '../../../context/AppContext';
 import { Tenant } from '../../../types';
 import {
@@ -7,12 +7,13 @@ import {
 } from 'lucide-react';
 
 interface HSKT01Props {
+  highlightedTenantId?: string;
   onNavigateToTab: (tab: 'tenants' | 'co_tenants' | 'verify' | 'update' | 'history') => void;
   onSelectTenantForUpdate?: (tenantId: string) => void;
   onSelectTenant?: (tenantId: string) => void;
 }
 
-export const HSKT01RegisterTenant: React.FC<HSKT01Props> = ({ onNavigateToTab, onSelectTenantForUpdate, onSelectTenant }) => {
+export const HSKT01RegisterTenant: React.FC<HSKT01Props> = ({ onNavigateToTab, onSelectTenantForUpdate, onSelectTenant, highlightedTenantId }) => {
   const {
     tenants,
     addTenantHSKT01,
@@ -22,6 +23,11 @@ export const HSKT01RegisterTenant: React.FC<HSKT01Props> = ({ onNavigateToTab, o
     receptionRequests,
     linkReceptionRequestHSKT01
   } = useApp();
+
+  const highlightedRowRef = useRef<HTMLTableRowElement | null>(null);
+  useEffect(() => {
+    if (highlightedTenantId) highlightedRowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [highlightedTenantId]);
 
   // Search Step (Bước 1 & 2 /, 02)
   const [searchQuery, setSearchQuery] = useState('');
@@ -399,7 +405,7 @@ export const HSKT01RegisterTenant: React.FC<HSKT01Props> = ({ onNavigateToTab, o
                 <UserCheck className="w-4 h-4 text-blue-600" />
                 <h3 className="text-sm font-bold text-slate-800">Danh sách hồ sơ khách thuê ({tenants.length})</h3>
               </div>
-              <span className="text-[11px] text-slate-500">Người đại diện làm đầu mối thông báo & thu tiền</span>
+              {highlightedTenantId && <span className="rounded-lg bg-blue-100 border border-blue-300 px-3 py-1.5 text-xs font-bold text-blue-800">Hồ sơ được mở từ Quản lý phòng đang được đánh dấu xanh</span>}
             </div>
 
             <div className="overflow-x-auto">
@@ -416,7 +422,12 @@ export const HSKT01RegisterTenant: React.FC<HSKT01Props> = ({ onNavigateToTab, o
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {tenants.map(t => (
-                    <tr key={t.id} className="hover:bg-slate-50/80 transition-colors">
+                    <tr
+                      key={t.id}
+                      ref={t.id === highlightedTenantId ? highlightedRowRef : undefined}
+                      aria-selected={t.id === highlightedTenantId}
+                      className={`transition-colors ${t.id === highlightedTenantId ? 'bg-blue-100 ring-2 ring-inset ring-blue-500 font-bold' : 'hover:bg-slate-50/80'}`}
+                    >
                       <td className="py-2.5 px-3 font-mono font-bold text-blue-700">{t.id}</td>
                       <td className="py-2.5 px-3 font-semibold text-slate-900">
                         <div>{t.fullName}</div>

@@ -39,7 +39,6 @@ export const HDT03SendAndNegotiate: React.FC<HDT03Props> = ({
   const [cancelReason, setCancelReason] = useState('');
 
   // History Modal State
-  const [showHistoryModal, setShowHistoryModal] = useState(false);
 
   // Contracts in Draft or Awaiting Sign
   const candidateContracts = contracts.filter(c =>
@@ -226,17 +225,6 @@ export const HDT03SendAndNegotiate: React.FC<HDT03Props> = ({
             <div className="border-t border-slate-100 pt-3 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-1">
                 <button
-                  onClick={() => {
-                    setSelectedContract(c);
-                    setShowHistoryModal(true);
-                  }}
-                  className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md cursor-pointer text-[11px] flex items-center gap-1"
-                >
-                  <History className="w-3.5 h-3.5" />
-                  <span>Lịch sử ({c.history?.length || 1})</span>
-                </button>
-
-                <button
                   onClick={() => handleOpenEdit(c)}
                   className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md cursor-pointer text-[11px] flex items-center gap-1 font-medium"
                 >
@@ -421,57 +409,6 @@ export const HDT03SendAndNegotiate: React.FC<HDT03Props> = ({
         </div>
       )}
 
-      {/* ==================== MODAL: HISTORY AUDIT ==================== */}
-      {showHistoryModal && selectedContract && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full p-6 space-y-4 max-h-[85vh] overflow-y-auto text-xs">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="font-bold text-slate-900 text-base">
-                  Nhật ký vòng đời hợp đồng </h3>
-                <p className="text-slate-500 text-xs">
-                  Mã HĐ: <strong className="font-mono text-blue-700">{selectedContract.id}</strong> | Phòng: {selectedContract.roomCode}
-                </p>
-              </div>
-              <button
-                onClick={() => setShowHistoryModal(false)}
-                className="p-1 text-slate-400 hover:text-slate-700 cursor-pointer"
-              >
-                ✕ </button>
-            </div>
-
-            <div className="space-y-3">
-              {(selectedContract.history || []).map((h, idx) => (
-                <div key={idx} className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
-                  <div className="flex justify-between items-center">
-                    <span className="font-mono font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded text-[11px]">
-                      {h.action} (v{h.version}) </span>
-                    <span className="text-[10px] text-slate-400 font-mono">
-                      {new Date(h.timestamp).toLocaleString('vi-VN')}
-                    </span>
-                  </div>
-                  {h.note && (
-                    <div className="text-xs text-slate-700 pt-1">
-                      {h.note}
-                    </div>
-                  )}
-                  <div className="text-[10px] text-slate-400 pt-0.5">
-                    Người ghi nhận: <span className="text-slate-600 font-semibold">{h.by}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex justify-end pt-2 border-t border-slate-100">
-              <button
-                onClick={() => setShowHistoryModal(false)}
-                className="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg font-semibold cursor-pointer"
-              >
-                Đóng </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
