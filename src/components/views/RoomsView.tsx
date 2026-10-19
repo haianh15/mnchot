@@ -9,7 +9,7 @@ import {
   History, ArrowLeft, RotateCcw, Building2, FileCheck2
 } from 'lucide-react';
 
-export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | 'handover', target: {roomCode?: string; contractId?: string; tenantId?: string; action?: 'create'}) => void; initialRoomCode?: string}> = ({onNavigate, initialRoomCode}) => {
+export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | 'handover', target: {roomCode?: string; contractId?: string; tenantId?: string; leaseId?: string; action?: 'create'}) => void; initialRoomCode?: string}> = ({onNavigate, initialRoomCode}) => {
   const {
     currentUser,
     currentSession,
@@ -73,19 +73,52 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
     if (room) openRoomDetails(room);
   }, [initialRoomCode]);
 
-  // Điều hướng bằng hồ sơ đang có hiệu lực, không lấy hợp đồng/khách của lượt thuê cũ.
-  const getActiveRoomContract = (room: Room) =>
-    room.status === 'Trống' ? undefined :
-    contracts.find(c => c.id === room.currentContractId && c.roomCode === room.roomCode) ||
-    (room.currentLeaseId ? contracts.find(c => c.roomCode === room.roomCode && c.leaseId === room.currentLeaseId) : undefined);
+  // A linked action must resolve to one exact room + occupancy + lease.
+  // Never fall back to a past contract just because it has the same room code.
+  const getActiveRoomContract = (room: Room) => {
+    if (room.status === 'Trống' || !room.currentLeaseId) return undefined;
+    return contracts.find(c => c.roomCode === room.roomCode &&
+      c.leaseId === room.currentLeaseId && c.id === room.currentContractId && c.status !== 'Đã hủy' && c.status !== 'Kết thúc') ||
+      contracts.find(c => c.roomCode === room.roomCode && c.leaseId === room.currentLeaseId &&
+        c.status !== 'Đã hủy' && c.status !== 'Kết thúc');
+  };
   const getActiveRoomTenantId = (room: Room) => {
-    if (room.status === 'Trống') return undefined;
+    if (room.status === 'Trống' || !room.currentLeaseId) return undefined;
     const contract = getActiveRoomContract(room);
-    if (room.currentTenantId && tenants.some(t => t.id === room.currentTenantId)) return room.currentTenantId;
-    if (contract?.tenantId && tenants.some(t => t.id === contract.tenantId)) return contract.tenantId;
-    if (!room.currentTenantName) return undefined;
-    const uniqueNameMatches = tenants.filter(t => t.fullName.trim() === room.currentTenantName?.trim());
-    return uniqueNameMatches.length === 1 ? uniqueNameMatches[0].id : undefined;
+    // A verified current-tenant ID on the occupied room is a valid source even
+    // if a demo/legacy dataset has not yet imported its contract record.
+    if (room.currentTenantId) {
+      if (contract && contract.tenantId !== room.currentTenantId) return undefined;
+      return tenants.some(t => t.id === room.currentTenantId) ? room.currentTenantId : undefined;
+    }
+    return contract?.tenantId && tenants.some(t => t.id === contract.tenantId)
+      ? contract.tenantId : undefined;
+  };
+  const getCurrentRoomHandover = (room: Room) => {
+    const contract = getActiveRoomContract(room);
+    return contract ? handoverReports.find(h => h.roomCode === room.roomCode &&
+      h.leaseId === contract.leaseId) : undefined;
+  };
+  const getCurrentRoomReturnPlan = (room: Room) => {
+    const contract = getActiveRoomContract(room);
+    return contract && room.expectedReturnDate ? returnPlans.find(p =>
+      p.roomCode === room.roomCode && p.leaseId === contract.leaseId &&
+      p.expectedDate === room.expectedReturnDate && p.status === 'Còn theo dõi') : undefined;
+  };
+  const openLinkedReturnPlan = (room: Room) => {
+    const contract = getActiveRoomContract(room);
+    if (!contract || !room.expectedReturnDate) {
+      showToast('error', 'Phòng này chưa có ngày dự kiến trả được ghi nhận cho lần thuê hiện tại.');
+      return;
+    }
+    closeRoomDetails();
+    setPlanSearchRoom(room.roomCode);
+    setPlanLinkedLeaseId(contract.leaseId);
+    setPlanStatusFilter('Tất cả');
+    setPlanStartDate('');
+    setPlanEndDate('');
+    setPlansSubTab('plans');
+    setSubTab('plans');
   };
   const openLinkedRecord = (tab: 'contracts' | 'tenants' | 'handover', room: Room) => {
     if (!onNavigate) return;
@@ -95,17 +128,28 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
       return;
     }
     const contract = getActiveRoomContract(room);
-    if (tab === 'contracts' && !contract) {
-      showToast('error', 'Chưa tìm thấy hợp đồng hiện tại của phòng.');
+    const tenantId = getActiveRoomTenantId(room);
+    if (tab === 'tenants') {
+      if (!tenantId) {
+        showToast('error', 'Chưa tìm thấy hồ sơ khách đang thuê phòng này.');
+        return;
+      }
+      closeRoomDetails();
+      onNavigate('tenants', { roomCode: room.roomCode, tenantId, leaseId: room.currentLeaseId,
+        contractId: contract?.id });
       return;
     }
-    const tenantId = getActiveRoomTenantId(room);
-    if (tab === 'tenants' && !tenantId) {
-      showToast('error', 'Phòng chưa có hồ sơ khách thuê hiện tại.');
+    if (!contract) {
+      showToast('error', 'Phòng chưa có hợp đồng và lần thuê hiện tại hợp lệ.');
+      return;
+    }
+    if (tab === 'handover' && !getCurrentRoomHandover(room)) {
+      showToast('error', 'Lần thuê hiện tại chưa có hồ sơ bàn giao để xem.');
       return;
     }
     closeRoomDetails();
-    onNavigate(tab, { roomCode: room.roomCode, contractId: contract?.id, tenantId });
+    onNavigate(tab, { roomCode: room.roomCode, contractId: contract.id, tenantId,
+      leaseId: contract.leaseId });
   };
   // Modals for Actions & Links in Chi tiết phòng
   const [showAddModal, setShowAddModal] = useState(false);
@@ -134,6 +178,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
   // Return Plans & Feedback () states
   const [plansSubTab, setPlansSubTab] = useState<'plans' | 'feedback'>('plans');
   const [planSearchRoom, setPlanSearchRoom] = useState('');
+  const [planLinkedLeaseId, setPlanLinkedLeaseId] = useState<string | undefined>();
   const [planStatusFilter, setPlanStatusFilter] = useState<'Tất cả' | 'Đang thuê' | 'Sắp trả'>('Tất cả');
   const [planStartDate, setPlanStartDate] = useState('');
   const [planEndDate, setPlanEndDate] = useState('');
@@ -278,7 +323,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
 
   // Helper: compute feedback badge (theo  nếu có căn cứ; chưa từng liên hệ và chưa có căn cứ phản hồi hiển thị "Chưa có ghi nhận liên hệ", không gán Chưa phản hồi)
   const getFeedbackBadge = (room: Room): TenantFeedbackBadge => {
-    const logs = contactLogs.filter(c => c.roomCode === room.roomCode);
+    const logs = contactLogs.filter(c => room.status !== 'Trống' && c.roomCode === room.roomCode && c.leaseId === room.currentLeaseId);
     if (room.expectedReturnDate) {
       return 'Đã phản hồi – Đã xác nhận ngày trả';
     }
@@ -444,20 +489,16 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
   };
 
   // Find related records for selectedRoom
-  const relatedContract = selectedRoom
-    ? contracts.find(c => c.id === selectedRoom.currentContractId || c.roomCode === selectedRoom.roomCode): null;
-
-  const relatedTenant = selectedRoom
-    ? tenants.find(t => t.id === selectedRoom.currentTenantId || t.fullName === selectedRoom.currentTenantName): null;
-
-  const relatedCoTenants = selectedRoom
-    ? coTenants.filter(ct => ct.roomCode === selectedRoom.roomCode): [];
-
-  const relatedHandover = selectedRoom
-    ? handoverReports.find(h => h.roomCode === selectedRoom.roomCode): null;
-
-  const relatedSettlement = selectedRoom
-    ? settlementSlips.find(s => s.roomCode === selectedRoom.roomCode): null;
+  const relatedContract = selectedRoom ? getActiveRoomContract(selectedRoom) : undefined;
+  const relatedTenantId = selectedRoom ? getActiveRoomTenantId(selectedRoom) : undefined;
+  const relatedTenant = relatedTenantId ? tenants.find(t => t.id === relatedTenantId) : undefined;
+  const relatedCoTenants = selectedRoom && relatedTenantId ? coTenants.filter(ct =>
+    ct.roomCode === selectedRoom.roomCode && ct.leaseId === selectedRoom.currentLeaseId &&
+    ct.tenantId === relatedTenantId && ct.status === 'Đang cư trú') : [];
+  const relatedHandover = selectedRoom ? getCurrentRoomHandover(selectedRoom) : undefined;
+  const relatedReturnPlan = selectedRoom ? getCurrentRoomReturnPlan(selectedRoom) : undefined;
+  const relatedSettlement = relatedContract ? settlementSlips.find(s => s.roomCode === relatedContract.roomCode &&
+    s.leaseId === relatedContract.leaseId) : undefined;
 
   return (
     <div className="space-y-6 relative">
@@ -498,7 +539,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
         <div className="flex flex-wrap gap-2 items-center">
           {subTab !== 'list' && <button onClick={()=>setSubTab('list')} className="rounded-lg border px-3 py-2 text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50">← Danh sách phòng</button>}
           <button onClick={() => setSubTab('expiry')} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50">Theo dõi hạn hợp đồng</button>
-          <button onClick={() => setSubTab('plans')} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50">Kế hoạch trả phòng</button>
+          <button onClick={() => { setPlanLinkedLeaseId(undefined); setPlanSearchRoom(''); setSubTab('plans'); }} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50">Kế hoạch trả phòng</button>
         </div>
 
       </div>
@@ -703,20 +744,22 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                                   >
                                     Lập hợp đồng
                                   </button>
-                                  <button
+                                  {contracts.some(c => c.roomCode === room.roomCode && c.isSignedPaper &&
+                                    ['Đã ký', 'Chờ hiệu lực'].includes(c.status)) && <button
                                     onClick={() => { setSelectedRoom(room); setShowPayment07Modal(true); }}
                                     className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded text-[11px] font-semibold transition-colors cursor-pointer"
                                     title="Ghi nhận cọc 1 tháng & thuê đầu 1 tháng "
                                   >
-                                    Thu cọc/thuê </button>
-                                  <button
+                                    Thu cọc/thuê </button>}
+                                  {contracts.some(c => c.roomCode === room.roomCode && c.isSignedPaper &&
+                                    ['Đã ký', 'Chờ hiệu lực'].includes(c.status)) && <button
                                     onClick={() => { setSelectedRoom(room); setActiveCheckInRoomCode(room.roomCode); setCheckInStage(0); setSubTab('checkin'); }}
                                     className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded text-[11px] font-semibold transition-colors cursor-pointer flex items-center gap-1"
                                     title="Kiểm tra điều kiện nhận phòng "
                                   >
                                     <Key className="w-3 h-3" />
                                     <span>Nhận phòng</span>
-                                  </button>
+                                  </button>}
                                 </>
                               ): (
                                 <>
@@ -1256,7 +1299,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                   )}
                 </div>
 
-                <select value={planSearchRoom} onChange={e=>setPlanSearchRoom(e.target.value)} className="px-3 py-1.5 border border-slate-300 rounded-lg text-xs bg-white" aria-label="Chọn phòng cần ghi ngày dự kiến trả">
+                <select value={planSearchRoom} onChange={e=>{ setPlanSearchRoom(e.target.value); setPlanLinkedLeaseId(undefined); }} className="px-3 py-1.5 border border-slate-300 rounded-lg text-xs bg-white" aria-label="Chọn phòng cần ghi ngày dự kiến trả">
                   <option value="">Chọn phòng cần ghi ngày trả</option>
                   {rooms.filter(r=>r.status==='Đang thuê'||r.status==='Sắp trả').map(r=><option key={r.roomCode} value={r.roomCode}>{r.roomCode} - {r.currentTenantName||'Chưa có tên'}</option>)}
                 </select>
@@ -1266,6 +1309,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                     if (rentedRoom) {
                       setSelectedRoom(rentedRoom);
                       setExpDateInput(rentedRoom.expectedReturnDate || '');
+                      setPlanLinkedLeaseId(undefined);
                       setShowExpectedDateModal(true);
                     } else {
                       showToast('error', 'Hãy nhập mã phòng đang thuê vào ô tìm kiếm rồi bấm Ghi ngày dự kiến trả mới, hoặc mở chức năng từ Chi tiết phòng.');
@@ -1281,6 +1325,10 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                 Khoảng ngày trên chỉ lọc các kế hoạch trả đã ghi nhận. Phòng được hiển thị <strong>Sắp trả phòng</strong> khi ngày dự kiến trả đã xác nhận còn trong 15 ngày hoặc đã qua mà chưa nhận lại thực tế; ngày hết hạn hợp đồng không tự làm phòng chuyển trạng thái.
               </p>
 
+              {planLinkedLeaseId && <div className="flex items-center justify-between gap-3 bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-900">
+                <span>Đang xem kế hoạch trả của <strong>{planSearchRoom}</strong> · lần thuê <strong>{planLinkedLeaseId}</strong>.</span>
+                <button className="font-semibold underline" onClick={() => { setPlanLinkedLeaseId(undefined); setPlanSearchRoom(''); }}>Xem tất cả</button>
+              </div>}
               {/* Bảng Kế hoạch trả đang theo dõi */}
               <div className="overflow-x-auto border border-slate-200 rounded-xl">
                 <table className="w-full text-left text-xs border-collapse">
@@ -1296,7 +1344,8 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {rooms.filter(r => r.expectedReturnDate).filter(r => {
+                    {rooms.filter(r => r.status !== 'Trống' && r.expectedReturnDate && getActiveRoomContract(r)).filter(r => {
+                        if (planLinkedLeaseId && (r.roomCode !== planSearchRoom || r.currentLeaseId !== planLinkedLeaseId)) return false;
                         if (planSearchRoom && !r.roomCode.toLowerCase().includes(planSearchRoom.toLowerCase())) return false;
                         if (planStatusFilter !== 'Tất cả' && r.status !== planStatusFilter) return false;
                         if (planStartDate && r.expectedReturnDate! < planStartDate) return false;
@@ -1304,7 +1353,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                         return true;
                       }).map(r => {
                         const rem = getDaysRemainingOrOverdue(r.expectedReturnDate);
-                        const inspection = returnInspections.find(i => i.roomCode === r.roomCode);
+                        const inspection = returnInspections.find(i => i.roomCode === r.roomCode && i.leaseId === r.currentLeaseId);
                         return (
                           <tr key={r.id} className="hover:bg-slate-50">
                             <td className="py-2.5 px-3 font-mono font-bold text-slate-900">{r.roomCode}</td>
@@ -1673,7 +1722,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
             {/* Modal Body */}
             <div className="p-6 overflow-y-auto space-y-5 text-xs">
               {/* Lưu ý Lưu ý: Có kế hoạch trả có thể đồng thời Đang thuê */}
-              {selectedRoom.expectedReturnDate && (
+              {selectedRoom.status !== 'Trống' && getCurrentRoomReturnPlan(selectedRoom) && (
                 <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-blue-900 flex items-start gap-2.5 shadow-xs">
                   <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
                   <div>
@@ -1731,7 +1780,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                   <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-100">
                     <span className="text-slate-500 block text-[11px]">Khách thuê hiện tại:</span>
                     <span className="font-bold text-slate-900 text-sm">
-                      {selectedRoom.status !== 'Trống' ? (selectedRoom.currentTenantName || 'Chưa xác minh hồ sơ') : <span className="text-slate-400 font-normal italic">Chưa có khách thuê</span>}
+                      {selectedRoom.status !== 'Trống' ? (relatedTenant?.fullName || 'Chưa xác minh hồ sơ') : <span className="text-slate-400 font-normal italic">Chưa có khách thuê</span>}
                     </span>
                   </div>
                   <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-100">
@@ -1796,25 +1845,26 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                 </div>
               </div>
 
-              {/* 4. THÔNG TIN BÀN GIAO */}
-              <div className="p-3.5 bg-white rounded-xl border border-slate-200 space-y-2">
+              {/* Current lease only: never show historic handover on an empty room. */}
+              {relatedContract && <div className="p-3.5 bg-white rounded-xl border border-slate-200 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                     <PackageCheck className="w-4 h-4 text-emerald-600" />
                     4. Thông tin bàn giao </span>
                   {/* Liên kết Xem bàn giao */}
-                  <button
-                    onClick={() => selectedRoom && openLinkedRecord('handover', selectedRoom)}
+                  {relatedHandover && <button
+                    onClick={() => openLinkedRecord('handover', selectedRoom)}
                     className="text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1 hover:underline cursor-pointer"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
-                    Xem bàn giao </button>
+                    Xem bàn giao
+                  </button>}
                 </div>
                 <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-100 text-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div>
                     <span className="text-slate-500 block text-[11px]">Biên bản bàn giao nhận phòng:</span>
                     <span className="font-bold text-slate-900 font-mono">
-                      {relatedHandover ? relatedHandover.reportNumber: `BBBG-${selectedRoom.roomCode}`}
+                      {relatedHandover ? relatedHandover.reportNumber : 'Chưa lập biên bản bàn giao'}
                     </span>
                     <span className="text-slate-500 text-[11px] ml-2">
                       (Bàn giao đầy đủ điều hòa, nóng lạnh, giường tủ, chìa khóa &amp; thẻ từ) </span>
@@ -1824,31 +1874,29 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                     {relatedHandover?.tenantSignedPaper === 'Đã ký giấy' && relatedHandover?.ownerSignedPaper === 'Đã ký giấy' ? 'Đã xác nhận ký biên bản' : 'Chưa xác nhận đủ chữ ký'}
                   </span>
                 </div>
-              </div>
+              </div>}
 
-              {/* 5. NGÀY DỰ KIẾN TRẢ & PHẢN HỒI HIỆN HÀNH THEO  */}
-              <div className="p-3.5 bg-white rounded-xl border border-slate-200 space-y-3">
+              {/* Return plans belong to the current lease, not to the room forever. */}
+              {relatedContract && <div className="p-3.5 bg-white rounded-xl border border-slate-200 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                     <Calendar className="w-4 h-4 text-amber-600" />
                     5. Ngày dự kiến trả &amp; Phản hồi khách thuê </span>
                   {/* Liên kết Xem kế hoạch trả (mở, thẻ Kế hoạch trả) */}
-                  <button
-                    onClick={() => {
-                      setSubTab('plans');
-                      setSelectedRoom(null);
-                    }}
+                  {relatedContract && selectedRoom.expectedReturnDate && <button
+                    onClick={() => openLinkedReturnPlan(selectedRoom)}
                     className="text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1 hover:underline cursor-pointer"
                   >
                     <ArrowUpRight className="w-3.5 h-3.5" />
-                    Xem kế hoạch trả (mở, thẻ Kế hoạch trả) </button>
+                    Xem kế hoạch trả
+                  </button>}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-100">
                     <span className="text-slate-500 block text-[11px]">Ngày dự kiến trả (chỉ xem, không sửa, nếu có):</span>
                     <span className="font-mono font-bold text-slate-900 text-sm">
-                      {selectedRoom.expectedReturnDate || <span className="text-slate-400 font-normal italic">Chưa ghi nhận</span>}
+                      {(relatedReturnPlan?.expectedDate || selectedRoom.expectedReturnDate) || <span className="text-slate-400 font-normal italic">Chưa ghi nhận</span>}
                     </span>
                   </div>
 
@@ -1881,10 +1929,10 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                     </span>
                   </div>
                 </div>
-              </div>
+              </div>}
 
-              {/* 6. CÁC KHOẢN ĐÃ THANH TOÁN (HIỂN THỊ RIÊNG BIỆT, KHÔNG GỘP HAI KHOẢN) */}
-              <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+              {/* Payment data must be from the current signed lease. */}
+              {relatedContract && <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
                     <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
@@ -1901,12 +1949,13 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                     <div className="flex justify-between items-center">
                       <span className="font-bold text-slate-800">Khoản 1: Tiền cọc giữ chỗ/bảo đảm</span>
                       {/* Liên kết Xem thông tin cọc */}
-                      <button
+                      {initialPaymentRecords.some(p => p.roomCode === selectedRoom.roomCode && p.leaseId === relatedContract?.leaseId) && <button
                         onClick={() => setShowDepositModal(true)}
                         className="text-blue-600 hover:text-blue-800 text-[11px] font-semibold flex items-center gap-1 hover:underline cursor-pointer"
                       >
                         <ExternalLink className="w-3 h-3" />
-                        Xem thông tin cọc </button>
+                        Xem thông tin cọc
+                      </button>}
                     </div>
                     <div className="flex justify-between text-[11px]">
                       <span className="text-slate-500">Trạng thái cọc:</span>
@@ -1946,14 +1995,14 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                       Tiền thuê kỳ đầu thu qua chuyển khoản ngân hàng, đối soát riêng biệt. </p>
                   </div>
                 </div>
-              </div>
+              </div>}
 
               {/* 8. CÁC NGHIỆP VỤ LIÊN QUAN */}
               <div className="pt-2 border-t border-slate-200 space-y-2">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-700 block">
                   8. Các chức năng nghiệp vụ liên quan </span>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  <button
+                  {selectedRoom.status === 'Trống' && <button
                     type="button"
                     onClick={() => {
                       setCheckRentableRoom(selectedRoom);
@@ -1964,63 +2013,63 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                   >
                     <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
                     <span>Kiểm tra khả năng cho thuê </span>
-                  </button>
+                  </button>}
 
-                  <button
+                  {selectedRoom.status === 'Trống' && contracts.some(c => c.roomCode === selectedRoom.roomCode && c.isSignedPaper && ['Đã ký', 'Chờ hiệu lực'].includes(c.status)) && <button
                     type="button"
                     onClick={() => setShowPayment07Modal(true)}
                     className="p-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 rounded-lg text-xs font-medium text-left transition-colors cursor-pointer"
                   >
-                    Thu tiền cọc &amp; thuê đầu </button>
+                    Thu tiền cọc &amp; thuê đầu </button>}
 
-                  <button
+                  {selectedRoom.status === 'Trống' && contracts.some(c => c.roomCode === selectedRoom.roomCode && c.isSignedPaper && ['Đã ký', 'Chờ hiệu lực'].includes(c.status)) && <button
                     type="button"
                     onClick={() => (setActiveCheckInRoomCode(selectedRoom?.roomCode || ''), setCheckInStage(0), setSubTab('checkin'))}
                     className="p-2.5 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded-lg text-xs font-medium text-left transition-colors cursor-pointer"
                   >
-                    Kiểm tra điều kiện nhận phòng </button>
+                    Kiểm tra điều kiện nhận phòng </button>}
 
-                  <button
+                  {relatedContract && (<button
                     type="button"
                     onClick={() => setShowExpectedDateModal(true)}
                     className="p-2.5 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-lg text-xs font-medium text-left transition-colors cursor-pointer"
                   >
-                    Ghi/Cập nhật ngày dự kiến trả </button>
+                    Ghi/Cập nhật ngày dự kiến trả </button>)}
 
-                  <button
+                  {selectedRoom.status === 'Trống' && Boolean(contracts.some(c => c.roomCode === selectedRoom.roomCode && c.isSignedPaper && ['Chờ hiệu lực','Đã ký'].includes(c.status))) && (<button
                     type="button"
                     onClick={() => setShowMissingConditionModal(true)}
                     className="p-2.5 bg-orange-50 hover:bg-orange-100 text-orange-800 rounded-lg text-xs font-medium text-left transition-colors cursor-pointer"
                   >
-                    Ghi nhận điều kiện còn thiếu </button>
+                    Ghi nhận điều kiện còn thiếu </button>)}
 
-                  <button
+                  {relatedContract && (<button
                     type="button"
                     onClick={() => (setActiveReturnRoomCode(selectedRoom?.roomCode || ''), setReturnStage(0), setSubTab('return'))}
                     className="p-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg text-xs font-medium text-left transition-colors cursor-pointer"
                   >
-                    Kiểm tra kết quả trả phòng </button>
+                    Kiểm tra kết quả trả phòng </button>)}
 
-                  <button
+                  {relatedContract && (<button
                     type="button"
                     onClick={() => setShowUnfinishedHandoverModal(true)}
                     className="p-2.5 bg-rose-50 hover:bg-rose-100 text-rose-800 rounded-lg text-xs font-medium text-left transition-colors cursor-pointer"
                   >
-                    Ghi nhận chưa bàn giao xong </button>
+                    Ghi nhận chưa bàn giao xong </button>)}
 
-                  <button
+                  {relatedContract && (<button
                     type="button"
                     onClick={() => setShowContactModal(true)}
                     className="p-2.5 bg-sky-50 hover:bg-sky-100 text-sky-800 rounded-lg text-xs font-medium text-left transition-colors cursor-pointer"
                   >
-                    Ghi nhận liên hệ &amp; phản hồi </button>
+                    Ghi nhận liên hệ &amp; phản hồi </button>)}
 
-                  <button
+                  {relatedContract && (<button
                     type="button"
                     onClick={() => setShowExtensionModal(true)}
                     className="p-2.5 bg-purple-50 hover:bg-purple-100 text-purple-800 rounded-lg text-xs font-medium text-left transition-colors cursor-pointer"
                   >
-                    Kiểm tra kết quả tiếp tục thuê </button>
+                    Kiểm tra kết quả tiếp tục thuê </button>)}
                 </div>
               </div>
             </div>
@@ -2028,7 +2077,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
             {/* Modal Footer */}
             <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
               <span className="text-xs text-slate-500">
-                Đặc tả &amp;: Quản lý và cập nhật thông tin phòng </span>
+                Thông tin của phòng đang chọn </span>
               <div className="flex items-center gap-2">
                 <button
                   onClick={closeRoomDetails}
@@ -2368,7 +2417,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
               <div className="flex justify-between">
                 <span className="text-slate-500">Mã biên bản bàn giao:</span>
-                <span className="font-mono font-bold">{relatedHandover?.reportNumber || `BBBG-${selectedRoom.roomCode}`}</span>
+                <span className="font-mono font-bold">{relatedHandover?.reportNumber || 'Chưa lập biên bản'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Ngày bàn giao nhận phòng:</span>
@@ -3006,32 +3055,32 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                         )}
 
                         {/* 3. Xem bàn giao */}
-                        <button
+                        {getCurrentRoomHandover(targetRoom) && <button
                           onClick={() => {
-                            setSelectedRoom(targetRoom);
-                            setShowHandoverModal(true);
+                            setShowCheckRentableModal(false);
+                            openLinkedRecord('handover', targetRoom);
                           }}
                           className="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-emerald-700 border border-slate-300 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
                         >
                           <PackageCheck className="w-3.5 h-3.5 text-emerald-600" />
-                          Xem thông tin bàn giao </button>
+                          Xem thông tin bàn giao
+                        </button>}
 
                         {/* 4. Xem kế hoạch trả (mở, thẻ Kế hoạch trả) */}
-                        {targetRoom.expectedReturnDate && (
+                        {getActiveRoomContract(targetRoom) && targetRoom.expectedReturnDate && (
                           <button
                             onClick={() => {
                               setShowCheckRentableModal(false);
-                              setSelectedRoom(null);
-                              setSubTab('plans');
+                              openLinkedReturnPlan(targetRoom);
                             }}
                             className="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-amber-800 border border-slate-300 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
                           >
                             <ArrowUpRight className="w-3.5 h-3.5 text-amber-600" />
-                            Xem kế hoạch trả (mở, thẻ Kế hoạch trả) </button>
+                            Xem kế hoạch trả </button>
                         )}
 
                         {/* 5. Xem thông tin cọc */}
-                        {(targetRoom.hasDeposit || pendingContract) && (
+                        {initialPaymentRecords.some(p => p.roomCode === targetRoom.roomCode && (p.leaseId === targetRoom.currentLeaseId || p.leaseId === pendingContract?.leaseId)) && (
                           <button
                             onClick={() => {
                               setSelectedRoom(targetRoom);
@@ -3066,7 +3115,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
 
       {/* ==================== 1.7. GHI NHẬN HOÀN TẤT TIỀN CỌC & THUÊ ĐẦU () ==================== */}
       {showPayment07Modal && selectedRoom && (() => {
-        const targetContract = contracts.find(c => c.id === selectedRoom.currentContractId || c.roomCode === selectedRoom.roomCode);
+        const targetContract = getActiveRoomContract(selectedRoom);
         const isRenewal = targetContract?.contractType === 'Hợp đồng nối tiếp';
         const initialPayment = initialPaymentRecords.find(p => p.roomCode === selectedRoom.roomCode);
         const depositAmt = targetContract?.depositAmount || 3500000;
@@ -3344,8 +3393,8 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
 
       {/* ==================== 1.5. KIỂM TRA ĐIỀU KIỆN NHẬN PHÒNG () ==================== */}
       {showCheckInModal && selectedRoom && (() => {
-        const targetContract = contracts.find(c => c.id === selectedRoom.currentContractId || c.roomCode === selectedRoom.roomCode);
-        const report = handoverReports.find(h => h.roomCode === selectedRoom.roomCode);
+        const targetContract = getActiveRoomContract(selectedRoom);
+        const report = getCurrentRoomHandover(selectedRoom);
 
         // Đánh giá 4 tiêu chí riêng biệt: Đạt / Chưa đạt / Chưa xác minh
         const contractCriteria: 'Đạt' | 'Chưa đạt' | 'Chưa xác minh' =
@@ -3844,8 +3893,8 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
 
       {/* ==================== 1.6. GHI NHẬN ĐIỀU KIỆN CÒN THIẾU () ==================== */}
       {showMissingConditionModal && selectedRoom && (() => {
-        const targetContract = contracts.find(c => c.id === selectedRoom.currentContractId || c.roomCode === selectedRoom.roomCode);
-        const report = handoverReports.find(h => h.roomCode === selectedRoom.roomCode);
+        const targetContract = getActiveRoomContract(selectedRoom);
+        const report = getCurrentRoomHandover(selectedRoom);
         const twoPaymentsPassed = selectedRoom.hasDeposit && selectedRoom.firstMonthRentPaid;
         const roomLogs = missingConditionLogs.filter(m => m.roomCode === selectedRoom.roomCode);
 
@@ -4055,7 +4104,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
 
       {/* ==================== 1.8. KIỂM TRA KẾT QUẢ TRẢ PHÒNG () ==================== */}
       {showReturnModal && selectedRoom && (() => {
-        const inspection = returnInspections.find(i => i.roomCode === selectedRoom.roomCode);
+        const inspection = returnInspections.find(i => i.roomCode === selectedRoom.roomCode && i.leaseId === selectedRoom.currentLeaseId);
         
         // Mô phỏng kiểm thử
         const step304Val = returnSimulateEF01 ? 'Chưa nhận lại': (inspection?.step304Status || 'Đã nhận lại');
@@ -4485,7 +4534,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
       {showExpectedDateModal && selectedRoom && (() => {
         const isUpdate = Boolean(selectedRoom.expectedReturnDate);
         const rem = getDaysRemainingOrOverdue(expDateInput);
-        const targetContract = contracts.find(c => c.id === selectedRoom.currentContractId || c.roomCode === selectedRoom.roomCode);
+        const targetContract = getActiveRoomContract(selectedRoom);
         const isPastContractEnd = targetContract?.endDate && expDateInput && expDateInput > targetContract.endDate;
         const isPastToday = rem?.isOverdue;
         const roomPlanHistory = returnPlans.filter(p => p.roomCode === selectedRoom.roomCode);

@@ -998,9 +998,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     bankAccountReceived: string;
     proofFile?: string;
   }) => {
-    // Hợp đồng gia hạn không thu cọc mới
-    const targetContract = contracts.find(c => c.id === params.contractId);
-    if (targetContract && targetContract.contractType === 'Hợp đồng nối tiếp') {
+    // A payment cannot be recorded against a contract for another room or lease.
+    const targetContract = contracts.find(c => c.id === params.contractId &&
+      c.roomCode === params.roomCode && c.leaseId === params.leaseId);
+    if (!targetContract || !targetContract.isSignedPaper) {
+      return { success: false, message: 'Chưa có hợp đồng đã ký thuộc đúng phòng và lần thuê được chọn.' };
+    }
+    if (targetContract.contractType === 'Hợp đồng nối tiếp') {
       return { success: false, message: 'Hợp đồng nối tiếp kế thừa cọc gốc từ hợp đồng đầu, không thu cọc ban đầu mới (BR-UC.PH.07-04).' };
     }
 
@@ -1096,8 +1100,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // UC-PH-05: Kiểm tra điều kiện nhận phòng & xác nhận hoàn tất nhận phòng
   const confirmCheckInPH05 = (roomCode: string, leaseId: string, actualCheckInDate: string, handoverReportId?: string, handoverVersion?: string) => {
     const room = rooms.find(r => r.roomCode === roomCode);
-    const contract = contracts.find(c => c.leaseId === leaseId) || contracts.find(c => c.roomCode === roomCode && (c.status === 'Hiệu lực' || c.status === 'Đã ký' || c.status === 'Chờ hiệu lực'));
-    const report = handoverReports.find(h => (h.leaseId === leaseId || h.roomCode === roomCode) && h.status === 'Đã xác nhận');
+    if (!room || room.status !== 'Trống') {
+      return { success: false, message: 'Chỉ có thể xác nhận nhận phòng khi phòng đang trống và tồn tại hồ sơ nguồn hợp lệ.' };
+    }
+    const contract = contracts.find(c => c.roomCode === roomCode && c.leaseId === leaseId &&
+      c.isSignedPaper && ['Đã ký', 'Chờ hiệu lực', 'Hiệu lực'].includes(c.status));
+    const report = handoverReports.find(h => h.roomCode === roomCode && h.leaseId === leaseId &&
+      h.contractId === contract?.id && (!handoverReportId || h.id === handoverReportId) &&
+      h.status === 'Đã xác nhận' && h.tenantSignedPaper === 'Đã ký giấy' && h.ownerSignedPaper === 'Đã ký giấy');
 
     // Tiêu chí 1: Hợp đồng đã ký
     if (!contract || (!contract.isSignedPaper && contract.status !== 'Hiệu lực' && contract.status !== 'Đã ký' && contract.status !== 'Chờ hiệu lực')) {
@@ -1105,7 +1115,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     // Tiêu chí 2 & 3: Cọc 1 tháng & Thuê đầu 1 tháng tại UC-PH-07
-    if (!contract.firstMonthRentPaid || !room?.firstMonthRentPaid || !room?.hasDeposit) {
+    if (!contract.firstMonthRentPaid || !room.firstMonthRentPaid || !room.hasDeposit ||
+        !initialPaymentRecords.some(p => p.roomCode === roomCode && p.leaseId === leaseId && p.contractId === contract.id)) {
       return { success: false, message: 'Tiêu chí 2 & 3 Chưa đạt: Chưa thu đủ 1 tháng tiền cọc và 1 tháng tiền thuê đầu tại UC-PH-07 (EF-01). Không cho nhận phòng trước rồi nộp bù.' };
     }
 
@@ -1230,6 +1241,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }) => {
     const room = rooms.find(r => r.roomCode === params.roomCode);
     if (!room) return { success: false, message: 'Không tìm thấy phòng.' };
+    if (room.status === 'Trống' || !room.currentLeaseId || room.currentLeaseId !== params.leaseId ||
+        !contracts.some(c => c.roomCode === room.roomCode && c.leaseId === params.leaseId && c.status !== 'Đã hủy')) {
+      return { success: false, message: 'Phòng chưa có lần thuê hiện tại hoặc mã lần thuê không khớp.' };
+    }
 
     const expDate = new Date(params.expectedDate);
     const now = new Date();
@@ -1276,6 +1291,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     isAppointmentOnly?: boolean;
     contactChannelSource?: 'UC-PH-13' | 'UC-BG09' | 'UC-PH-09';
   }) => {
+    const room = rooms.find(r => r.roomCode === params.roomCode);
+    if (!room || room.status === 'Trống' || room.currentLeaseId !== params.leaseId) {
+      return { success: false, message: 'Không thể ghi nhận phản hồi cho phòng trống hoặc lần thuê không khớp.' };
+    }
     // BR-UC.PH.13-14 & EF-04 / AF-07: Kiểm tra mâu thuẫn căn cứ ASIS-04 Tiếp tục thuê
     const activeRenewal = contracts.find(c => c.roomCode === params.roomCode && c.contractType === 'Hợp đồng nối tiếp' && (c.status === 'Hiệu lực' || c.status === 'Chờ hiệu lực'));
     let effectiveResult = params.contactResult;
@@ -1412,7 +1431,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // UC-PH-08: Kiểm tra kết quả trả phòng & cập nhật trạng thái Trống
   const confirmReturnStep305AndVacantPH08 = (roomCode: string, leaseId: string, actualReturnDate?: string) => {
-    const inspection = returnInspections.find(i => (i.roomCode === roomCode && i.leaseId === leaseId) || (i.roomCode === roomCode && i.step304Status === 'Đã nhận lại'));
+    const room = rooms.find(r => r.roomCode === roomCode);
+    if (!room || room.status === 'Trống' || room.currentLeaseId !== leaseId) {
+      return { success: false, message: 'Không thể trả phòng: phòng trống hoặc lần thuê không trùng hồ sơ hiện tại.' };
+    }
+    const inspection = returnInspections.find(i => i.roomCode === roomCode && i.leaseId === leaseId);
     if (!inspection || inspection.step304Status !== 'Đã nhận lại') {
       return { success: false, message: 'EF-01: Chưa có kết quả nhận lại thực tế tại ASIS-02 bước 3.04 (3.04 != Đã nhận lại). Giữ trạng thái phòng hiện tại.' };
     }
@@ -1421,9 +1444,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     const returnDate = actualReturnDate || inspection.inspectionDate || new Date().toISOString().split('T')[0];
-    const room = rooms.find(r => r.roomCode === roomCode);
-
-    setRooms(prev => prev.map(r => r.roomCode === roomCode ? {
+    setRooms(prev => prev.map(r => r.roomCode === roomCode && r.currentLeaseId === leaseId ? {
       ...r,
       status: 'Trống',
       hasDeposit: false,
@@ -1440,7 +1461,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } : r));
 
     // Kết thúc kế hoạch trả nếu có
-    setReturnPlans(prev => prev.map(p => (p.roomCode === roomCode && p.status === 'Còn theo dõi') ? {
+    setReturnPlans(prev => prev.map(p => (p.roomCode === roomCode && p.leaseId === leaseId && p.status === 'Còn theo dõi') ? {
       ...p,
       status: 'Đã kết thúc'
     } : p));
@@ -1483,7 +1504,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     // BR-UC.PH.09-01 & EF-01: Chỉ tạo mới hoặc cập nhật khi kết quả thực tế vẫn là Chưa nhận lại
-    const inspection = returnInspections.find(i => (i.roomCode === params.roomCode && i.leaseId === params.leaseId) || i.roomCode === params.roomCode);
+    const inspection = returnInspections.find(i => i.roomCode === params.roomCode && i.leaseId === params.leaseId);
     if (inspection && inspection.step304Status === 'Đã nhận lại') {
       return {
         success: false,

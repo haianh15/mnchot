@@ -48,7 +48,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 
-export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initialRoomCode}) => {
+export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeaseId?: string; initialContractId?: string}> = ({initialRoomCode, initialLeaseId, initialContractId}) => {
   const {
     rooms,
     contracts,
@@ -107,7 +107,18 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
   // Selected room for active operations
   const [selectedRoomCode, setSelectedRoomCode] = useState<string>(initialRoomCode || '');
 
-  useEffect(() => { if (initialRoomCode && rooms.some(r=>r.roomCode===initialRoomCode)) handleRoomChange(initialRoomCode); }, [initialRoomCode]);
+  useEffect(() => {
+    if (!initialRoomCode) return;
+    if (!rooms.some(r => r.roomCode === initialRoomCode)) {
+      setSelectedRoomCode('');
+      return;
+    }
+    handleRoomChange(initialRoomCode);
+    // From Room Details, show that exact lease's existing handover, not inventory of another room.
+    if (initialLeaseId && handoverReports.some(h => h.roomCode === initialRoomCode && h.leaseId === initialLeaseId)) {
+      setActiveTab('handover_bg03');
+    }
+  }, [initialRoomCode, initialLeaseId, initialContractId]);
   // Toast feedback
   const [toast, setToast] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
   const showToast = (type: 'success' | 'error' | 'info', message: string) => {
@@ -116,10 +127,19 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
   };
 
   // Helper: target room
-  const selectedRoom = rooms.find(r => r.roomCode === selectedRoomCode) || rooms[0];
-  const targetContract = contracts.find(c => c.roomCode === selectedRoomCode && (c.status === 'Hiệu lực' || c.status === 'Chờ hiệu lực'));
-  const currentInitialPayment = initialPaymentRecords.find(p => p.roomCode === selectedRoomCode);
-  const returnInspectionTarget = returnInspections.find(r => r.roomCode === selectedRoomCode);
+  const selectedRoom = rooms.find(r => r.roomCode === selectedRoomCode)!;
+  const selectedLeaseId = initialRoomCode === selectedRoomCode && initialLeaseId
+    ? initialLeaseId : selectedRoom?.currentLeaseId;
+  const targetContract = contracts.find(c => c.roomCode === selectedRoomCode &&
+    c.leaseId === selectedLeaseId && (c.id === selectedRoom?.currentContractId || c.id === initialContractId)) ||
+    contracts.find(c => c.roomCode === selectedRoomCode && c.leaseId === selectedLeaseId &&
+      c.status !== 'Đã hủy');
+  const linkedRoomMismatch = Boolean(initialRoomCode === selectedRoomCode &&
+    ((initialLeaseId && selectedRoom?.currentLeaseId !== initialLeaseId) ||
+      (initialContractId && !contracts.some(c => c.roomCode === selectedRoomCode &&
+        c.leaseId === initialLeaseId && c.id === initialContractId))));
+  const currentInitialPayment = initialPaymentRecords.find(p => p.roomCode === selectedRoomCode && p.leaseId === selectedLeaseId);
+  const returnInspectionTarget = returnInspections.find(r => r.roomCode === selectedRoomCode && r.leaseId === selectedLeaseId);
   const [comparisonItems, setComparisonItems] = useState<{
     assetName: string;
     qtyReceive: number;
@@ -183,7 +203,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
   const [supplementNote, setSupplementNote] = useState<string>(existingCondition?.supplementNote || '');
 
   // ==================== STATE : LẬP BIÊN BẢN NHẬN PHÒNG ====================
-  const existingReport = handoverReports.find(r => r.roomCode === selectedRoomCode);
+  const existingReport = handoverReports.find(r => r.roomCode === selectedRoomCode && r.leaseId === selectedLeaseId);
   const [showSignPaperModal, setShowSignPaperModal] = useState(false);
   const [signPaperTenant, setSignPaperTenant] = useState<boolean>(existingReport?.tenantSignedPaper === 'Đã ký giấy');
   const [signPaperOwner, setSignPaperOwner] = useState<boolean>(existingReport?.ownerSignedPaper === 'Đã ký giấy');
@@ -215,7 +235,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
   const [bg05AuditStamp, setBg05AuditStamp] = useState<string | null>(null);
 
   // ==================== STATE : GHI NHẬN KẾT QUẢ ĐỐI CHIẾU TÀI SẢN ====================
-  const existingCompResult = assetComparisonResults.find(r => r.roomCode === selectedRoomCode);
+  const existingCompResult = assetComparisonResults.find(r => r.roomCode === selectedRoomCode && r.leaseId === selectedLeaseId);
   const [bg07HasPendingWork, setBg07HasPendingWork] = useState<boolean>(existingCompResult?.hasPendingWork ?? false);
   const [bg07PendingWorkNote, setBg07PendingWorkNote] = useState<string>(existingCompResult?.pendingWorkNote || '');
   const [bg07SolutionPlan, setBg07SolutionPlan] = useState<string>(existingCompResult?.solutionPlan || '');
@@ -267,16 +287,16 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
   const [bg07SimulateSaveFailure, setBg07SimulateSaveFailure] = useState(false);
 
   // ==================== STATE : KHỞI TẠO BIÊN BẢN TRẢ PHÒNG ====================
-  const existingReturnReport = handoverReturnReports.find(r => r.roomCode === selectedRoomCode);
+  const existingReturnReport = handoverReturnReports.find(r => r.roomCode === selectedRoomCode && r.leaseId === selectedLeaseId);
   const [bg08Date, setBg08Date] = useState(new Date().toISOString().substring(0, 10));
   const [bg08SelectedContractId, setBg08SelectedContractId] = useState(targetContract?.id || '');
-  const [bg08Giver, setBg08Giver] = useState(selectedRoom.currentTenantName || '');
+  const [bg08Giver, setBg08Giver] = useState(selectedRoom?.currentTenantName || '');
   const [bg08Receiver, setBg08Receiver] = useState(currentUser?.fullName || 'Nguyễn Văn An');
   const [bg08Place, setBg08Place] = useState('Tại phòng ' + selectedRoomCode + ', Chung cư BlueHouse');
   const [bg08Notes, setBg08Notes] = useState('Biên bản lập căn cứ vào kết quả bàn giao nhận phòng và kiểm tra thực tế.');
 
   // ==================== STATE : GHI NHẬN KẾT QUẢ NHẬN LẠI PHÒNG ( & ) ====================
-  const existingInspection = returnInspections.find(i => i.roomCode === selectedRoomCode);
+  const existingInspection = returnInspections.find(i => i.roomCode === selectedRoomCode && i.leaseId === selectedLeaseId);
   const [bg09InspectionDate, setBg09InspectionDate] = useState(existingInspection?.inspectionDate || new Date().toISOString().substring(0, 10));
   const [bg09Step304Status, setBg09Step304Status] = useState<'Đã nhận lại' | 'Chưa nhận lại' | 'Chưa có kết quả'>(
     existingInspection?.step304Status || 'Chưa có kết quả'
@@ -312,7 +332,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
   const [mismatchNoticeSent, setMismatchNoticeSent] = useState(false);
 
   // ==================== STATE : THEO DÕI ĐỐI SOÁT CỌC ====================
-  const matchingSettlementSlip = settlementSlips.find(s => s.roomCode === selectedRoomCode);
+  const matchingSettlementSlip = settlementSlips.find(s => s.roomCode === selectedRoomCode && s.leaseId === selectedLeaseId);
   const [bg10WaitingReason, setBg10WaitingReason] = useState('');
   const [showSettlementDetailModal, setShowSettlementDetailModal] = useState(false);
   const [bg10SaveError, setBg10SaveError] = useState<string | null>(null);
@@ -354,7 +374,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
         notes: ''
       })));
     }
-    const compRes = assetComparisonResults.find(r => r.roomCode === roomCode);
+    const compRes = assetComparisonResults.find(r => r.roomCode === roomCode && r.leaseId === rooms.find(x => x.roomCode === roomCode)?.currentLeaseId);
     if (compRes) {
       setBg07HasPendingWork(compRes.hasPendingWork);
       setBg07PendingWorkNote(compRes.pendingWorkNote || '');
@@ -380,8 +400,8 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
     setBg07SaveError(null);
 
     // Sync BG08 & BG11
-    const retReport = handoverReturnReports.find(r => r.roomCode === roomCode);
-    const rmContract = contracts.find(c => c.roomCode === roomCode && (c.status === 'Hiệu lực' || c.status === 'Chờ hiệu lực'));
+    const retReport = handoverReturnReports.find(r => r.roomCode === roomCode && r.leaseId === rooms.find(x => x.roomCode === roomCode)?.currentLeaseId);
+    const rmContract = contracts.find(c => c.roomCode === roomCode && c.leaseId === rooms.find(x => x.roomCode === roomCode)?.currentLeaseId && (c.status === 'Hiệu lực' || c.status === 'Chờ hiệu lực'));
     if (retReport) {
       setBg08Date(retReport.date);
       setBg08Giver(retReport.giverName);
@@ -411,7 +431,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
     }
 
     // Sync BG09
-    const insp = returnInspections.find(i => i.roomCode === roomCode);
+    const insp = returnInspections.find(i => i.roomCode === roomCode && i.leaseId === rooms.find(x => x.roomCode === roomCode)?.currentLeaseId);
     if (insp) {
       setBg09InspectionDate(insp.inspectionDate || new Date().toISOString().substring(0, 10));
       setBg09Step304Status(insp.step304Status || 'Đã nhận lại');
@@ -479,6 +499,9 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
         </div>
       )}
 
+      {linkedRoomMismatch && <div className="rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-800">
+        Hồ sơ phòng hoặc lần thuê đã thay đổi. Không thể mở hồ sơ cũ như hồ sơ hiện tại. Vui lòng quay lại Danh sách phòng và chọn lại.
+      </div>}
       {/* Main Header */}
       <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -495,7 +518,8 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
           <span className="font-semibold text-slate-600">Phòng thao tác:</span>
           <select
             value={selectedRoomCode}
-            onChange={(e) => handleRoomChange(e.target.value)}
+            onChange={(e) => { handleRoomChange(e.target.value); setActiveTab('inventory_bg01'); }}
+            disabled={Boolean(initialRoomCode && initialLeaseId)}
             className="px-2.5 py-1 border border-slate-300 rounded bg-white font-mono font-bold text-blue-700 cursor-pointer"
           >
             <option value="">-- Chọn phòng --</option>
@@ -531,7 +555,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
       {/* =========================================================================
           TAB 1: KIỂM KÊ TÀI SẢN PHÒNG 
       ========================================================================= */}
-      {selectedRoomCode && activeTab === 'inventory_bg01' && (
+      {selectedRoomCode && !linkedRoomMismatch && activeTab === 'inventory_bg01' && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-4 text-xs">
           {/* Header Card */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-3">
@@ -749,7 +773,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
       {/* =========================================================================
           TAB 2: GHI NHẬN HIỆN TRẠNG TÀI SẢN 
       ========================================================================= */}
-      {selectedRoomCode && activeTab === 'condition_bg02' && (
+      {selectedRoomCode && !linkedRoomMismatch && activeTab === 'condition_bg02' && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-4 text-xs">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-3">
             <div>
@@ -1106,7 +1130,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
       {/* =========================================================================
           TAB 3: LẬP BIÊN BẢN NHẬN PHÒNG 
       ========================================================================= */}
-      {selectedRoomCode && activeTab === 'handover_bg03' && (() => {
+      {selectedRoomCode && !linkedRoomMismatch && activeTab === 'handover_bg03' && (() => {
         // Evaluate Mandatory Prerequisites for 1.06 Lưu Đã lập
         const cond1ContractValid = Boolean(targetContract && (targetContract.status === 'Hiệu lực' || targetContract.isSignedPaper));
         const cond2DepositPaid = Boolean((currentInitialPayment && currentInitialPayment.depositAmount > 0) || selectedRoom.hasDeposit);
@@ -1355,7 +1379,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
       {/* =========================================================================
           TAB 4: GHI NHẬN SỰ CỐ TÀI SẢN 
       ========================================================================= */}
-      {selectedRoomCode && activeTab === 'incident_add_bg04' && (
+      {selectedRoomCode && !linkedRoomMismatch && activeTab === 'incident_add_bg04' && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-4 text-xs">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-3">
             <div>
@@ -1579,10 +1603,10 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
       {/* =========================================================================
           TAB 5: TRA CỨU LỊCH SỬ SỰ CỐ TÀI SẢN 
       ========================================================================= */}
-      {selectedRoomCode && activeTab === 'incident_search_bg05' && (() => {
+      {selectedRoomCode && !linkedRoomMismatch && activeTab === 'incident_search_bg05' && (() => {
         // Filter incidents according to room and criteria
         const roomIncidents = incidents.filter(i => {
-          if (i.roomCode !== selectedRoomCode) return false;
+          if (i.roomCode !== selectedRoomCode || (selectedLeaseId && i.leaseId !== selectedLeaseId)) return false;
           if (bg05FilterAsset !== 'Tất cả' && i.assetName !== bg05FilterAsset) return false;
           if (bg05FilterStatus !== 'Tất cả' && i.processingStatus !== bg05FilterStatus) return false;
           if (bg05FilterStartDate && i.occurredAt < bg05FilterStartDate) return false;
@@ -1818,7 +1842,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
       {/* =========================================================================
           TAB 6: ĐỐI CHIẾU TÀI SẢN KHI TRẢ PHÒNG 
       ========================================================================= */}
-      {selectedRoomCode && activeTab === 'compare_bg06' && (() => {
+      {selectedRoomCode && !linkedRoomMismatch && activeTab === 'compare_bg06' && (() => {
         // Evaluate Prerequisites for 
         const step305Confirmed = Boolean(returnInspectionTarget?.step305Confirmed);
         const reportConfirmedBG03 = Boolean(existingReport && existingReport.status === 'Đã xác nhận');
@@ -2032,7 +2056,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
       {/* =========================================================================
           TAB 7: GHI NHẬN KẾT QUẢ ĐỐI CHIẾU TÀI SẢN 
       ========================================================================= */}
-      {selectedRoomCode && activeTab === 'result_bg07' && (() => {
+      {selectedRoomCode && !linkedRoomMismatch && activeTab === 'result_bg07' && (() => {
         // Evaluate sources from BG06 and BG05
         const hasDiffFromBG06 = comparisonItems.length > 0
           ? comparisonItems.some((i: { diffResult: string }) => i.diffResult === 'Khác biệt')
@@ -2133,7 +2157,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                 <button
                   onClick={() => {
                     // : Tải lại để đối chiếu thông tin mới; tránh mất ý kiến đã ghi
-                    const compRes = assetComparisonResults.find(r => r.roomCode === selectedRoomCode);
+                    const compRes = assetComparisonResults.find(r => r.roomCode === selectedRoomCode && r.leaseId === selectedLeaseId);
                     if (compRes) {
                       setBg07HasPendingWork(compRes.hasPendingWork);
                       setBg07PendingWorkNote(compRes.pendingWorkNote || '');
@@ -2545,7 +2569,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
       {/* =========================================================================
           TAB 8: KHỞI TẠO BIÊN BẢN TRẢ PHÒNG 
       ========================================================================= */}
-      {selectedRoomCode && activeTab === 'init_report_bg08' && (() => {
+      {selectedRoomCode && !linkedRoomMismatch && activeTab === 'init_report_bg08' && (() => {
         const hasReceiveReport = Boolean(existingReport);
         const isReceiveReportConfirmed = Boolean(existingReport && existingReport.status === 'Đã xác nhận');
 
@@ -2862,7 +2886,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
       {/* =========================================================================
           TAB 9: GHI NHẬN KẾT QUẢ NHẬN LẠI PHÒNG 
       ========================================================================= */}
-      {selectedRoomCode && activeTab === 'return_room_bg09' && (() => {
+      {selectedRoomCode && !linkedRoomMismatch && activeTab === 'return_room_bg09' && (() => {
         // Evaluate completeness of 
         const allItemsChecked = bg09Items.every(i => i.inspected);
         const hasMissingReason = bg09Items.filter(i => !i.inspected).every(i => Boolean(i.reasonIfNotInspected && i.reasonIfNotInspected.trim()));
@@ -3258,7 +3282,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
       {/* =========================================================================
           TAB 10: THEO DÕI ĐỐI SOÁT CỌC 
       ========================================================================= */}
-      {selectedRoomCode && activeTab === 'deposit_check_bg10' && (() => {
+      {selectedRoomCode && !linkedRoomMismatch && activeTab === 'deposit_check_bg10' && (() => {
         // Evaluate quyết toán cọc settlement slip status
         const slip = matchingSettlementSlip;
         const initialDeposit = slip?.initialDepositAmount || currentInitialPayment?.depositAmount || 3800000;
@@ -3465,7 +3489,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
       {/* =========================================================================
           TAB 11: HOÀN THIỆN BIÊN BẢN TRẢ PHÒNG 
       ========================================================================= */}
-      {selectedRoomCode && activeTab === 'final_report_bg11' && (() => {
+      {selectedRoomCode && !linkedRoomMismatch && activeTab === 'final_report_bg11' && (() => {
         // Evaluate the 3 distinct thresholds
         // Threshold A: Mở / Xem / Lưu nháp -> always true
         // Threshold B: Điều kiện Lưu Đã lập (Bước 2):

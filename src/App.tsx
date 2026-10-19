@@ -54,7 +54,7 @@ const MainAppContent: React.FC = () => {
 
           {currentTab === 'rooms' && <RoomsView onNavigate={navigate} initialRoomCode={target.roomCode} />}
 
-          {currentTab === 'handover' && <HandoverAssetsView initialRoomCode={target.roomCode} />}
+          {currentTab === 'handover' && <HandoverAssetsView initialRoomCode={target.roomCode} initialLeaseId={target.leaseId} initialContractId={target.contractId} />}
 
           {currentTab === 'tenants' && <TenantsView initialTenantId={target.tenantId} />}
 
