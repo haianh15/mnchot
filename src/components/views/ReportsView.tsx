@@ -478,12 +478,12 @@ export const ReportsView: React.FC = () => {
       "===========================================================\n" +
       `Tổng số phòng khai báo:,${totalRoomsCount}\n` +
       `Phòng Đang thuê:,${rentedRoomsCount}\n` +
-      `Phòng Sắp trả (<=15 ngày):,${returningRoomsCount}\n` +
+      `Phòng sắp trả phòng (<=15 ngày):,${returningRoomsCount}\n` +
       `Phòng Trống sẵn sàng đón khách:,${vacantRoomsCount}\n` +
       `Phòng có cọc giữ chỗ (thông tin phụ):,${depositedRoomsCount}\n` +
       `Tỷ lệ lấp đầy (Đang thuê + Sắp trả / Tổng):,${occupancyRateValue}%\n\n` +
       "Mã phòng,Tầng,Trạng thái sử dụng,Khách thuê,Hạn HĐ,Ngày dự kiến trả,Cọc giữ chỗ\n" +
-      effectiveRooms.map(r => `${r.roomCode},${r.floor},${r.status},"${r.currentTenantName || '—'}",${r.contractEndDate || '—'},${r.expectedReturnDate || '—'},${r.hasDeposit ? 'Đã cọc': 'Chưa'}`).join('\n') +
+      effectiveRooms.map(r => `${r.roomCode},${r.floor},${r.status === 'Sắp trả' ? 'Sắp trả phòng' : r.status},"${r.currentTenantName || '—'}",${r.contractEndDate || '—'},${r.expectedReturnDate || '—'},${r.hasDeposit ? 'Đã cọc': 'Chưa'}`).join('\n') +
       "\n\n" +
       "===========================================================\n" +
       "KHỐI 2: CHỈ TIÊU TÀI CHÍNH, THU TIỀN & CÔNG NỢ \n" +
@@ -775,7 +775,7 @@ export const ReportsView: React.FC = () => {
                   }`}
                 >
                   <div className="flex items-center justify-between text-slate-500">
-                    <span className="text-[11px] font-bold uppercase tracking-wider">Sắp trả (≤15 ngày)</span>
+                    <span className="text-[11px] font-bold uppercase tracking-wider">Sắp trả phòng (≤15 ngày)</span>
                     <Clock className="w-4 h-4 text-amber-600" />
                   </div>
                   <span className="text-2xl font-bold font-mono text-amber-700 mt-2 block">{returningRoomsCount}</span>
@@ -869,7 +869,7 @@ export const ReportsView: React.FC = () => {
                     >
                       <option value="Tất cả">Tất cả ({totalRoomsCount})</option>
                       <option value="Đang thuê">Đang thuê ({rentedRoomsCount})</option>
-                      <option value="Sắp trả">Sắp trả ({returningRoomsCount})</option>
+                      <option value="Sắp trả">Sắp trả phòng ({returningRoomsCount})</option>
                       <option value="Trống">Trống ({vacantRoomsCount})</option>
                     </select>
                   </div>
@@ -1477,7 +1477,7 @@ export const ReportsView: React.FC = () => {
                     <strong className="text-lg font-mono text-blue-700">{rentedRoomsCount}</strong>
                   </div>
                   <div className="p-3 bg-white rounded border border-slate-200">
-                    <span className="text-slate-400 block text-[11px]">Sắp trả (≤15 ngày):</span>
+                    <span className="text-slate-400 block text-[11px]">Sắp trả phòng (≤15 ngày):</span>
                     <strong className="text-lg font-mono text-amber-700">{returningRoomsCount}</strong>
                   </div>
                   <div className="p-3 bg-white rounded border border-slate-200">
@@ -1755,7 +1755,7 @@ export const ReportsView: React.FC = () => {
                         Phòng <strong className="font-mono">{r.roomCode}</strong> (Mã GD: <span className="font-mono">{r.transactionCode}</span>): <strong>{r.amountReceived.toLocaleString('vi-VN')} đ</strong>
                       </div>
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${r.status === 'Đang hiệu lực' ? 'bg-emerald-100 text-emerald-800': 'bg-red-100 text-red-800'}`}>
-                        {r.status}
+                        {r.status === 'Sắp trả' ? 'Sắp trả phòng' : r.status}
                       </span>
                     </div>
                   ))}

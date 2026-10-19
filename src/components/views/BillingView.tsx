@@ -281,7 +281,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                 <span>Lưu ý ghi nhận chỉ số:</span>
               </div>
               <p className="text-blue-800 text-[11px]">
-                Áp dụng cho phòng <strong>Đang thuê</strong>, <strong>Sắp trả</strong>, và <strong>Đã trả phòng chờ chốt kỳ cuối</strong>. Tự động kiểm tra quay vòng / công tơ thay mới / sản lượng 0 bất thường. Hỗ trợ lưu nháp dở dang và chốt ngoài kỳ chung. </p>
+                Áp dụng cho phòng <strong>Đang thuê</strong>, <strong>Sắp trả phòng</strong>, và <strong>Đã trả phòng chờ chốt kỳ cuối</strong>. Tự động kiểm tra quay vòng / công tơ thay mới / sản lượng 0 bất thường. Hỗ trợ lưu nháp dở dang và chốt ngoài kỳ chung. </p>
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
@@ -583,7 +583,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                   {/* Confirm actions */}
                   <div className="flex justify-between items-center pt-2 border-t border-slate-100">
                     <span className="text-slate-400 text-[11px]">
-                      Điều kiện tiên quyết cho UC07.1: Bảng tính tiền phải được xác nhận trước khi chuyển sang đối chiếu khoản phải thu. </span>
+                      Vui lòng xác nhận bảng tính tiền trước khi chuyển sang đối chiếu khoản phải thu. </span>
 
                     <div className="flex items-center gap-2">
                       {!bill.isConfirmed ? (

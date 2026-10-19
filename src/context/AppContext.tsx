@@ -3730,7 +3730,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // BR-UC07.1-01, Nợ cũ chỉ để tra cứu, không cộng dồn vào tổng kỳ mới
     const overdueDebt = paymentNotices.find(n =>
-      n.roomCode === bill.roomCode &&
+      n.roomCode === bill.roomCode && n.leaseId === bill.leaseId &&
       n.paymentStatus === 'Chưa thu' &&
       n.status === 'Đang hiệu lực' &&
       n.periodCode !== bill.periodCode
@@ -3746,6 +3746,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       leaseId: bill.leaseId,
       periodCode: bill.periodCode,
       billId: bill.id,
+      billVersion: bill.version,
       nextRentPeriodFrom: bill.nextRentPeriodFrom,
       nextRentPeriodTo: bill.nextRentPeriodTo,
       nextRentAmount,
@@ -3799,8 +3800,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const rec = reconciliations.find(r => r.id === reconciliationId);
     if (!rec) return { success: false, message: 'EF-01: Không tìm thấy hồ sơ đối chiếu.' };
     const bill = periodBills.find(b => b.id === rec.billId && b.isConfirmed);
-    if (!bill || bill.roomCode !== rec.roomCode || bill.leaseId !== rec.leaseId || bill.periodCode !== rec.periodCode) {
-      return {success:false, message:'Bảng tính nguồn không còn hợp lệ. Vui lòng kiểm tra đối chiếu lại.'};
+    if (!bill || bill.roomCode !== rec.roomCode || bill.leaseId !== rec.leaseId || bill.periodCode !== rec.periodCode || rec.billVersion !== bill.version) {
+      return {success:false, message:'Bảng tính đã thay đổi hoặc không còn hợp lệ. Vui lòng kiểm tra đối chiếu lại theo dữ liệu mới nhất.'};
     }
 
     setReconciliations(prev => prev.map(r => r.id === reconciliationId ? {
@@ -3836,6 +3837,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!rec || !rec.isReconciled || rec.leaseId !== bill.leaseId || rec.roomCode !== bill.roomCode || rec.periodCode !== bill.periodCode) {
       return {success:false, message:'Phải kiểm tra và xác nhận đối chiếu khoản phải thu cho đúng bảng tính, phòng và lần thuê trước khi lập thông báo.'};
     }
+    if (rec.billVersion !== bill.version || rec.netReceivableAmount <= 0) {
+      return {success:false, message:'Kết quả đối chiếu đã cũ hoặc không còn khoản phải thu. Vui lòng kiểm tra lại bảng tính.'};
+    }
     const room = rooms.find(r => r.roomCode === bill.roomCode);
     const contract = contracts.find(c => c.leaseId === bill.leaseId);
 
@@ -3854,10 +3858,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       (bill.serviceFees?.reduce((s, f) => s + f.amount, 0) || 0) + (bill.adjustmentAmount || 0);
 
     const totalAmount = nextRentAmount + serviceTotal;
+    if (!Number.isFinite(totalAmount) || rec.netReceivableAmount !== totalAmount ||
+        rec.nextRentAmount !== nextRentAmount || rec.serviceTotalAmount !== serviceTotal) {
+      return {success:false, message:'Số tiền nguồn khác kết quả đã đối chiếu. Hãy kiểm tra và xác nhận đối chiếu lại trước khi lập thông báo.'};
+    }
 
     // AF-02: Không có khoản phải thu
     if (totalAmount <= 0) {
-      return { success: false, message: 'AF-02: Tổng số tiền còn phải thu bằng 0 đ. Không tạo thông báo và không tạo mã QR có số tiền bằng 0.' };
+      return { success: false, message: 'Tổng số tiền còn phải thu bằng 0 đ. Không phát hành thông báo hoặc mã QR.' };
     }
 
     // Kiểm tra thông báo đang hiệu lực (BR-UC07.2-01)
@@ -3865,13 +3873,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (existingActive) {
       return {
         success: false,
-        message: `Phòng ${bill.roomCode} đã có thông báo ${existingActive.noticeCode} đang hiệu lực. Hãy dùng chức năng Thay thế thông báo (AF-01) nếu cần cập nhật.`
+        message: `Phòng ${bill.roomCode} đã có thông báo ${existingActive.noticeCode} đang hiệu lực. Hãy dùng chức năng Thay thế thông báo nếu cần cập nhật.`
       };
     }
 
     // Overdue debt reference (chỉ tra cứu, không cộng dồn - BR-UC07.2-02)
     const overdueDebt = paymentNotices.find(n =>
-      n.roomCode === bill.roomCode &&
+      n.roomCode === bill.roomCode && n.leaseId === bill.leaseId &&
       n.paymentStatus === 'Chưa thu' &&
       n.status === 'Đang hiệu lực' &&
       n.periodCode !== bill.periodCode

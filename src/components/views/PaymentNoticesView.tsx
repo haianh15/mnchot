@@ -8,6 +8,12 @@ import {
   FileCheck2, Search, Info, ExternalLink, ArrowLeft, Clock, AlertTriangle, Sparkles
 } from 'lucide-react';
 
+// Compare due dates as local calendar days, not timestamps with hours/timezone offsets.
+const localDateISO = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
 interface PaymentNoticesViewProps {
   onNavigateToReceipts?: (noticeId: string) => void;
   initialBillId?: string;
@@ -42,6 +48,7 @@ export const PaymentNoticesView: React.FC<PaymentNoticesViewProps> = ({ onNaviga
   const [selectedNotice, setSelectedNotice] = useState<PaymentNotice | null>(
     paymentNotices[0] || null
   );
+  const [pendingOpenNoticeId, setPendingOpenNoticeId] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createBillId, setCreateBillId] = useState(selectedBillId);
   const [dueDate, setDueDate] = useState<string>(() => {
@@ -69,13 +76,25 @@ export const PaymentNoticesView: React.FC<PaymentNoticesViewProps> = ({ onNaviga
     }
   }, [initialBillId]);
 
+  // State updates after issuing/replacing a notice are asynchronous. Open only the new record.
+  useEffect(() => {
+    if (!pendingOpenNoticeId) return;
+    const record = paymentNotices.find(n => n.id === pendingOpenNoticeId);
+    if (record) {
+      setSelectedNotice(record);
+      setPendingOpenNoticeId(null);
+      setActiveTab('uc07_3');
+    }
+  }, [paymentNotices, pendingOpenNoticeId]);
+
   // Initialize reconciliation for selected bill
   useEffect(() => {
     if (selectedBillId) {
       const existing = reconciliations.find(r => r.billId === selectedBillId);
       if (existing) {
         setCurrentReconciliation(existing);
-        setReconcileCheckDone(true);
+        const currentBill = periodBills.find(b => b.id === selectedBillId);
+        setReconcileCheckDone(Boolean(currentBill && existing.billVersion === currentBill.version));
       } else {
         setReconcileCheckDone(false);
         setCurrentReconciliation(null);
@@ -135,10 +154,7 @@ export const PaymentNoticesView: React.FC<PaymentNoticesViewProps> = ({ onNaviga
       alert(toUserMessage(res.message));
     } else {
       setShowCreateModal(false);
-      const created = paymentNotices.find(n => n.id === res.noticeId);
-      if (created) {
-        setSelectedNotice(created);
-      }
+      if (res.noticeId) setPendingOpenNoticeId(res.noticeId);
       alert(toUserMessage(res.message));
       setActiveTab('uc07_3');
     }
@@ -155,8 +171,7 @@ export const PaymentNoticesView: React.FC<PaymentNoticesViewProps> = ({ onNaviga
     } else {
       setShowReplaceModal(false);
       setReplaceReason('');
-      const rep = paymentNotices.find(n => n.id === res.noticeId);
-      if (rep) setSelectedNotice(rep);
+      if (res.noticeId) setPendingOpenNoticeId(res.noticeId);
       alert(toUserMessage(res.message));
       setActiveTab('uc07_3');
     }
@@ -209,10 +224,12 @@ export const PaymentNoticesView: React.FC<PaymentNoticesViewProps> = ({ onNaviga
     // Notice info block
     ctx.fillStyle = '#0f172a';
     ctx.font = 'bold 22px sans-serif';
-    ctx.fillText(`Mã thông báo: ${selectedNotice.noticeCode}`, 70, 205);
+    ctx.fillText(`Mã thông báo: ${selectedNotice.noticeCode}`, 70, 190, 660);
     ctx.font = '15px sans-serif';
     ctx.fillStyle = '#64748b';
-    ctx.fillText(`Phòng: ${selectedNotice.roomCode} · Kỳ: ${selectedNotice.periodCode} · Hạn: ${selectedNotice.dueDate}`, 70, 235);
+    const noticeContract = contracts.find(c => c.leaseId === selectedNotice.leaseId && c.roomCode === selectedNotice.roomCode);
+    ctx.fillText(`Khách thuê: ${noticeContract?.tenantName || 'Theo hợp đồng thuê'} · Phòng: ${selectedNotice.roomCode}`, 70, 216, 660);
+    ctx.fillText(`Kỳ thu: ${selectedNotice.periodCode} · Hạn thanh toán: ${selectedNotice.dueDate} · Ngày lập: ${selectedNotice.createdAt.slice(0, 10)}`, 70, 239, 660);
 
     // Group 1: Next rent
     ctx.fillStyle = '#f1f5f9';
@@ -220,7 +237,7 @@ export const PaymentNoticesView: React.FC<PaymentNoticesViewProps> = ({ onNaviga
     ctx.fill();
     ctx.fillStyle = '#0f172a';
     ctx.font = 'bold 16px sans-serif';
-    ctx.fillText('1. Tiền thuê kỳ tiếp theo (Trả trước)', 90, 290);
+    ctx.fillText('Tiền thuê kỳ tiếp theo (thu trước)', 90, 290);
     ctx.font = '14px sans-serif';
     ctx.fillStyle = '#475569';
     ctx.fillText(`Thời gian: ${selectedNotice.nextRentPeriod}`, 90, 320);
@@ -235,7 +252,7 @@ export const PaymentNoticesView: React.FC<PaymentNoticesViewProps> = ({ onNaviga
     ctx.fill();
     ctx.fillStyle = '#0f172a';
     ctx.font = 'bold 16px sans-serif';
-    ctx.fillText('2. Tiền điện, nước & phí dịch vụ vừa sử dụng (Trả sau)', 90, 400);
+    ctx.fillText('Tiền điện, nước và dịch vụ vừa sử dụng (thu sau)', 90, 400);
     ctx.font = '14px sans-serif';
     ctx.fillStyle = '#475569';
     ctx.fillText(`Kỳ dịch vụ: ${selectedNotice.servicePeriod}`, 90, 430);
@@ -253,7 +270,7 @@ export const PaymentNoticesView: React.FC<PaymentNoticesViewProps> = ({ onNaviga
     ctx.stroke();
     ctx.fillStyle = '#1e3a8a';
     ctx.font = 'bold 18px sans-serif';
-    ctx.fillText('TỔNG TIỀN PHẢI THANH TOÁN (QR CỐ ĐỊNH):', 90, 552);
+    ctx.fillText('TỔNG PHẢI THANH TOÁN:', 90, 552);
     ctx.fillStyle = '#2563eb';
     ctx.font = 'bold 24px monospace';
     ctx.fillText(`${selectedNotice.totalAmount.toLocaleString('vi-VN')} đ`, 540, 554);
@@ -261,11 +278,11 @@ export const PaymentNoticesView: React.FC<PaymentNoticesViewProps> = ({ onNaviga
     // Bank details
     ctx.fillStyle = '#0f172a';
     ctx.font = 'bold 15px sans-serif';
-    ctx.fillText(`Ngân hàng: ${selectedNotice.qrBankSnapshot.bankName}`, 70, 620);
-    ctx.fillText(`Số tài khoản: ${selectedNotice.qrBankSnapshot.accountNumber}`, 70, 650);
-    ctx.fillText(`Chủ tài khoản: ${selectedNotice.qrBankSnapshot.accountHolder}`, 70, 680);
+    ctx.fillText(`Ngân hàng: ${selectedNotice.qrBankSnapshot.bankName}`, 70, 620, 340);
+    ctx.fillText(`Số tài khoản: ${selectedNotice.qrBankSnapshot.accountNumber}`, 70, 650, 340);
+    ctx.fillText(`Chủ tài khoản: ${selectedNotice.qrBankSnapshot.accountHolder}`, 70, 680, 340);
     ctx.fillStyle = '#dc2626';
-    ctx.fillText(`Nội dung CK: ${selectedNotice.qrBankSnapshot.transferContent}`, 70, 710);
+    ctx.fillText(`Nội dung CK: ${selectedNotice.qrBankSnapshot.transferContent}`, 70, 710, 340);
 
     // Load QR Image
     if (qrDataUrl) {
@@ -347,7 +364,7 @@ export const PaymentNoticesView: React.FC<PaymentNoticesViewProps> = ({ onNaviga
               <ul className="list-disc list-inside space-y-0.5 text-blue-800">
                 <li> Phân tách rõ ràng 2 nhóm: Tiền thuê kỳ tiếp theo (trả trước) và Tiền điện, nước, phí dịch vụ kỳ vừa sử dụng (trả sau).</li>
                 <li> Nợ cũ giữ thông báo và QR riêng; chỉ hiển thị để tra cứu, tuyệt đối KHÔNG cộng dồn vào tổng tiền kỳ mới.</li>
-                <li> Không đưa lại tiền thuê kỳ đầu đã thu tại vào tổng khoản phải thu.</li>
+                <li> Tiền thuê kỳ đầu đã nhận trước không được thu lại.</li>
                 <li> Phòng đã nhận lại thực tế (kỳ cuối) không tự sinh tiền thuê kỳ tiếp theo.</li>
               </ul>
             </div>
@@ -442,7 +459,7 @@ export const PaymentNoticesView: React.FC<PaymentNoticesViewProps> = ({ onNaviga
                         <span>Bảng tính tiền nguồn chưa được xác nhận</span>
                       </div>
                       <p className="text-[11px] text-amber-800">
-                        Theo điều kiện tiên quyết của UC07.1 và, nguồn tiền phải thu là bảng tính tiền đã xác nhận. Vui lòng xác nhận bảng tính trước khi đối chiếu và lập thông báo. </p>
+                        Bảng tính tiền chưa được xác nhận. Vui lòng xác nhận bảng tính nguồn trước khi đối chiếu và lập thông báo. </p>
                       <div className="pt-1">
                         <button
                           onClick={() => setShowBillSourceModal(true)}
@@ -468,8 +485,8 @@ export const PaymentNoticesView: React.FC<PaymentNoticesViewProps> = ({ onNaviga
                     <div className="p-4 border border-blue-200 bg-blue-50/30 rounded-xl space-y-2.5">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-[10px]">1</span>
-                          <span className="font-bold text-sm text-blue-950">Nhóm 1: Tiền thuê kỳ tiếp theo (Trả trước)</span>
+                          
+                          <span className="font-bold text-sm text-blue-950">Tiền thuê kỳ tiếp theo (thu trước)</span>
                         </div>
                         <span className={`px-2.5 py-0.5 rounded text-[11px] font-bold ${
                           selectedBill.isRentPeriodEnded
@@ -488,7 +505,7 @@ export const PaymentNoticesView: React.FC<PaymentNoticesViewProps> = ({ onNaviga
                           <span className="text-slate-400 block text-[11px]">Thông tin hợp đồng:</span>
                           <span>
                             {selectedBill.isRentPeriodEnded
-                              ? 'Khách đã trả phòng thực tế, dừng tính tiền thuê': (currentReconciliation?.nextRentPrepaidAtPH07 ? 'Đã thanh toán tháng đầu tại PH-07': 'Thu trước đầu kỳ')}
+                              ? 'Khách đã trả phòng thực tế, dừng tính tiền thuê': (currentReconciliation?.nextRentPrepaidAtPH07 ? 'Đã nhận tiền thuê tháng đầu': 'Thu trước đầu kỳ')}
                           </span>
                         </div>
                         <div className="text-right">
@@ -504,8 +521,8 @@ export const PaymentNoticesView: React.FC<PaymentNoticesViewProps> = ({ onNaviga
                     <div className="p-4 border border-slate-200 bg-slate-50 rounded-xl space-y-2.5">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className="w-5 h-5 rounded-full bg-slate-700 text-white flex items-center justify-center font-bold text-[10px]">2</span>
-                          <span className="font-bold text-sm text-slate-900">Nhóm 2: Tiền điện, nước & phí dịch vụ vừa sử dụng (Trả sau)</span>
+                          
+                          <span className="font-bold text-sm text-slate-900">Tiền điện, nước và dịch vụ kỳ vừa sử dụng (thu sau)</span>
                         </div>
                         <span className="px-2.5 py-0.5 rounded text-[11px] font-bold bg-amber-100 text-amber-800">
                           Chưa thanh toán </span>
@@ -545,7 +562,7 @@ export const PaymentNoticesView: React.FC<PaymentNoticesViewProps> = ({ onNaviga
                     {/* Khu vực Nợ cũ kỳ trước */}
                     {(() => {
                       const oldDebtNotice = paymentNotices.find(n =>
-                        n.roomCode === selectedBill.roomCode &&
+                        n.roomCode === selectedBill.roomCode && n.leaseId === selectedBill.leaseId &&
                         n.paymentStatus === 'Chưa thu' &&
                         n.status === 'Đang hiệu lực' &&
                         n.periodCode !== selectedBill.periodCode
@@ -558,7 +575,7 @@ export const PaymentNoticesView: React.FC<PaymentNoticesViewProps> = ({ onNaviga
                                 <AlertTriangle className="w-4 h-4 text-amber-700" />
                                 Nợ cũ từ kỳ trước: {oldDebtNotice.noticeCode} ({oldDebtNotice.periodCode}) </span>
                               <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-200 text-amber-900">
-                                Quá hạn (Hạn: {oldDebtNotice.dueDate}) </span>
+                                {oldDebtNotice.dueDate < localDateISO() ? 'Quá hạn' : 'Chưa đến hạn'} (Hạn: {oldDebtNotice.dueDate}) </span>
                             </div>
                             <p className="text-[11px] text-amber-800 leading-relaxed">
                                Khoản nợ cũ <strong>{oldDebtNotice.totalAmount.toLocaleString('vi-VN')} đ</strong> chỉ hiển thị để tra cứu. Tuyệt đối <strong>KHÔNG cộng dồn vào tổng tiền thông báo mới</strong>. Nợ cũ giữ thông báo và mã QR riêng. </p>
@@ -603,7 +620,7 @@ export const PaymentNoticesView: React.FC<PaymentNoticesViewProps> = ({ onNaviga
                         <div className="p-2.5 bg-white/80 rounded-lg space-y-1 text-[11px] text-slate-700 border border-emerald-200">
                           <div className="font-semibold text-slate-800">Các khoản đã loại trừ theo quy định:</div>
                           <ul className="list-disc list-inside space-y-0.5 text-slate-600">
-                            <li><strong>Tiền cọc phòng:</strong> Không trừ vào kỳ thu này (chỉ hoàn trả tại quyết toán hoàn cọc ).</li>
+                            <li><strong>Tiền cọc phòng:</strong> Được theo dõi trong hồ sơ hợp đồng và quyết toán riêng, không cộng vào thông báo kỳ này.</li>
                             {currentReconciliation.nextRentPrepaidAtPH07 && (
                               <li><strong>Tiền thuê kỳ đầu:</strong> Đã thanh toán tại biên bản bàn giao nhận phòng, không thu lại.</li>
                             )}
@@ -637,7 +654,7 @@ export const PaymentNoticesView: React.FC<PaymentNoticesViewProps> = ({ onNaviga
                   {/* Actions for UC07.1 */}
                   <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-200">
                     <div className="space-y-1 text-[11px] text-slate-500">
-                      <span>Điều kiện sau: Lưu kết quả kiểm tra các khoản Chưa thu của kỳ để tạo thông báo UC07.2.</span>
+                      <span>Chỉ lập thông báo sau khi kết quả đối chiếu được xác nhận.</span>
                       {reconcileCheckDone && (
                         <span className="block text-blue-700">
                           * Phát hiện sai sót? Bấm &quot;Xem lại nguồn &quot; để điều chỉnh lại trước khi xác nhận. </span>
@@ -651,7 +668,7 @@ export const PaymentNoticesView: React.FC<PaymentNoticesViewProps> = ({ onNaviga
                           Đã thanh toán đủ – Không tạo QR 0đ </div>
                       ): (
                         <button
-                          disabled={!reconcileCheckDone || !currentReconciliation || !selectedBill.isConfirmed}
+                          disabled={!reconcileCheckDone || !currentReconciliation || !selectedBill.isConfirmed || currentReconciliation.billVersion !== selectedBill.version}
                           onClick={handleConfirmReconciliation}
                           className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl font-bold flex items-center gap-2 shadow-xs cursor-pointer transition-all"
                         >
@@ -699,19 +716,23 @@ export const PaymentNoticesView: React.FC<PaymentNoticesViewProps> = ({ onNaviga
 
             <button
               onClick={() => {
-                setCreateBillId(selectedBillId);
-                setShowCreateModal(true);
+                setShowCreateModal(false);
+                setCurrentReconciliation(null);
+                setReconcileCheckDone(false);
+                setActiveTab('uc07_1');
               }}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-xs cursor-pointer shrink-0"
             >
               <Plus className="w-4 h-4" />
-              Lập thông báo thanh toán mới </button>
+              Kiểm tra khoản phải thu và lập thông báo </button>
           </div>
 
           {/* Notices Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredNotices.map((n) => {
-              const isOverdue = n.paymentStatus === 'Chưa thu' && new Date(n.dueDate) < new Date();
+              const today = new Date();
+              const localToday = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+              const isOverdue = n.status === 'Đang hiệu lực' && n.paymentStatus === 'Chưa thu' && n.dueDate < localToday;
               const isSelected = selectedNotice?.id === n.id;
 
               return (
@@ -739,11 +760,11 @@ export const PaymentNoticesView: React.FC<PaymentNoticesViewProps> = ({ onNaviga
 
                   <div className="p-2.5 bg-slate-100/70 rounded-xl space-y-1">
                     <div className="flex justify-between">
-                      <span className="text-slate-500">1. Tiền thuê tiếp theo:</span>
+                      <span className="text-slate-500">Tiền thuê kỳ tiếp theo:</span>
                       <span className="font-mono">{n.breakdown?.nextRentAmount ? `${n.breakdown.nextRentAmount.toLocaleString('vi-VN')} đ`: '0 đ'}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-500">2. Dịch vụ kỳ vừa ở:</span>
+                      <span className="text-slate-500">Dịch vụ kỳ vừa sử dụng:</span>
                       <span className="font-mono">{(n.totalAmount - (n.breakdown?.nextRentAmount || 0)).toLocaleString('vi-VN')} đ</span>
                     </div>
                     <div className="flex justify-between font-bold text-blue-900 pt-1 border-t border-slate-200">
@@ -867,7 +888,7 @@ export const PaymentNoticesView: React.FC<PaymentNoticesViewProps> = ({ onNaviga
                   {/* Next Rent Group */}
                   <div className="p-4 border border-blue-200 bg-blue-50/40 rounded-xl space-y-2">
                     <span className="font-bold text-blue-900 block uppercase tracking-wider text-[11px]">
-                      1. Tiền thuê kỳ tiếp theo (Trả trước) </span>
+                      Tiền thuê kỳ tiếp theo (thu trước) </span>
                     <div className="space-y-1 text-slate-700">
                       <div className="flex justify-between">
                         <span className="text-slate-500">Thời gian:</span>

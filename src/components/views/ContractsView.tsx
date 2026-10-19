@@ -74,7 +74,7 @@ export const ContractsView: React.FC<{initialContractId?: string; onBackToRooms?
       {/* Màn hình mặc định theo biên bản: danh sách hợp đồng trước, chi tiết sau */}
       {activeTab === 'overview' && <div className="space-y-4">
         <div className="bg-white border border-slate-200 rounded-xl p-4">
-          <h1 className="font-bold text-lg text-slate-900">Quản lý hợp đồng · Danh sách hợp đồng</h1>
+          <h1 className="font-bold text-lg text-slate-900">Danh sách hợp đồng</h1>
           <p className="text-xs text-slate-500 mt-1">Chọn hợp đồng để xem chi tiết, gia hạn hoặc quyết toán cọc theo điều kiện.</p>
           <div className="flex flex-wrap gap-2 mt-3 items-center">
             <input value={searchContract} onChange={e=>setSearchContract(e.target.value)} placeholder="Tìm mã hợp đồng, phòng hoặc khách thuê" className="w-full sm:w-auto sm:flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm" />
@@ -87,6 +87,9 @@ export const ContractsView: React.FC<{initialContractId?: string; onBackToRooms?
           <div className="lg:col-span-2 bg-white rounded-xl border p-3 space-y-2 max-h-[650px] overflow-y-auto">
             {contracts.filter(c=>[c.id,c.roomCode,c.tenantName].join(' ').toLowerCase().includes(searchContract.toLowerCase())).map(c=><button key={c.id} onClick={()=>setSelectedContractId(c.id)} className={`w-full text-left p-3 border rounded-lg text-sm ${c.id===selectedContractId?'bg-blue-50 border-blue-500':'hover:bg-slate-50 border-slate-200'}`}>
               <strong>{c.id}</strong> · {c.roomCode}<div className="text-xs text-slate-600 mt-1">{c.tenantName}</div><div className="text-xs text-slate-500">{c.startDate} → {c.endDate} · {c.status}</div>
+              {returnInspections.some(i => i.leaseId === c.leaseId && i.step304Status === 'Đã nhận lại' && i.step305Confirmed) &&
+               !settlementSlips.some(s => s.leaseId === c.leaseId && s.status === 'Hoàn tất') &&
+               <span className="inline-block mt-2 rounded bg-amber-100 text-amber-800 px-2 py-1 text-xs font-semibold">Cần hoàn tất quyết toán cọc</span>}
             </button>)}
             {contracts.length===0 && <p className="text-sm text-slate-500">Chưa có hợp đồng.</p>}
           </div>
@@ -104,8 +107,9 @@ export const ContractsView: React.FC<{initialContractId?: string; onBackToRooms?
                 <p><span className="text-slate-500">Cọc gốc đã xác nhận:</span> {firstPayment ? `${firstPayment.depositAmount.toLocaleString('vi-VN')}đ` : 'Chưa có chứng cứ thanh toán ban đầu'}</p>
               </div>
               <div className="rounded-xl border border-slate-200 p-3 bg-slate-50 space-y-2">
-                <h3 className="font-semibold text-sm">Quyết toán cọc (thuộc hồ sơ hợp đồng)</h3>
+                <h3 className="font-semibold text-sm">Quyết toán cọc</h3>
                 <p className="text-xs text-slate-600">Tình trạng: {linkedSlips.length ? linkedSlips[0].status : hasReturnConfirmation ? 'Chưa lập phiếu — cần xử lý' : 'Chưa đủ điều kiện nhận lại phòng'}</p>
+                {hasReturnConfirmation && !linkedSlips.some(s => s.status === 'Hoàn tất') && <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2">Phòng đã được nhận lại. Cần hoàn tất quyết toán cọc để khép lại hồ sơ lần thuê này.</p>}
                 {hasReturnConfirmation && <button className="px-3 py-2 text-sm rounded-lg bg-blue-600 text-white" onClick={()=>setActiveTab('settlement')}>{linkedSlips.length ? 'Xem / xử lý phiếu quyết toán' : 'Lập quyết toán cọc'}</button>}
                 {!hasReturnConfirmation && <p className="text-xs text-amber-700">Cần xác nhận nhận lại phòng thực tế trước khi lập phiếu.</p>}
               </div>

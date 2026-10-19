@@ -68,7 +68,7 @@ export const HDT03SendAndNegotiate: React.FC<HDT03Props> = ({
     e.preventDefault();
     if (!selectedContract) return;
     if (!editChangeNote.trim()) {
-      alert('Vui lòng nhập lý do/nội dung điều chỉnh theo phản hồi của khách!');
+      alert('Vui lòng nhập lý do điều chỉnh dự thảo.');
       return;
     }
 
@@ -116,10 +116,10 @@ export const HDT03SendAndNegotiate: React.FC<HDT03Props> = ({
               
             </span>
             <h2 className="text-sm font-bold text-slate-900">
-              Gửi và theo dõi ký hợp đồng (Gửi ký hợp đồng) </h2>
+              Điều chỉnh dự thảo hợp đồng </h2>
           </div>
           <p className="text-xs text-slate-600 mt-1 max-w-2xl leading-relaxed">
-            Theo dõi các bản hợp đồng đang ở trạng thái Nháp hoặc Chờ khách ký. Xuất bản thảo gửi cho khách xem xét, tiếp nhận phản hồi điều chỉnh điều khoản, hủy dự thảo nếu khách từ chối, hoặc chuyển sang bước đối chiếu lưu bản ký. </p>
+            Chọn dự thảo chưa ký để điều chỉnh theo nội dung đã thống nhất với khách ngoài hệ thống. Sau khi kiểm tra, ghi nhận bản hợp đồng đã ký trên giấy. </p>
         </div>
 
         <div className="flex items-center gap-2 text-xs">
@@ -211,7 +211,7 @@ export const HDT03SendAndNegotiate: React.FC<HDT03Props> = ({
               {c.sentToTenantDate && (
                 <div className="text-[11px] text-amber-800 flex items-center gap-1.5 bg-amber-50 p-1.5 rounded border border-amber-200">
                   <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                  <span>Đã gửi khách vào ngày: <strong>{c.sentToTenantDate}</strong>. Đang chờ khách phản hồi / ký giấy.</span>
+                  <span>Đã gửi khách vào ngày: <strong>{c.sentToTenantDate}</strong>. Chờ ghi nhận bản ký trên giấy.</span>
                 </div>
               )}
 

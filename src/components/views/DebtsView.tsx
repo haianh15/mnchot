@@ -13,6 +13,8 @@ import {
 export const DebtsView: React.FC = () => {
   const {
     paymentNotices,
+    periodBills,
+    reconciliations,
     paymentReceipts,
     settlementSlips,
     debtReminders,
@@ -259,7 +261,7 @@ export const DebtsView: React.FC = () => {
     });
 
     if (res.success) {
-      showToast('success', `${res.message} (Lưu ý: Hạn thanh toán gốc của khoản nợ vẫn giữ nguyên theo )`);
+      showToast('success', `${toUserMessage(res.message)} Hạn thanh toán gốc không thay đổi.`);
       setShowPromiseModal(false);
       setPromContent('');
       setPromProofFile('');
@@ -303,7 +305,7 @@ export const DebtsView: React.FC = () => {
             <h1 className="text-lg font-bold text-slate-900">Quản lý Công nợ Quá hạn</h1>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Theo dõi số dư nợ quá hạn, ghi lịch sử nhắc nợ thủ công (sau hạn), ghi nhận phản hồi/hẹn thanh toán và tra cứu căn cứ nợ kéo dài. </p>
+            Theo dõi các thông báo đã quá hạn, đối chiếu chứng từ thu tiền và các khoản đã xử lý bằng cọc. </p>
         </div>
 
         {/* Global Controls */}
@@ -338,9 +340,9 @@ export const DebtsView: React.FC = () => {
             <div className="flex items-center gap-2.5">
               <Info className="w-4 h-4 text-blue-700 shrink-0" />
               <div>
-                <strong>Nguyên tắc phân định công nợ:</strong>
+                <strong>Nguồn hình thành công nợ:</strong>
                 <p className="mt-0.5 text-slate-700">
-                  Danh sách chỉ hiển thị các khoản hiện <strong>Chưa thu</strong>, số dư lớn hơn 0 và đã qua ngày hạn thanh toán. Các khoản Chưa thu nhưng <strong>còn trong hạn thanh toán ({pendingNotOverdueCount} khoản)</strong> được theo dõi tại màn hình Theo dõi thanh toán, không đưa vào danh sách nợ quá hạn. </p>
+                  Bảng tính tiền đã xác nhận → Thông báo thanh toán đang hiệu lực (có hạn phải trả) → Đối chiếu giao dịch ngân hàng và khoản đã bù cọc. Chỉ khoản <strong>còn số dư và đã qua hạn</strong> mới hiển thị tại đây. {pendingNotOverdueCount} khoản còn hạn được theo dõi ở Thu tiền. </p>
               </div>
             </div>
 
@@ -404,7 +406,7 @@ export const DebtsView: React.FC = () => {
                 <span className="text-2xl font-bold font-mono text-red-700 mt-1 block">
                   {totalOverdueCount} khoản </span>
                 <span className="text-[10px] text-slate-400">
-                  Đã quá hạn thanh toán đã lưu ở UC07.2 </span>
+                  Dựa trên hạn thanh toán ghi trong thông báo </span>
               </div>
 
               <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs">
@@ -907,6 +909,24 @@ export const DebtsView: React.FC = () => {
                         (Tổng phải thu: {activeSelectedNotice.totalAmount.toLocaleString('vi-VN')} đ) </span>
                     </div>
                   </div>
+                </div>
+
+                <div className="p-4 border border-blue-200 bg-blue-50/50 rounded-xl space-y-2 text-xs">
+                  <h3 className="font-bold text-blue-950">Nguồn của khoản công nợ này</h3>
+                  {(() => {
+                    const rec = reconciliations.find(r => r.id === activeSelectedNotice.reconciliationId);
+                    const bill = rec ? periodBills.find(b => b.id === rec.billId) : undefined;
+                    const receipt = paymentReceipts.find(r => r.noticeId === activeSelectedNotice.id && r.status === 'Đang hiệu lực');
+                    return <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-700">
+                      <p><strong>Bảng tính tiền:</strong> {bill ? `${bill.id} (đã xác nhận: ${bill.isConfirmed ? 'Có' : 'Không'})` : 'Không tìm thấy bảng tính nguồn — cần kiểm tra'}</p>
+                      <p><strong>Thông báo gốc:</strong> {activeSelectedNotice.noticeCode}</p>
+                      <p><strong>Hạn thanh toán:</strong> {activeSelectedNotice.originalDueDate || activeSelectedNotice.dueDate}</p>
+                      <p><strong>Giao dịch đã xác nhận:</strong> {receipt ? 'Đã có — cần đối chiếu lại số dư' : 'Chưa ghi nhận thu đủ'}</p>
+                      <p><strong>Đối trừ bằng cọc:</strong> {activeSelectedNotice.handledByDeposit.toLocaleString('vi-VN')} đ</p>
+                      <p><strong>Số dư còn lại:</strong> {activeSelectedNotice.uncollectedBalance.toLocaleString('vi-VN')} đ</p>
+                    </div>;
+                  })()}
+                  <p className="text-blue-800">Lịch sử nhắc và ngày khách hẹn trả chỉ là thông tin theo dõi, không thay đổi hạn thanh toán gốc.</p>
                 </div>
 
                 {/* Khối 2: Điều khoản hợp đồng liên quan */}

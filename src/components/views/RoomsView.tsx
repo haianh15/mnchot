@@ -54,12 +54,28 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
   const [searchCode, setSearchCode] = useState('');
   const [statusFilter, setStatusFilter] = useState<'Tất cả' | 'Trống' | 'Đang thuê' | 'Sắp trả'>('Tất cả');
 
-  // Selected Room for Details
+  // The selected room identifies the record used by actions. It does NOT open the room detail dialog.
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
+  const [isRoomDetailOpen, setIsRoomDetailOpen] = useState(false);
 
-  useEffect(() => { if (initialRoomCode) setSelectedRoom(rooms.find(r=>r.roomCode===initialRoomCode)||null); }, [initialRoomCode, rooms]);
+  const openRoomDetails = (room: Room) => {
+    setSelectedRoom(room);
+    setSubTab('list');
+    setIsRoomDetailOpen(true);
+  };
+  const closeRoomDetails = () => setIsRoomDetailOpen(false);
+
+  // A room code supplied by another screen intentionally opens that room once.
+  // Do not depend on `rooms`: refreshing room data must never reopen a dialog just closed.
+  useEffect(() => {
+    if (!initialRoomCode) return;
+    const room = rooms.find(r => r.roomCode === initialRoomCode);
+    if (room) openRoomDetails(room);
+  }, [initialRoomCode]);
+
   const openLinkedRecord = (tab: 'contracts' | 'tenants' | 'handover', room: Room) => {
     if (!onNavigate) return;
+    closeRoomDetails();
     const contract = contracts.find(c=>c.id===room.currentContractId) || contracts.find(c=>c.roomCode===room.roomCode && c.leaseId===room.currentLeaseId);
     onNavigate(tab,{roomCode:room.roomCode,contractId:contract?.id,tenantId:contract?.tenantId});
   };
@@ -94,6 +110,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
   const [planStatusFilter, setPlanStatusFilter] = useState<'Tất cả' | 'Đang thuê' | 'Sắp trả'>('Tất cả');
   const [planStartDate, setPlanStartDate] = useState('');
   const [planEndDate, setPlanEndDate] = useState('');
+  const [showReturnPlanHistory, setShowReturnPlanHistory] = useState(false);
   const [feedbackSelectedRoomCode, setFeedbackSelectedRoomCode] = useState('');
   const [conflictModalItem, setConflictModalItem] = useState<TenantContactLog | null>(null);
 
@@ -102,6 +119,22 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
   const [showTenantModal, setShowTenantModal] = useState(false);
   const [showHandoverModal, setShowHandoverModal] = useState(false);
   const [showDepositModal, setShowDepositModal] = useState(false);
+
+  // When another operation is active, the room detail dialog must not remain underneath
+  // it and unexpectedly reappear when that operation is closed.
+  useEffect(() => {
+    if (subTab !== 'list' || showAddModal || showEditModal || showHistoryModal ||
+        showCheckInModal || showPayment07Modal || showReturnModal ||
+        showExpectedDateModal || showContactModal || showCheckRentableModal ||
+        showMissingConditionModal || showUnfinishedHandoverModal || showExtensionModal ||
+        showContractModal || showTenantModal || showHandoverModal || showDepositModal) {
+      setIsRoomDetailOpen(false);
+    }
+  }, [subTab, showAddModal, showEditModal, showHistoryModal,
+      showCheckInModal, showPayment07Modal, showReturnModal,
+      showExpectedDateModal, showContactModal, showCheckRentableModal,
+      showMissingConditionModal, showUnfinishedHandoverModal, showExtensionModal,
+      showContractModal, showTenantModal, showHandoverModal, showDepositModal]);
 
   // Toast feedback state
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -325,7 +358,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
       showToast('success', `Thêm phòng ${res.room?.roomCode || code} thành công! Đang mở Chi tiết phòng mới tạo.`);
       // Trường hợp 02, bước 3: "Hệ thống tạo một phòng trạng thái Trống, ghi người tạo và thời điểm, sau đó mở Chi tiết phòng mới."
       if (res.room) {
-        setSelectedRoom(res.room);
+        openRoomDetails(res.room);
       }
     }
   };
@@ -433,7 +466,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
             <h1 className="text-lg font-bold text-slate-900">Quản lý phòng</h1>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Quản lý phòng &gt; Danh sách phòng &amp; Chi tiết phòng theo hồ sơ đang xử lý và đặc tả nghiệp vụ. </p>
+            Xem tình trạng phòng, khách đang thuê và các công việc cần xử lý. </p>
         </div>
 
         <div className="flex flex-wrap gap-2 items-center">
@@ -469,7 +502,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                 <option value="Tất cả">Tất cả trạng thái</option>
                 <option value="Trống">Trống</option>
                 <option value="Đang thuê">Đang thuê</option>
-                <option value="Sắp trả">Sắp trả phòng (≤15 ngày)</option>
+                <option value="Sắp trả">Sắp trả phòng</option>
               </select>
 
               {/*  Main Flow Bước 1: User mở danh sách phòng Trống */}
@@ -560,7 +593,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                               room.status === 'Sắp trả' ? 'bg-amber-50 text-amber-700 border border-amber-200':
                               'bg-blue-50 text-blue-700 border border-blue-200'
                             }`}>
-                              {room.status}
+                              {room.status === 'Sắp trả' ? 'Sắp trả phòng' : room.status}
                             </span>
                           </td>
 
@@ -672,7 +705,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                                 </>
                               )}
                               <button
-                                onClick={() => setSelectedRoom(room)}
+                                onClick={() => openRoomDetails(room)}
                                 className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded text-[11px] font-semibold transition-colors cursor-pointer flex items-center gap-1"
                               >
                                 <Eye className="w-3 h-3" />
@@ -1094,7 +1127,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                                       setShowExpectedDateModal(true);
                                     }}
                                     className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded text-[11px] font-semibold cursor-pointer"
-                                    title={r.expectedReturnDate ? 'Cập nhật ngày dự kiến trả ()': 'Ghi nhận ngày dự kiến trả ()'}
+                                    title={r.expectedReturnDate ? 'Cập nhật ngày dự kiến trả': 'Ghi nhận ngày dự kiến trả'}
                                   >
                                     {r.expectedReturnDate ? 'Sửa ngày trả': 'Ghi ngày trả'}
                                   </button>
@@ -1166,21 +1199,22 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                   >
                     <option value="Tất cả">Tất cả trạng thái</option>
                     <option value="Đang thuê">Đang thuê</option>
-                    <option value="Sắp trả">Sắp trả phòng (&le; 15 ngày)</option>
+                    <option value="Sắp trả">Sắp trả phòng</option>
                   </select>
+                  <span className="text-xs font-semibold text-slate-700">Ngày dự kiến trả phòng:</span>
                   <input
                     type="date"
                     value={planStartDate}
                     onChange={(e) => setPlanStartDate(e.target.value)}
                     className="px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white font-mono text-xs"
-                    title="Từ ngày"
+                    title="Từ ngày dự kiến trả phòng" aria-label="Từ ngày dự kiến trả phòng"
                   />
                   <input
                     type="date"
                     value={planEndDate}
                     onChange={(e) => setPlanEndDate(e.target.value)}
                     className="px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white font-mono text-xs"
-                    title="Đến ngày"
+                    title="Đến ngày dự kiến trả phòng" aria-label="Đến ngày dự kiến trả phòng"
                   />
                   {(planSearchRoom || planStatusFilter !== 'Tất cả' || planStartDate || planEndDate) && (
                     <button
@@ -1211,6 +1245,10 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                   <Plus className="w-3.5 h-3.5" />
                   Ghi ngày dự kiến trả mới </button>
               </div>
+
+              <p className="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                Khoảng ngày trên chỉ lọc các kế hoạch trả đã ghi nhận. Phòng được hiển thị <strong>Sắp trả phòng</strong> khi ngày dự kiến trả đã xác nhận còn trong 15 ngày hoặc đã qua mà chưa nhận lại thực tế; ngày hết hạn hợp đồng không tự làm phòng chuyển trạng thái.
+              </p>
 
               {/* Bảng Kế hoạch trả đang theo dõi */}
               <div className="overflow-x-auto border border-slate-200 rounded-xl">
@@ -1247,7 +1285,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                               <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
                                 r.status === 'Sắp trả' ? 'bg-amber-100 text-amber-800': 'bg-blue-100 text-blue-800'
                               }`}>
-                                {r.status}
+                                {r.status === 'Sắp trả' ? 'Sắp trả phòng' : r.status}
                               </span>
                             </td>
                             <td className="py-2.5 px-3 font-mono font-bold text-amber-800">
@@ -1301,48 +1339,20 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                 </table>
               </div>
 
-              {/*: Tự động hủy kế hoạch trả phòng khi hợp đồng tiếp tục thuê có hiệu lực */}
-              <div className="p-3.5 bg-blue-50/70 border border-blue-200 rounded-xl space-y-2 text-xs text-blue-950">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5 font-bold text-blue-900">
-                    <RotateCcw className="w-4 h-4 text-blue-700" />
-                    <span>: Hủy kế hoạch trả phòng tự động theo </span>
-                  </div>
-                  <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-bold">
-                    Tự động đồng bộ từ gia hạn hợp đồng </span>
-                </div>
-                <p className="text-[11px] text-blue-900 leading-relaxed">
-                  Khi hợp đồng tiếp tục thuê đã ký và có hiệu lực, hệ thống <strong>tự động hủy kế hoạch trả cũ</strong>, chuyển kết quả sang <em>Đã hủy do gia hạn</em> và giữ phòng ở trạng thái <strong>Đang thuê</strong>.</p>
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-blue-200 text-[11px]">
-                  <span className="text-slate-600">
-                    Kiểm tra đồng bộ hợp đồng nối tiếp &amp; kế hoạch trả: </span>
-                  <div className="flex items-center gap-2">
-                    {rooms.filter(r => r.expectedReturnDate).map(r => (
-                      <button
-                        key={r.roomCode}
-                        onClick={() => {
-                          const res = autoCancelReturnPlanPH14(r.roomCode);
-                          if (res.success) {
-                            showToast('success', toUserMessage(res.message));
-                          } else {
-                            showToast('error', toUserMessage(res.message));
-                          }
-                        }}
-                        className="px-2.5 py-1 bg-white hover:bg-blue-100 text-blue-800 border border-blue-300 rounded font-semibold text-[11px] cursor-pointer"
-                        title={`Kiểm tra tự hủy kế hoạch trả của phòng ${r.roomCode} khi gia hạn`}
-                      >
-                        Kiểm tra tự hủy {r.roomCode}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              <p className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg p-3">
+                Khi hợp đồng nối tiếp đã ký và có hiệu lực, kế hoạch trả cũ được cập nhật tự động. Bạn có thể xem thay đổi trong lịch sử kế hoạch trả.
+              </p>
 
-              {/* Bảng Lịch sử kế hoạch trả (ReturnPlanLog - chỉ xem, không sửa) */}
+              {/* Lịch sử chỉ mở khi người dùng yêu cầu; không phải một màn hình thao tác song song. */}
               <div className="pt-2 space-y-2">
-                <h3 className="text-xs font-bold uppercase text-slate-700 tracking-wider flex items-center gap-1.5">
-                  <History className="w-4 h-4 text-slate-500" />
-                  Lịch sử kế hoạch trả phòng (bản ghi đã sửa, đã hủy hoặc kết thúc - ) </h3>
+                <button type="button" onClick={() => setShowReturnPlanHistory(v => !v)}
+                  aria-expanded={showReturnPlanHistory}
+                  className="px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-800 font-semibold text-xs hover:bg-slate-50 flex items-center gap-2">
+                  <History className="w-4 h-4" />
+                  {showReturnPlanHistory ? 'Ẩn lịch sử kế hoạch trả' : `Xem lịch sử kế hoạch trả (${returnPlans.length})`}
+                </button>
+                {showReturnPlanHistory && <p className="text-xs text-slate-500">Theo dõi những lần ghi nhận, sửa ngày dự kiến trả, hủy kế hoạch hoặc kết thúc để đối chiếu với lần thuê. Lịch sử không làm thay đổi ngày trả hiện tại.</p>}
+                {showReturnPlanHistory && (<>
                 {returnPlans.length === 0 ? (
                   <p className="text-slate-400 italic text-center py-4 border border-dashed border-slate-200 rounded-xl text-xs">
                     Chưa có lịch sử kế hoạch trả phòng nào phát sinh. </p>
@@ -1386,6 +1396,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                     </table>
                   </div>
                 )}
+                </>)}
               </div>
             </div>
           )}
@@ -1635,7 +1646,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
           Hiển thị riêng Đã cọc và Đã thanh toán tiền thuê kỳ đầu (kèm kỳ thuê trả trước, chỉ xem, không sửa từ ); không gộp hai khoản.
           Chi tiết phòng có nút Chỉnh sửa thông tin phòng (mở ).
           Các liên kết Xem hợp đồng, Xem hồ sơ khách thuê, Xem bàn giao, Xem kế hoạch trả (mở, thẻ Kế hoạch trả) và Xem thông tin cọc mở hồ sơ liên quan. */}
-      {selectedRoom && (
+      {isRoomDetailOpen && selectedRoom && subTab === 'list' && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-3xl w-full max-h-[92vh] flex flex-col overflow-hidden">
             {/* Modal Header */}
@@ -1650,7 +1661,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                   selectedRoom.status === 'Sắp trả' ? 'bg-amber-100 text-amber-800 border border-amber-300':
                   'bg-blue-100 text-blue-800 border border-blue-300'
                 }`}>
-                  Trạng thái: {selectedRoom.status}
+                  Trạng thái: {selectedRoom.status === 'Sắp trả' ? 'Sắp trả phòng' : selectedRoom.status}
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -1681,7 +1692,8 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                   <History className="w-3.5 h-3.5 text-slate-500" />
                   Lịch sử ({roomHistory.filter(h => h.roomCode === selectedRoom.roomCode).length}) </button>
                 <button
-                  onClick={() => setSelectedRoom(null)}
+                  onClick={closeRoomDetails}
+                  aria-label="Đóng chi tiết phòng"
                   className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 cursor-pointer"
                 >
                   <X className="w-5 h-5" />
@@ -1721,7 +1733,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                   </div>
                   <div>
                     <span className="text-slate-500 block text-[11px]">Trạng thái</span>
-                    <span className="font-bold text-slate-800 text-sm">{selectedRoom.status}</span>
+                    <span className="font-bold text-slate-800 text-sm">{selectedRoom.status === 'Sắp trả' ? 'Sắp trả phòng' : selectedRoom.status}</span>
                   </div>
                 </div>
                 <div className="mt-2.5 pt-2 border-t border-slate-200 flex items-baseline gap-2">
@@ -2093,7 +2105,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                 Đặc tả &amp;: Quản lý và cập nhật thông tin phòng </span>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setSelectedRoom(null)}
+                  onClick={closeRoomDetails}
                   className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer flex items-center gap-1.5 transition-colors"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
@@ -2938,7 +2950,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                               targetRoom.status === 'Sắp trả' ? 'bg-amber-100 text-amber-800':
                               'bg-blue-100 text-blue-800'
                             }`}>
-                              {targetRoom.status}
+                              {targetRoom.status === 'Sắp trả' ? 'Sắp trả phòng' : targetRoom.status}
                             </span>
                           </div>
                           <div className="flex justify-between">
@@ -3035,9 +3047,9 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                         <div className="p-3 bg-white/90 rounded-lg border border-amber-200 space-y-1.5 text-amber-950">
                           <strong className="block font-semibold">Lý do chi tiết:</strong>
                           <p className="leading-relaxed">
-                            Phòng <strong>{targetRoom.roomCode}</strong> đang ở trạng thái <strong>{targetRoom.status}</strong> (Khách thuê: <strong>{targetRoom.currentTenantName || 'Chưa ghi nhận'}</strong>, Hợp đồng: {targetRoom.currentContractId || 'Đang hiệu lực'}). </p>
+                            Phòng <strong>{targetRoom.roomCode}</strong> đang ở trạng thái <strong>{targetRoom.status === 'Sắp trả' ? 'Sắp trả phòng' : targetRoom.status}</strong> (Khách thuê: <strong>{targetRoom.currentTenantName || 'Chưa ghi nhận'}</strong>, Hợp đồng: {targetRoom.currentContractId || 'Đang hiệu lực'}). </p>
                           <p className="leading-relaxed text-amber-900">
-                            <strong>Căn cứ </strong> Kể cả phòng đã có ngày dự kiến trả ({targetRoom.expectedReturnDate || 'chưa ghi nhận'}), nhãn Sắp trả hay hết hạn hợp đồng ({expBadge}) đều <strong>không thay thế kết quả nhận lại phòng thực tế</strong>. </p>
+                            <strong>Căn cứ </strong> Kể cả phòng đã có ngày dự kiến trả ({targetRoom.expectedReturnDate || 'chưa ghi nhận'}), trạng thái Sắp trả phòng hay việc hết hạn hợp đồng ({expBadge}) đều <strong>không thay thế kết quả nhận lại phòng thực tế</strong>. </p>
                           <p className="text-[11px] text-slate-600 italic pt-1 border-t border-amber-100">
                             * Lưu ý: Có kế hoạch trả có thể đồng thời Đang thuê, nhưng khách thuê hiện tại vẫn có quyền cư trú hợp pháp cho đến khi hoàn tất nhận lại phòng thực tế tại. </p>
                         </div>
@@ -3545,7 +3557,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                     selectedRoom.status === 'Trống' ? 'bg-emerald-100 text-emerald-800':
                     'bg-amber-100 text-amber-800'
                   }`}>
-                    {selectedRoom.status}
+                    {selectedRoom.status === 'Sắp trả' ? 'Sắp trả phòng' : selectedRoom.status}
                   </span>
                 </div>
               </div>
@@ -4671,7 +4683,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                 <div>Lần thuê: <strong className="font-mono text-slate-900">{selectedRoom.currentLeaseId || 'THUE-' + selectedRoom.roomCode}</strong></div>
                 <div>Ngày bắt đầu: <strong className="font-mono text-slate-900">{selectedRoom.contractStartDate || 'Chưa có'}</strong></div>
                 <div>Hạn hợp đồng: <strong className="font-mono text-slate-900">{selectedRoom.contractEndDate || 'Chưa có'}</strong></div>
-                <div>Trạng thái hiện tại: <strong className="text-blue-800">{selectedRoom.status}</strong></div>
+                <div>Trạng thái hiện tại: <strong className="text-blue-800">{selectedRoom.status === 'Sắp trả' ? 'Sắp trả phòng' : selectedRoom.status}</strong></div>
                 <div>Ngày hiện hành: <strong className="font-mono text-amber-800">{selectedRoom.expectedReturnDate || 'Chưa có'}</strong></div>
               </div>
 
@@ -4712,7 +4724,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                     )}
                     {isPastToday && (
                       <span className="text-[10px] text-red-700 font-semibold block pt-1 border-t border-amber-200">
-                        ⚠️ Cảnh báo Ngày trả đã qua nhưng chưa bàn giao. Phòng sẽ ghi Sắp trả, không tự chuyển Trống. </span>
+                        ⚠️ Cảnh báo Ngày trả đã qua nhưng chưa bàn giao. Phòng vẫn ở trạng thái Sắp trả phòng, không tự chuyển thành Trống. </span>
                     )}
                   </div>
                 )}

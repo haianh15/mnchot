@@ -849,6 +849,7 @@ export interface ReceivableReconciliation {
   leaseId: string;
   periodCode: string;
   billId: string;
+  billVersion?: number; // Phiên bản bảng tính đã kiểm tra, tránh dùng kết quả đối chiếu cũ.
   // Nhóm 1: Tiền thuê kỳ tiếp theo (trả trước)
   nextRentPeriodFrom: string;
   nextRentPeriodTo: string;

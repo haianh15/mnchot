@@ -45,7 +45,7 @@ export const HDT01LeaseConditions: React.FC<HDT01Props> = ({
   const [formProspectiveName, setFormProspectiveName] = useState('');
   const [formProspectivePhone, setFormProspectivePhone] = useState('');
   const [formProspectiveId, setFormProspectiveId] = useState('');
-  const [formRoomCode, setFormRoomCode] = useState('P.103');
+  const [formRoomCode, setFormRoomCode] = useState('');
   const [formBatchCode, setFormBatchCode] = useState(batchSchedules[0]?.batchCode || 'DOT-2026-K10');
   const [formStartDate, setFormStartDate] = useState(batchSchedules[0]?.startDate || '2026-10-01');
   const [formEndDate, setFormEndDate] = useState(batchSchedules[0]?.endDate || '2027-04-01');
@@ -84,7 +84,7 @@ export const HDT01LeaseConditions: React.FC<HDT01Props> = ({
         setFormProspectiveName(req.prospectiveTenantName);
         setFormProspectivePhone(req.prospectivePhone);
         setFormProspectiveId(req.prospectiveIdNumber || '');
-        setFormRoomCode(req.roomCode || 'P.103');
+        setFormRoomCode(req.roomCode || '');
         setFormTenantId(req.linkedTenantId || '');
       }
     } else {
@@ -93,7 +93,7 @@ export const HDT01LeaseConditions: React.FC<HDT01Props> = ({
       setFormProspectiveName('');
       setFormProspectivePhone('');
       setFormProspectiveId('');
-      setFormRoomCode('P.103');
+      setFormRoomCode('');
       setFormTenantId('');
     }
 
@@ -193,15 +193,6 @@ export const HDT01LeaseConditions: React.FC<HDT01Props> = ({
     }
   };
 
-  const handleToggleAgreeStatus = (condition: LeaseConditionDraft, agreed: boolean) => {
-    const res = updateLeaseConditionStatusHDT01(
-      condition.requestCode,
-      agreed,
-      agreed ? 'Khách đã xác nhận đồng ý toàn bộ điều kiện tại 4.4a1': 'Khách yêu cầu tiếp tục đàm phán thêm'
-    );
-    alert(toUserMessage(res.message));
-  };
-
   const handleCancelCondition = () => {
     if (!selectedCondition || !cancelReason.trim()) {
       alert('Vui lòng nhập lý do hủy yêu cầu thuê');
@@ -221,11 +212,9 @@ export const HDT01LeaseConditions: React.FC<HDT01Props> = ({
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="font-mono text-xs font-bold bg-blue-700 text-white px-2 py-0.5 rounded">
-              
-            </span>
+
             <h2 className="text-sm font-bold text-slate-900">
-              Điều chỉnh điều kiện thuê (a → 4.5) </h2>
+              Điều kiện thuê đã thống nhất </h2>
           </div>
           <p className="text-xs text-slate-600 mt-1 max-w-2xl leading-relaxed">
             Ghi nhận điều kiện thuê đã thống nhất trực tiếp với khách ở ngoài hệ thống. Kiểm tra phòng, thời hạn, đơn giá và cọc trước khi lập dự thảo hợp đồng. </p>
@@ -236,7 +225,7 @@ export const HDT01LeaseConditions: React.FC<HDT01Props> = ({
           className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm cursor-pointer whitespace-nowrap self-start md:self-center"
         >
           <Plus className="w-4 h-4" />
-          Tiếp nhận & Thiết lập điều kiện </button>
+          Ghi nhận điều kiện thuê </button>
       </div>
 
       {/* Filter and Search Bar */}
@@ -315,7 +304,7 @@ export const HDT01LeaseConditions: React.FC<HDT01Props> = ({
                       ? 'bg-amber-100 text-amber-800 border border-amber-300': 'bg-slate-200 text-slate-700'
                   }`}
                 >
-                  {cond.status}
+                  {cond.status === 'Đang trao đổi' ? 'Chưa hoàn tất hồ sơ' : cond.status}
                 </span>
               </div>
 
@@ -408,24 +397,8 @@ export const HDT01LeaseConditions: React.FC<HDT01Props> = ({
                 </div>
 
                 <div className="flex items-center gap-1.5">
-                  {cond.status === 'Đang trao đổi' && (
-                    <button
-                      onClick={() => handleToggleAgreeStatus(cond, true)}
-                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-[11px] font-semibold flex items-center gap-1 cursor-pointer shadow-2xs"
-                    >
-                      <Check className="w-3 h-3" />
-                      Xác nhận đã thống nhất ngoài hệ thống </button>
-                  )}
-
                   {cond.status === 'Đã thống nhất' && (
                     <>
-                      <button
-                        onClick={() => handleToggleAgreeStatus(cond, false)}
-                        className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-md text-[11px] font-medium cursor-pointer"
-                        title="Đổi lại trạng thái đàm phán tiếp"
-                      >
-                        Đổi ý </button>
-
                       <button
                         onClick={() => {
                           if (onSelectConditionForDraft) {
@@ -837,7 +810,7 @@ export const HDT01LeaseConditions: React.FC<HDT01Props> = ({
               <h3 className="font-bold text-base text-slate-900">Hủy yêu cầu tiếp nhận & điều kiện thuê</h3>
             </div>
             <p className="text-slate-600 leading-relaxed">
-              Bạn đang thực hiện hủy bỏ bộ điều kiện thuê cho yêu cầu <strong className="font-mono">{selectedCondition.requestCode}</strong> (Phòng {selectedCondition.roomCode}). Phòng dự kiến sẽ được giải phóng khỏi danh sách đang thương lượng. </p>
+              Bạn đang thực hiện hủy bỏ bộ điều kiện thuê cho yêu cầu <strong className="font-mono">{selectedCondition.requestCode}</strong> (Phòng {selectedCondition.roomCode}). Nếu hủy hồ sơ, điều kiện này sẽ không được dùng để lập dự thảo hợp đồng. </p>
 
             <div>
               <label className="block font-semibold text-slate-700 mb-1">
