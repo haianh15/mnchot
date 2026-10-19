@@ -104,7 +104,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
   >('inventory_bg01');
 
   // Selected room for active operations
-  const [selectedRoomCode, setSelectedRoomCode] = useState<string>(initialRoomCode || rooms[0]?.roomCode || '');
+  const [selectedRoomCode, setSelectedRoomCode] = useState<string>(initialRoomCode || '');
 
   useEffect(() => { if (initialRoomCode && rooms.some(r=>r.roomCode===initialRoomCode)) handleRoomChange(initialRoomCode); }, [initialRoomCode]);
   // Toast feedback
@@ -486,7 +486,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
             <h1 className="text-lg font-bold text-slate-900">Bàn giao và tài sản</h1>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Quy trình chuẩn 11 Use Case: Nhận phòng (BG01-03) &rarr; Sự cố tài sản (BG04-05) &rarr; Đối chiếu &amp; Xử lý chênh lệch (BG06-07) &rarr; Tạo biên bản &amp; Nhận lại phòng (BG08-09) &rarr; Đối soát cọc (BG10) &rarr; Hoàn thiện biên bản (BG11).
+            Ghi nhận tài sản, tình trạng bàn giao và biên bản theo đúng phòng và lần thuê.
           </p>
         </div>
 
@@ -498,6 +498,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
             onChange={(e) => handleRoomChange(e.target.value)}
             className="px-2.5 py-1 border border-slate-300 rounded bg-white font-mono font-bold text-blue-700 cursor-pointer"
           >
+            <option value="">-- Chọn phòng --</option>
             {rooms.map(r => (
               <option key={r.id} value={r.roomCode}>
                 {r.roomCode} - {r.currentTenantName || 'Trống'} ({r.status})
@@ -507,126 +508,48 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
         </div>
       </div>
 
-      {/* 2-Phase Organized Tab Switcher */}
-      <div className="space-y-1.5">
-        {/* Phase 1: Giai đoạn Nhận phòng & Sự cố (BG01 - BG05) */}
-        <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg overflow-x-auto text-xs shrink-0">
-          <span className="text-[10px] uppercase font-bold text-slate-500 px-2 py-1 tracking-wider shrink-0 bg-slate-200 rounded">
-            Nhận phòng &amp; Sự cố:
-          </span>
-          <button
-            onClick={() => setActiveTab('inventory_bg01')}
-            className={`px-3 py-1.5 rounded-md font-medium transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-              activeTab === 'inventory_bg01' ? 'bg-white text-slate-900 shadow-sm font-semibold' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <ClipboardList className="w- h- text-blue-600" />
-            <span>1. Kiểm kê (BG01)</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('condition_bg02')}
-            className={`px-3 py-1.5 rounded-md font-medium transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-              activeTab === 'condition_bg02' ? 'bg-white text-slate-900 shadow-sm font-semibold' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Camera className="w- h- text-blue-600" />
-            <span>2. Hiện trạng (BG02)</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('handover_bg03')}
-            className={`px-3 py-1.5 rounded-md font-medium transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-              activeTab === 'handover_bg03' ? 'bg-white text-slate-900 shadow-sm font-semibold' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <FileSignature className="w- h- text-blue-600" />
-            <span>3. Biên bản nhận (BG03)</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('incident_add_bg04')}
-            className={`px-3 py-1.5 rounded-md font-medium transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-              activeTab === 'incident_add_bg04' ? 'bg-white text-slate-900 shadow-sm font-semibold' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <AlertOctagon className="w- h- text-amber-600" />
-            <span>4. Ghi sự cố (BG04)</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('incident_search_bg05')}
-            className={`px-3 py-1.5 rounded-md font-medium transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-              activeTab === 'incident_search_bg05' ? 'bg-white text-slate-900 shadow-sm font-semibold' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Search className="w- h- text-blue-600" />
-            <span>5. Tra cứu sự cố (BG05)</span>
-          </button>
+      <div className="bg-white border border-slate-200 rounded-xl p-3 sm:p-4 space-y-3">
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Nhóm nghiệp vụ bàn giao">
+          {([
+            ['inventory_bg01','Nhận phòng'],
+            ['init_report_bg08','Trả phòng'],
+            ['incident_search_bg05','Sự cố tài sản']
+          ] as const).map(([tab,label])=>{
+            const activeGroup = tab==='inventory_bg01' ? ['inventory_bg01','condition_bg02','handover_bg03'].includes(activeTab) :
+              tab==='init_report_bg08' ? ['compare_bg06','result_bg07','init_report_bg08','return_room_bg09','deposit_check_bg10','final_report_bg11'].includes(activeTab) :
+              ['incident_add_bg04','incident_search_bg05'].includes(activeTab);
+            return <button key={tab} onClick={()=>setActiveTab(tab)} className={`rounded-lg px-4 py-2 text-sm font-semibold ${activeGroup?'bg-blue-600 text-white':'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>{label}</button>
+          })}
         </div>
-
-        {/* Phase 2: Giai đoạn Trả phòng & Biên bản (BG06 - BG11) */}
-        <div className="flex items-center gap-1 p-1 bg-emerald-50/70 border border-emerald-200/60 rounded-lg overflow-x-auto text-xs shrink-0">
-          <span className="text-[10px] uppercase font-bold text-emerald-800 px-2 py-1 tracking-wider shrink-0 bg-emerald-100 rounded">
-            Trả phòng &amp; Bàn giao:
-          </span>
-          <button
-            onClick={() => setActiveTab('compare_bg06')}
-            className={`px-3 py-1.5 rounded-md font-medium transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-              activeTab === 'compare_bg06' ? 'bg-white text-slate-900 shadow-sm font-semibold' : 'text-emerald-900 hover:text-slate-900'
-            }`}
-          >
-            <Scale className="w- h- text-emerald-600" />
-            <span>6. Đối chiếu trả (BG06)</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('result_bg07')}
-            className={`px-3 py-1.5 rounded-md font-medium transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-              activeTab === 'result_bg07' ? 'bg-white text-slate-900 shadow-sm font-semibold' : 'text-emerald-900 hover:text-slate-900'
-            }`}
-          >
-            <MessageSquare className="w- h- text-indigo-600" />
-            <span>7. Kết quả đối chiếu (BG07)</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('init_report_bg08')}
-            className={`px-3 py-1.5 rounded-md font-medium transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-              activeTab === 'init_report_bg08' ? 'bg-white text-slate-900 shadow-sm font-semibold' : 'text-emerald-900 hover:text-slate-900'
-            }`}
-          >
-            <FolderOpen className="w- h- text-blue-600" />
-            <span>8. Tạo biên bản trả (BG08)</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('return_room_bg09')}
-            className={`px-3 py-1.5 rounded-md font-medium transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-              activeTab === 'return_room_bg09' ? 'bg-white text-slate-900 shadow-sm font-semibold' : 'text-emerald-900 hover:text-slate-900'
-            }`}
-          >
-            <ShieldAlert className="w- h- text-amber-600" />
-            <span>9. Nhận lại / (BG09)</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('deposit_check_bg10')}
-            className={`px-3 py-1.5 rounded-md font-medium transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-              activeTab === 'deposit_check_bg10' ? 'bg-white text-slate-900 shadow-sm font-semibold' : 'text-emerald-900 hover:text-slate-900'
-            }`}
-          >
-            <DollarSign className="w- h- text-emerald-600" />
-            <span>10. Đối soát cọc (BG10)</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('final_report_bg11')}
-            className={`px-3 py-1.5 rounded-md font-medium transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-              activeTab === 'final_report_bg11' ? 'bg-white text-slate-900 shadow-sm font-semibold' : 'text-emerald-900 hover:text-slate-900'
-            }`}
-          >
-            <FileCheck2 className="w- h- text-blue-700" />
-            <span>11. Hoàn thiện biên bản (BG11)</span>
-          </button>
-        </div>
+        <label className="block text-xs font-semibold text-slate-600">Công việc đang thực hiện
+          <select className="mt-1 block w-full sm:max-w-lg rounded-lg border border-slate-300 p-2.5 text-sm bg-white" value={activeTab} onChange={e=>setActiveTab(e.target.value as typeof activeTab)}>
+            <optgroup label="Nhận phòng">
+              <option value="inventory_bg01">Kiểm kê tài sản</option>
+              <option value="condition_bg02">Ghi nhận hiện trạng</option>
+              <option value="handover_bg03">Lập biên bản nhận phòng</option>
+            </optgroup>
+            <optgroup label="Trả phòng">
+              <option value="init_report_bg08">Khởi tạo biên bản trả phòng</option>
+              <option value="return_room_bg09">Ghi nhận kết quả nhận lại phòng</option>
+              <option value="compare_bg06">Đối chiếu tài sản</option>
+              <option value="result_bg07">Ghi nhận kết quả đối chiếu</option>
+              <option value="deposit_check_bg10">Theo dõi kết quả quyết toán cọc</option>
+              <option value="final_report_bg11">Hoàn thiện biên bản trả phòng</option>
+            </optgroup>
+            <optgroup label="Sự cố tài sản">
+              <option value="incident_search_bg05">Tra cứu sự cố</option>
+              <option value="incident_add_bg04">Ghi nhận sự cố mới</option>
+            </optgroup>
+          </select>
+        </label>
       </div>
+
+      {!selectedRoomCode && <div className="bg-amber-50 border border-amber-200 text-amber-900 text-sm rounded-xl p-4">Vui lòng chọn phòng cụ thể để mở hồ sơ bàn giao, tài sản và biên bản nguồn.</div>}
 
       {/* =========================================================================
           TAB 1: KIỂM KÊ TÀI SẢN PHÒNG 
       ========================================================================= */}
-      {activeTab === 'inventory_bg01' && (
+      {selectedRoomCode && activeTab === 'inventory_bg01' && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-4 text-xs">
           {/* Header Card */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-3">
@@ -848,7 +771,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
       {/* =========================================================================
           TAB 2: GHI NHẬN HIỆN TRẠNG TÀI SẢN 
       ========================================================================= */}
-      {activeTab === 'condition_bg02' && (
+      {selectedRoomCode && activeTab === 'condition_bg02' && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-4 text-xs">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-3">
             <div>
@@ -1214,7 +1137,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
       {/* =========================================================================
           TAB 3: LẬP BIÊN BẢN NHẬN PHÒNG 
       ========================================================================= */}
-      {activeTab === 'handover_bg03' && (() => {
+      {selectedRoomCode && activeTab === 'handover_bg03' && (() => {
         // Evaluate Mandatory Prerequisites for 1.06 Lưu Đã lập
         const cond1ContractValid = Boolean(targetContract && (targetContract.status === 'Hiệu lực' || targetContract.isSignedPaper));
         const cond2DepositPaid = Boolean((currentInitialPayment && currentInitialPayment.depositAmount > 0) || selectedRoom.hasDeposit);
@@ -1470,7 +1393,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
       {/* =========================================================================
           TAB 4: GHI NHẬN SỰ CỐ TÀI SẢN 
       ========================================================================= */}
-      {activeTab === 'incident_add_bg04' && (
+      {selectedRoomCode && activeTab === 'incident_add_bg04' && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-4 text-xs">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-3">
             <div>
@@ -1698,7 +1621,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
       {/* =========================================================================
           TAB 5: TRA CỨU LỊCH SỬ SỰ CỐ TÀI SẢN 
       ========================================================================= */}
-      {activeTab === 'incident_search_bg05' && (() => {
+      {selectedRoomCode && activeTab === 'incident_search_bg05' && (() => {
         // Filter incidents according to room and criteria
         const roomIncidents = incidents.filter(i => {
           if (i.roomCode !== selectedRoomCode) return false;
@@ -1943,7 +1866,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
       {/* =========================================================================
           TAB 6: ĐỐI CHIẾU TÀI SẢN KHI TRẢ PHÒNG 
       ========================================================================= */}
-      {activeTab === 'compare_bg06' && (() => {
+      {selectedRoomCode && activeTab === 'compare_bg06' && (() => {
         // Evaluate Prerequisites for 
         const step305Confirmed = Boolean(returnInspectionTarget?.step305Confirmed);
         const reportConfirmedBG03 = Boolean(existingReport && existingReport.status === 'Đã xác nhận');
@@ -2164,7 +2087,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
       {/* =========================================================================
           TAB 7: GHI NHẬN KẾT QUẢ ĐỐI CHIẾU TÀI SẢN 
       ========================================================================= */}
-      {activeTab === 'result_bg07' && (() => {
+      {selectedRoomCode && activeTab === 'result_bg07' && (() => {
         // Evaluate sources from BG06 and BG05
         const hasDiffFromBG06 = comparisonItems.length > 0
           ? comparisonItems.some((i: { diffResult: string }) => i.diffResult === 'Khác biệt')
@@ -2659,7 +2582,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
               </button>
 
               <div className="flex flex-wrap items-center gap-2">
-                <label className="flex items-center gap-1.5 text-[11px] text-slate-500 bg-slate-50 border border-slate-200 px-2 py-1.5 rounded-lg cursor-pointer hover:bg-slate-100" title="Bật để kiểm thử Luồng ngoại lệ : Lỗi lưu kết quả đối chiếu">
+                <label className="hidden flex items-center gap-1.5 text-[11px] text-slate-500 bg-slate-50 border border-slate-200 px-2 py-1.5 rounded-lg cursor-pointer hover:bg-slate-100" title="Chỉ dùng trong môi trường kiểm thử">
                   <input
                     type="checkbox"
                     checked={bg07SimulateSaveFailure}
@@ -2698,7 +2621,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
       {/* =========================================================================
           TAB 8: KHỞI TẠO BIÊN BẢN TRẢ PHÒNG 
       ========================================================================= */}
-      {activeTab === 'init_report_bg08' && (() => {
+      {selectedRoomCode && activeTab === 'init_report_bg08' && (() => {
         const hasReceiveReport = Boolean(existingReport);
         const isReceiveReportConfirmed = Boolean(existingReport && existingReport.status === 'Đã xác nhận');
 
@@ -3027,7 +2950,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
       {/* =========================================================================
           TAB 9: GHI NHẬN KẾT QUẢ NHẬN LẠI PHÒNG 
       ========================================================================= */}
-      {activeTab === 'return_room_bg09' && (() => {
+      {selectedRoomCode && activeTab === 'return_room_bg09' && (() => {
         // Evaluate completeness of 
         const allItemsChecked = bg09Items.every(i => i.inspected);
         const hasMissingReason = bg09Items.filter(i => !i.inspected).every(i => Boolean(i.reasonIfNotInspected && i.reasonIfNotInspected.trim()));
@@ -3433,7 +3356,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
       {/* =========================================================================
           TAB 10: THEO DÕI ĐỐI SOÁT CỌC 
       ========================================================================= */}
-      {activeTab === 'deposit_check_bg10' && (() => {
+      {selectedRoomCode && activeTab === 'deposit_check_bg10' && (() => {
         // Evaluate quyết toán cọc settlement slip status
         const slip = matchingSettlementSlip;
         const initialDeposit = slip?.initialDepositAmount || currentInitialPayment?.depositAmount || 3800000;
@@ -3647,7 +3570,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
       {/* =========================================================================
           TAB 11: HOÀN THIỆN BIÊN BẢN TRẢ PHÒNG 
       ========================================================================= */}
-      {activeTab === 'final_report_bg11' && (() => {
+      {selectedRoomCode && activeTab === 'final_report_bg11' && (() => {
         // Evaluate the 3 distinct thresholds
         // Threshold A: Mở / Xem / Lưu nháp -> always true
         // Threshold B: Điều kiện Lưu Đã lập (Bước 2):

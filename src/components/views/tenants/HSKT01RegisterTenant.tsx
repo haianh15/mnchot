@@ -9,9 +9,10 @@ import {
 interface HSKT01Props {
   onNavigateToTab: (tab: 'tenants' | 'co_tenants' | 'verify' | 'update' | 'history') => void;
   onSelectTenantForUpdate?: (tenantId: string) => void;
+  onSelectTenant?: (tenantId: string) => void;
 }
 
-export const HSKT01RegisterTenant: React.FC<HSKT01Props> = ({ onNavigateToTab, onSelectTenantForUpdate }) => {
+export const HSKT01RegisterTenant: React.FC<HSKT01Props> = ({ onNavigateToTab, onSelectTenantForUpdate, onSelectTenant }) => {
   const {
     tenants,
     addTenantHSKT01,
@@ -469,6 +470,12 @@ export const HSKT01RegisterTenant: React.FC<HSKT01Props> = ({ onNavigateToTab, o
                       </td>
                       <td className="py-2.5 px-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => onSelectTenant?.(t.id)}
+                            className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-[11px] font-medium"
+                          >
+                            Xem chi tiết
+                          </button>
                           <button
                             onClick={() => {
                               onSelectTenantForUpdate?.(t.id);

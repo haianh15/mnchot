@@ -4,7 +4,6 @@ import { Header } from './components/layout/Header';
 import { Sidebar, NavTabKey, NAV_ITEMS } from './components/layout/Sidebar';
 import { LoginModal } from './components/auth/LoginModal';
 import { AccountProfileModal } from './components/auth/AccountProfileModal';
-import { DashboardView } from './components/views/DashboardView';
 import { ConfigView } from './components/views/ConfigView';
 import { RoomsView } from './components/views/RoomsView';
 import { HandoverAssetsView } from './components/views/HandoverAssetsView';
@@ -18,10 +17,10 @@ import { ReportsView } from './components/views/ReportsView';
 
 const MainAppContent: React.FC = () => {
   const { currentSession, authNotification } = useApp();
-  const [currentTab, setCurrentTab] = useState<NavTabKey>('dashboard');
+  const [currentTab, setCurrentTab] = useState<NavTabKey>('rooms');
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [target, setTarget] = useState<{roomCode?: string; contractId?: string; tenantId?: string; leaseId?: string}>({});
+  const [target, setTarget] = useState<{roomCode?: string; contractId?: string; tenantId?: string; leaseId?: string; billId?: string; noticeId?: string}>({});
   const navigate = (tab: NavTabKey, record: typeof target = {}) => { setTarget(record); setCurrentTab(tab); };
   const authenticated = currentSession?.type === 'admin' && currentSession.expiresAt > Date.now();
 
@@ -53,10 +52,6 @@ const MainAppContent: React.FC = () => {
             </div>
           )}
 
-          {currentTab === 'dashboard' && (
-            <DashboardView onNavigate={(tab) => navigate(tab)} />
-          )}
-
           {currentTab === 'rooms' && <RoomsView onNavigate={navigate} initialRoomCode={target.roomCode} />}
 
           {currentTab === 'handover' && <HandoverAssetsView initialRoomCode={target.roomCode} />}
@@ -66,14 +61,14 @@ const MainAppContent: React.FC = () => {
           {currentTab === 'contracts' && <ContractsView initialContractId={target.contractId} onBackToRooms={(roomCode) => navigate('rooms', {roomCode})} />}
 
           {currentTab === 'billing' && (
-            <BillingView onNavigateToNotices={() => navigate('notices')} />
+            <BillingView onNavigateToNotices={(billId) => navigate('notices',{billId})} />
           )}
 
           {currentTab === 'notices' && (
-            <PaymentNoticesView onNavigateToReceipts={() => navigate('receipts')} />
+            <PaymentNoticesView initialBillId={target.billId} onNavigateToReceipts={(noticeId) => navigate('receipts',{noticeId})} />
           )}
 
-          {currentTab === 'receipts' && <PaymentReceiptsView />}
+          {currentTab === 'receipts' && <PaymentReceiptsView initialNoticeId={target.noticeId} />}
 
           {currentTab === 'debts' && <DebtsView />}
 
@@ -89,7 +84,7 @@ const MainAppContent: React.FC = () => {
       <LoginModal
         isOpen={!authenticated || showLoginModal}
         onClose={() => setShowLoginModal(false)}
-        onSuccess={() => setCurrentTab('dashboard')}
+        onSuccess={() => navigate('rooms')}
       />
 
       <AccountProfileModal

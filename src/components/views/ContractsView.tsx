@@ -10,6 +10,7 @@ import { HDT02DraftContract } from './contracts/HDT02DraftContract';
 import { HDT03SendAndNegotiate } from './contracts/HDT03SendAndNegotiate';
 import { HDT04ReceiveSignedContract } from './contracts/HDT04ReceiveSignedContract';
 import { HDT05BatchSchedules } from './contracts/HDT05BatchSchedules';
+import { HDT05ContractExpiry } from './contracts/HDT05ContractExpiry';
 import { HDT06RenewalContract } from './contracts/HDT06RenewalContract';
 import { DepositSettlementView } from './DepositSettlementView';
 import { HDT07ActivateRenewal } from './contracts/HDT07ActivateRenewal';
@@ -21,6 +22,7 @@ export type ContractTabKey =
   | 'draft'
   | 'negotiate'
   | 'sign'
+  | 'expiry'
   | 'schedules'
   | 'renewal'
   | 'activate';
@@ -39,6 +41,7 @@ export const ContractsView: React.FC<{initialContractId?: string; onBackToRooms?
 
   const [selectedContractId, setSelectedContractId] = useState(initialContractId || '');
   const [searchContract, setSearchContract] = useState('');
+  const [showMoreTools, setShowMoreTools] = useState(false);
   useEffect(() => { if (initialContractId) {setSelectedContractId(initialContractId); setActiveTab('overview');} }, [initialContractId]);
   const selectedContract = contracts.find(c => c.id === selectedContractId);
   const linkedSlips = settlementSlips.filter(s => s.leaseId === selectedContract?.leaseId);
@@ -74,7 +77,11 @@ export const ContractsView: React.FC<{initialContractId?: string; onBackToRooms?
         <div className="bg-white border border-slate-200 rounded-xl p-4">
           <h1 className="font-bold text-lg text-slate-900">Quản lý hợp đồng · Danh sách hợp đồng</h1>
           <p className="text-xs text-slate-500 mt-1">Chọn hợp đồng để xem chi tiết, gia hạn hoặc quyết toán cọc theo điều kiện.</p>
-          <input value={searchContract} onChange={e=>setSearchContract(e.target.value)} placeholder="Tìm mã hợp đồng, phòng hoặc khách thuê" className="mt-3 w-full md:w-96 rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          <div className="flex flex-wrap gap-2 mt-3 items-center">
+            <input value={searchContract} onChange={e=>setSearchContract(e.target.value)} placeholder="Tìm mã hợp đồng, phòng hoặc khách thuê" className="w-full sm:w-auto sm:flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+            <button onClick={()=>setActiveTab('expiry')} className="px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">Theo dõi hạn hợp đồng</button>
+            <button onClick={()=>setActiveTab('conditions')} className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold">+ Lập hợp đồng</button>
+          </div>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
           <div className="lg:col-span-2 bg-white rounded-xl border p-3 space-y-2 max-h-[650px] overflow-y-auto">
@@ -104,113 +111,35 @@ export const ContractsView: React.FC<{initialContractId?: string; onBackToRooms?
               </div>
               <div className="flex flex-wrap gap-2 text-sm">
                 {onBackToRooms && <button onClick={()=>onBackToRooms(selectedContract.roomCode)} className="px-3 py-2 rounded-lg border">Xem phòng</button>}
-                {selectedContract.status==='Nháp' && <button onClick={()=>{setSelectedContractForSign(selectedContract);setActiveTab('draft')}} className="px-3 py-2 rounded-lg border">Sửa dự thảo</button>}
+                {selectedContract.status==='Nháp' && <button onClick={()=>setActiveTab('negotiate')} className="px-3 py-2 rounded-lg border">Điều chỉnh dự thảo</button>}
                 {['Nháp','Chờ khách ký'].includes(selectedContract.status) && <button onClick={()=>handleSelectContractForSign(selectedContract)} className="px-3 py-2 rounded-lg border">Ghi nhận ký</button>}
                 {['Hiệu lực','Đã ký','Chờ hiệu lực'].includes(selectedContract.status) && <button onClick={()=>setActiveTab('renewal')} className="px-3 py-2 rounded-lg border">Lập hợp đồng nối tiếp</button>}
               </div>
             </>}
           </div>
         </div>
-        <button onClick={()=>setActiveTab('conditions')} className="text-sm text-blue-700 underline">Ghi nhận điều kiện thuê đã thống nhất / công cụ lập hợp đồng</button>
+        <div className="border-t border-slate-200 pt-3">
+          <button onClick={()=>setShowMoreTools(!showMoreTools)} aria-expanded={showMoreTools} className="text-sm text-slate-700 font-semibold underline underline-offset-2">{showMoreTools ? 'Ẩn' : 'Hiện'} các công cụ hợp đồng khác</button>
+          {showMoreTools && <div className="mt-3 flex flex-wrap gap-2 text-sm">
+            <button className="px-3 py-2 border rounded-lg" onClick={()=>setActiveTab('schedules')}>Lịch đợt hợp đồng chung</button>
+            <button className="px-3 py-2 border rounded-lg" onClick={()=>setActiveTab('negotiate')}>Điều chỉnh dự thảo</button>
+            <button className="px-3 py-2 border rounded-lg" onClick={()=>setActiveTab('activate')}>Ghi nhận hợp đồng nối tiếp</button>
+          </div>}
+        </div>
       </div>}
       {activeTab === 'settlement' && selectedContract && <div className="space-y-3">
         <button onClick={()=>setActiveTab('overview')} className="px-3 py-2 border rounded-lg text-sm bg-white">← Quay lại Chi tiết hợp đồng</button>
         <DepositSettlementView leaseId={selectedContract.leaseId} />
       </div>}
-      {/* Top Header Card */}
-      {activeTab !== 'overview' && activeTab !== 'settlement' && <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Action screens are contextual. The page no longer exposes every UC as a navigation tab. */}
+      {activeTab !== 'overview' && activeTab !== 'settlement' && <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-wrap gap-3 items-center justify-between">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-lg font-bold text-slate-900">
-              Quản lý hợp đồng
-            </h1>
-            
-          </div>
-
+          <p className="text-xs font-semibold text-blue-700">Quản lý hợp đồng</p>
+          <h1 className="font-bold text-lg">{{conditions:'Ghi nhận điều kiện thuê đã thống nhất',draft:'Lập dự thảo hợp đồng',negotiate:'Điều chỉnh dự thảo',sign:'Ghi nhận hợp đồng đã ký',expiry:'Theo dõi hạn hợp đồng',schedules:'Lịch đợt hợp đồng chung',renewal:'Lập hợp đồng nối tiếp',activate:'Ghi nhận ký hợp đồng nối tiếp'}[activeTab]}</h1>
         </div>
-
-        {/* Tab Switcher */}
-        <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg text-xs overflow-x-auto shrink-0 max-w-full">
-          <button
-            onClick={() => setActiveTab('conditions')}
-            className={`px-3 py-1.5 rounded-md transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
-              activeTab === 'conditions'
-                ? 'bg-white text-blue-700 shadow-xs font-bold': 'text-slate-600 hover:text-slate-900 font-medium'
-            }`}
-          >
-            <Sliders className="w-3.5 h-3.5" />
-            <span>Điều kiện thuê ({conditionsCount})</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('draft')}
-            className={`px-3 py-1.5 rounded-md transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
-              activeTab === 'draft'
-                ? 'bg-white text-blue-700 shadow-xs font-bold': 'text-slate-600 hover:text-slate-900 font-medium'
-            }`}
-          >
-            <Edit3 className="w-3.5 h-3.5" />
-            <span>Lập/Sửa nháp</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('negotiate')}
-            className={`px-3 py-1.5 rounded-md transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
-              activeTab === 'negotiate'
-                ? 'bg-white text-amber-700 shadow-xs font-bold': 'text-slate-600 hover:text-slate-900 font-medium'
-            }`}
-          >
-            <Send className="w-3.5 h-3.5" />
-            <span>Gửi ký ({draftOrNegotiatingCount})</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('sign')}
-            className={`px-3 py-1.5 rounded-md transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
-              activeTab === 'sign'
-                ? 'bg-white text-emerald-700 shadow-xs font-bold': 'text-slate-600 hover:text-slate-900 font-medium'
-            }`}
-          >
-            <FileCheck className="w-3.5 h-3.5" />
-            <span>Ghi nhận ký</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('schedules')}
-            className={`px-3 py-1.5 rounded-md transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
-              activeTab === 'schedules'
-                ? 'bg-white text-slate-900 shadow-xs font-bold': 'text-slate-600 hover:text-slate-900 font-medium'
-            }`}
-          >
-            <Calendar className="w-3.5 h-3.5" />
-            <span>Lịch đợt thanh toán ({batchSchedules.length})</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('renewal')}
-            className={`px-3 py-1.5 rounded-md transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
-              activeTab === 'renewal'
-                ? 'bg-white text-indigo-700 shadow-xs font-bold': 'text-slate-600 hover:text-slate-900 font-medium'
-            }`}
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Gia hạn hợp đồng ({renewalCount})</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('activate')}
-            className={`px-3 py-1.5 rounded-md transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
-              activeTab === 'activate'
-                ? 'bg-white text-purple-700 shadow-xs font-bold': 'text-slate-600 hover:text-slate-900 font-medium'
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Kích hoạt hợp đồng nối tiếp</span>
-          </button>
-        </div>
+        <button onClick={()=>setActiveTab('overview')} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold hover:bg-slate-50">← Danh sách hợp đồng</button>
       </div>}
-
-      {activeTab !== 'overview' && activeTab !== 'settlement' && <button onClick={()=>setActiveTab('overview')} className="mb-3 px-3 py-2 border rounded-lg text-sm bg-white">← Danh sách hợp đồng</button>}
+      {activeTab === 'expiry' && <HDT05ContractExpiry onSelectContract={(id)=>{setSelectedContractId(id);setActiveTab('overview');}}/>}
       {/* Tab Panels */}
       <div>
         {activeTab === 'conditions' && (

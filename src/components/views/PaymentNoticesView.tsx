@@ -8,10 +8,11 @@ import {
 } from 'lucide-react';
 
 interface PaymentNoticesViewProps {
-  onNavigateToReceipts?: () => void;
+  onNavigateToReceipts?: (noticeId: string) => void;
+  initialBillId?: string;
 }
 
-export const PaymentNoticesView: React.FC<PaymentNoticesViewProps> = ({ onNavigateToReceipts }) => {
+export const PaymentNoticesView: React.FC<PaymentNoticesViewProps> = ({ onNavigateToReceipts, initialBillId }) => {
   const {
     paymentNotices,
     periodBills,
@@ -26,11 +27,11 @@ export const PaymentNoticesView: React.FC<PaymentNoticesViewProps> = ({ onNaviga
   } = useApp();
 
   // Active top tab in QT07
-  const [activeTab, setActiveTab] = useState<'uc07_1' | 'uc07_2' | 'uc07_3'>('uc07_1');
+  const [activeTab, setActiveTab] = useState<'uc07_1' | 'uc07_2' | 'uc07_3'>('uc07_3');
 
   // UC07.1 State
   const [selectedBillId, setSelectedBillId] = useState<string>(
-    periodBills.find(b => b.isConfirmed)?.id || (periodBills[0]?.id || '')
+    initialBillId || periodBills.find(b => b.isConfirmed)?.id || ''
   );
   const [currentReconciliation, setCurrentReconciliation] = useState<ReceivableReconciliation | null>(null);
   const [showBillSourceModal, setShowBillSourceModal] = useState<boolean>(false);
@@ -58,6 +59,14 @@ export const PaymentNoticesView: React.FC<PaymentNoticesViewProps> = ({ onNaviga
   const [noticeFilter, setNoticeFilter] = useState<'ALL' | 'ACTIVE' | 'REPLACED' | 'UNPAID' | 'PAID'>('ALL');
 
   const noticeCardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (initialBillId) {
+      setSelectedBillId(initialBillId);
+      setCreateBillId(initialBillId);
+      setActiveTab('uc07_1');
+    }
+  }, [initialBillId]);
 
   // Initialize reconciliation for selected bill
   useEffect(() => {
@@ -317,36 +326,11 @@ export const PaymentNoticesView: React.FC<PaymentNoticesViewProps> = ({ onNaviga
           </div>
         </div>
 
-        {/* 3 Steps Segmented Control */}
-        <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-semibold shrink-0">
-          <button
-            onClick={() => setActiveTab('uc07_1')}
-            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'uc07_1' ? 'bg-white text-blue-700 shadow-xs': 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <span className="w-4 h-4 rounded-full bg-blue-100 text-blue-800 text-[10px] flex items-center justify-center font-bold">1</span>
-            Đối chiếu khoản phải thu
-          </button>
-          <button
-            onClick={() => setActiveTab('uc07_2')}
-            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'uc07_2' ? 'bg-white text-blue-700 shadow-xs': 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <span className="w-4 h-4 rounded-full bg-blue-100 text-blue-800 text-[10px] flex items-center justify-center font-bold">2</span>
-            Lập thông báo
-          </button>
-          <button
-            onClick={() => setActiveTab('uc07_3')}
-            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'uc07_3' ? 'bg-white text-blue-700 shadow-xs': 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <span className="w-4 h-4 rounded-full bg-blue-100 text-blue-800 text-[10px] flex items-center justify-center font-bold">3</span>
-            Xem/Tải QR & Chia sẻ
-          </button>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={()=>setActiveTab('uc07_3')} className={`px-3 py-2 rounded-lg text-sm font-semibold ${activeTab==='uc07_3'?'bg-blue-50 text-blue-700 border border-blue-200':'border border-slate-200 text-slate-700 bg-white hover:bg-slate-50'}`}>Danh sách thông báo</button>
+          <button onClick={()=>setActiveTab('uc07_1')} className="px-3 py-2 rounded-lg text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700">+ Đối chiếu để lập thông báo</button>
         </div>
+
       </div>
 
       {/* ========================================================================= */}
@@ -1037,7 +1021,7 @@ export const PaymentNoticesView: React.FC<PaymentNoticesViewProps> = ({ onNaviga
 
                 {selectedNotice.status === 'Đang hiệu lực' && selectedNotice.paymentStatus === 'Chưa thu' && onNavigateToReceipts && (
                   <button
-                    onClick={onNavigateToReceipts}
+                    onClick={() => onNavigateToReceipts(selectedNotice.id)}
                     className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-all"
                   >
                     Xác nhận thu tiền tại ngân hàng →

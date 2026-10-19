@@ -3484,18 +3484,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     // Bước 5 & 6: Xử lý trong một lần duy nhất (ATOMIC)
-    // 1. Cập nhật công nợ (paymentNotices)
+    // 1. Chỉ quyết toán các nghĩa vụ được chỉ đích danh trong phiếu.
+    // Tuyệt đối không đóng toàn bộ thông báo của một lần thuê chỉ vì có kết quả QTC.
+    // Khoản trừ một phần không được coi như đã thanh toán toàn bộ thông báo.
     setPaymentNotices(prev => prev.map(n => {
-      if (n.roomCode === slip.roomCode && n.leaseId === slip.leaseId) {
-        if (n.paymentStatus === 'Chưa thu') {
-          return {
-            ...n,
-            paymentStatus: slip.calculatedResult >= 0 ? 'Đã xử lý bằng cọc' : 'Đã thu',
-            // mã QR cũ không còn dùng để thu
-            status: 'Đã thanh toán' as any
-          };
-        }
+      if (n.roomCode !== slip.roomCode || n.leaseId !== slip.leaseId ||
+          n.paymentStatus !== 'Chưa thu' || n.status !== 'Đang hiệu lực') return n;
+      const offset = slip.deductions
+        .filter(d => d.category === 'Công nợ kỳ trước' &&
+          (d.id === `ded_overdue_${n.id}` || d.description.includes(n.noticeCode)))
+        .reduce((sum, d) => sum + d.amount, 0);
+      if (offset <= 0) return n;
+      if (offset >= n.totalAmount) {
+        // Đủ số dư bằng cọc: không tiếp tục yêu cầu chuyển khoản vào QR cũ.
+        return {...n, paymentStatus: 'Đã xử lý bằng cọc', status: 'Đã thanh toán'};
       }
+      // Còn số dư: giữ nguyên nghĩa vụ gốc; sổ công nợ trừ phần cọc đã phân bổ.
       return n;
     }));
 

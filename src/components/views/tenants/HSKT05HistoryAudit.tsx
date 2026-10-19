@@ -6,11 +6,11 @@ import {
   UserCheck, ShieldCheck, FileText, CheckCircle2, Building2, X
 } from 'lucide-react';
 
-export const HSKT05HistoryAudit: React.FC = () => {
+export const HSKT05HistoryAudit: React.FC<{tenantId?: string}> = ({tenantId}) => {
   const { tenantHistory, tenants, contracts } = useApp();
 
   // Filters
-  const [filterTenantId, setFilterTenantId] = useState<string>('all');
+  const [filterTenantId, setFilterTenantId] = useState<string>(tenantId || 'all');
   const [filterModule, setFilterModule] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFrom, setDateFrom] = useState('');
@@ -21,7 +21,7 @@ export const HSKT05HistoryAudit: React.FC = () => {
 
   // Filtered entries
   const filteredHistory = tenantHistory.filter(h => {
-    if (filterTenantId !== 'all' && h.tenantId !== filterTenantId) return false;
+    if ((tenantId || filterTenantId) !== 'all' && h.tenantId !== (tenantId || filterTenantId)) return false;
     if (filterModule !== 'all' && h.sourceModule && !h.sourceModule.includes(filterModule)) return false;
 
     if (dateFrom && h.timestamp < dateFrom) return false;
@@ -74,7 +74,8 @@ export const HSKT05HistoryAudit: React.FC = () => {
           <div>
             <label className="block text-slate-500 text-[11px] mb-1">Khách thuê</label>
             <select
-              value={filterTenantId}
+              disabled={Boolean(tenantId)}
+              value={tenantId || filterTenantId}
               onChange={(e) => setFilterTenantId(e.target.value)}
               className="w-full p-2 border border-slate-300 rounded-lg bg-white"
             >

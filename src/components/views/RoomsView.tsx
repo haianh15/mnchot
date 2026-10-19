@@ -426,7 +426,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
       <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-800">Quy trình 01</span>
+            
             <h1 className="text-lg font-bold text-slate-900">Quản lý phòng</h1>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
@@ -434,41 +434,19 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
           </p>
         </div>
 
-        {/* Sub tabs */}
-        <div className="flex flex-wrap items-center gap-1 p-1 bg-slate-100 rounded-lg shrink-0">
-          <button
-            onClick={() => setSubTab('list')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${subTab === 'list' ? 'bg-white text-slate-900 shadow-sm font-semibold': 'text-slate-600 hover:text-slate-900'}`}
-          >
-            Danh sách phòng
-          </button>
-          <button
-            onClick={() => setSubTab('checkin')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer flex items-center gap-1.5 ${subTab === 'checkin' ? 'bg-blue-600 text-white shadow-sm font-semibold': 'text-blue-700 hover:bg-blue-50 font-medium'}`}
-          >
-            <Key className="w-3.5 h-3.5" />
-            <span>Tiếp nhận</span>
-          </button>
-          <button
-            onClick={() => setSubTab('return')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer flex items-center gap-1.5 ${subTab === 'return' ? 'bg-emerald-600 text-white shadow-sm font-semibold': 'text-emerald-700 hover:bg-emerald-50 font-medium'}`}
-          >
-            <PackageCheck className="w-3.5 h-3.5" />
-            <span>Trả phòng</span>
-          </button>
-          <button
-            onClick={() => setSubTab('expiry')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${subTab === 'expiry' ? 'bg-white text-slate-900 shadow-sm font-semibold': 'text-slate-600 hover:text-slate-900'}`}
-          >
-            Thời hạn thuê
-          </button>
-          <button
-            onClick={() => setSubTab('plans')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${subTab === 'plans' ? 'bg-white text-slate-900 shadow-sm font-semibold': 'text-slate-600 hover:text-slate-900'}`}
-          >
-            Kế hoạch trả
-          </button>
+        <div className="flex flex-wrap gap-2 items-center">
+          {subTab !== 'list' && <button onClick={()=>setSubTab('list')} className="rounded-lg border px-3 py-2 text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50">← Danh sách phòng</button>}
+          <label className="text-xs font-semibold text-slate-600">Thao tác nghiệp vụ
+            <select value={subTab} onChange={e=>setSubTab(e.target.value as typeof subTab)} className="block mt-1 rounded-lg border px-3 py-2 bg-white text-sm text-slate-800 w-full sm:w-auto">
+              <option value="list">Danh sách phòng</option>
+              <option value="checkin">Tiếp nhận phòng</option>
+              <option value="return">Trả phòng thực tế</option>
+              <option value="expiry">Theo dõi thời hạn thuê</option>
+              <option value="plans">Kế hoạch trả phòng</option>
+            </select>
+          </label>
         </div>
+
       </div>
 
       {/* ==================== SUB-TAB 1: ROOMS LIST (, 02) ==================== */}
@@ -1185,7 +1163,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                       </select>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-3 pt-1 border-t border-slate-200 text-[11px]">
+                    <div className="hidden flex flex-wrap items-center gap-3 pt-1 border-t border-slate-200 text-[11px]">
                       <span className="font-semibold text-slate-600">Mô phỏng ngoại lệ:</span>
                       <label className="flex items-center gap-1 cursor-pointer">
                         <input
@@ -1765,7 +1743,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
             </div>
 
             {/* Toggle mô phỏng */}
-            <label className="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 cursor-pointer self-start md:self-auto">
+            <label className="hidden flex items-center gap-2 text-xs text-slate-600 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 cursor-pointer self-start md:self-auto">
               <input
                 type="checkbox"
                 checked={simulateExpiryEF01}
@@ -3952,7 +3930,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                       </span>
                     </div>
                     {/* Toggle mô phỏng Exception Flow */}
-                    <label className="flex items-center gap-1.5 text-slate-500 cursor-pointer select-none">
+                    <label className="hidden flex items-center gap-1.5 text-slate-500 cursor-pointer select-none">
                       <input
                         type="checkbox"
                         checked={simulateEF01}
@@ -4720,7 +4698,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
 
               {/* Toggles mô phỏng kiểm thử ngoại lệ, */}
               <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-600">
-                <span className="font-semibold text-slate-700">Mô phỏng kiểm thử ngoại lệ:</span>
+                <span className="hidden font-semibold text-slate-700">Mô phỏng kiểm thử ngoại lệ:</span>
                 <div className="flex items-center gap-3">
                   <label className="flex items-center gap-1 cursor-pointer">
                     <input
@@ -5537,7 +5515,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                   >
                     Xem hồ sơ bàn giao
                   </button>
-                  <label className="flex items-center gap-1 text-[11px] text-slate-500 cursor-pointer">
+                  <label className="hidden flex items-center gap-1 text-[11px] text-slate-500 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={returnSimulateEF01}

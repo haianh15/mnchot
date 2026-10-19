@@ -605,7 +605,7 @@ export const ReportsView: React.FC = () => {
             <span className="text-slate-300">|</span>
             <span className="flex items-center gap-1">
               <Database className="w-3.5 h-3.5 text-indigo-600" />
-              Nguồn dữ liệu: <strong className="text-indigo-900"> v2.4 (Chỉ đọc)</strong>
+              Nguồn dữ liệu: <strong className="text-indigo-900">Bản ghi nghiệp vụ (chỉ đọc)</strong>
             </span>
             <span className="text-slate-300">|</span>
             <span className="flex items-center gap-1">
@@ -636,51 +636,12 @@ export const ReportsView: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Tab Navigation */}
-      <div className="flex items-center gap-1 p-1 bg-slate-200/80 rounded-xl text-xs overflow-x-auto">
-        <button
-          onClick={() => setActiveTab('occupancy_bc01')}
-          className={`px-4 py-2 rounded-lg font-semibold transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
-            activeTab === 'occupancy_bc01'
-              ? 'bg-white text-blue-800 shadow-sm border border-slate-200': 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <PieChart className="w-4 h-4 text-blue-600" />
-          Báo cáo phòng
-        </button>
-
-        <button
-          onClick={() => setActiveTab('financial_bc02')}
-          className={`px-4 py-2 rounded-lg font-semibold transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
-            activeTab === 'financial_bc02'
-              ? 'bg-white text-blue-800 shadow-sm border border-slate-200': 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <DollarSign className="w-4 h-4 text-emerald-600" />
-          Báo cáo tài chính
-        </button>
-
-        <button
-          onClick={() => setActiveTab('reconciliation_bc03')}
-          className={`px-4 py-2 rounded-lg font-semibold transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
-            activeTab === 'reconciliation_bc03'
-              ? 'bg-white text-blue-800 shadow-sm border border-slate-200': 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <ShieldCheck className="w-4 h-4 text-purple-600" />
-          Đối soát
-        </button>
-
-        <button
-          onClick={() => setActiveTab('executive_bc04')}
-          className={`px-4 py-2 rounded-lg font-semibold transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
-            activeTab === 'executive_bc04'
-              ? 'bg-white text-blue-800 shadow-sm border border-slate-200': 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <FileSpreadsheet className="w-4 h-4 text-indigo-600" />
-          Báo cáo tổng hợp
-        </button>
+      <div className="rounded-xl bg-white border border-slate-200 p-3 flex flex-wrap gap-2 items-center">
+        <button onClick={()=>setActiveTab('occupancy_bc01')} className={`px-3 py-2 rounded-lg text-sm font-semibold ${activeTab==='occupancy_bc01'?'bg-blue-600 text-white':'bg-slate-100 text-slate-700'}`}>Báo cáo phòng</button>
+        <button onClick={()=>setActiveTab('financial_bc02')} className={`px-3 py-2 rounded-lg text-sm font-semibold ${activeTab==='financial_bc02'?'bg-blue-600 text-white':'bg-slate-100 text-slate-700'}`}>Báo cáo tài chính</button>
+        <div className="flex-1"/>
+        <button onClick={()=>setActiveTab('reconciliation_bc03')} className={`px-3 py-2 rounded-lg border text-sm font-semibold ${activeTab==='reconciliation_bc03'?'border-blue-500 text-blue-700':'border-slate-200 text-slate-700'}`}>Đối soát số liệu</button>
+        <button onClick={()=>setActiveTab('executive_bc04')} className={`px-3 py-2 rounded-lg border text-sm font-semibold ${activeTab==='executive_bc04'?'border-blue-500 text-blue-700':'border-slate-200 text-slate-700'}`}>Lập báo cáo tổng hợp</button>
       </div>
 
       {/* ========================================================================= */}
@@ -708,7 +669,7 @@ export const ReportsView: React.FC = () => {
             </div>
 
             {/* Test Simulation Toggles */}
-            <div className="flex items-center gap-3 text-[11px] text-slate-600 bg-white px-3 py-1.5 rounded-lg border border-slate-200">
+            <div className="hidden flex items-center gap-3 text-[11px] text-slate-600 bg-white px-3 py-1.5 rounded-lg border border-slate-200">
               <span className="font-bold text-slate-700">Kiểm thử ngoại lệ:</span>
               <label className="flex items-center gap-1 cursor-pointer">
                 <input
@@ -1045,7 +1006,7 @@ export const ReportsView: React.FC = () => {
             </div>
 
             {/* Test Simulation Toggles */}
-            <div className="flex items-center gap-3 text-[11px] text-slate-600 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
+            <div className="hidden flex items-center gap-3 text-[11px] text-slate-600 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
               <span className="font-bold text-slate-700">Mô phỏng:</span>
               <label className="flex items-center gap-1 cursor-pointer">
                 <input
@@ -1526,7 +1487,7 @@ export const ReportsView: React.FC = () => {
             </div>
 
             {/* Test Simulation Toggles */}
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-3 text-[11px] text-slate-600">
+            <div className="hidden p-3 bg-slate-50 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-3 text-[11px] text-slate-600">
               <span className="font-semibold text-slate-700">Mô phỏng kiểm thử ngoại lệ:</span>
               <div className="flex items-center gap-3">
                 <label className="flex items-center gap-1 cursor-pointer">

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  LayoutDashboard,
   Home,
   PackageCheck,
   Users,
@@ -14,7 +13,6 @@ import {
 } from 'lucide-react';
 
 export type NavTabKey =
-  | 'dashboard'
   | 'rooms'
   | 'handover'
   | 'tenants'
@@ -35,75 +33,58 @@ interface NavItem {
   key: NavTabKey;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
-  flow: string;
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  {
-    key: 'dashboard',
-    label: 'Tổng quan',
-    icon: LayoutDashboard,
-    flow: 'Đăng nhập → Tổng quan'
-  },
-  {
+{
     key: 'rooms',
     label: 'Quản lý phòng',
-    icon: Home,
-    flow: 'Danh sách phòng → Chi tiết phòng → Thêm/Sửa, Tiếp nhận, Trả phòng, Kế hoạch trả'
+    icon: Home
   },
   {
     key: 'handover',
     label: 'Bàn giao và tài sản',
-    icon: PackageCheck,
-    flow: 'Chi tiết phòng → Tài sản → Kiểm kê, Hiện trạng, Sự cố, Biên bản bàn giao'
+    icon: PackageCheck
   },
   {
     key: 'tenants',
     label: 'Hồ sơ khách thuê',
-    icon: Users,
-    flow: 'Tra cứu khách → Chi tiết hồ sơ → Người ở cùng, Cập nhật, Lịch sử'
+    icon: Users
   },
   {
     key: 'contracts',
     label: 'Quản lý hợp đồng',
-    icon: FileText,
-    flow: 'Danh sách hợp đồng → Chi tiết hợp đồng → Lập/Sửa nháp, Ghi nhận ký, Gia hạn, Quyết toán cọc'
+    icon: FileText
   },
   {
     key: 'billing',
     label: 'Tính tiền theo kỳ',
-    icon: Calculator,
-    flow: 'Bảng tính kỳ → Ghi/Sửa chỉ số → Tính tiền → Xác nhận bảng tính'
+    icon: Calculator
   },
   {
     key: 'notices',
     label: 'Thông báo thanh toán',
-    icon: QrCode,
-    flow: 'Đối chiếu khoản phải thu → Lập thông báo → Xem/Tải QR → Chia sẻ'
+    icon: QrCode
   },
   {
     key: 'receipts',
     label: 'Thu tiền',
-    icon: CreditCard,
-    flow: 'Theo dõi thanh toán → Chi tiết thông báo → Xác nhận thu hoặc sửa xác nhận nhầm'
+    icon: CreditCard
   },
   {
     key: 'debts',
     label: 'Công nợ',
-    icon: AlertTriangle,
-    flow: 'Danh sách nợ quá hạn → Chi tiết nợ → Nhắc thanh toán, Ghi phản hồi, Tra cứu căn cứ'
+    icon: AlertTriangle
   },
   {
     key: 'reports',
     label: 'Báo cáo',
-    icon: BarChart3,
-    flow: 'Báo cáo phòng, tài chính → Đối soát → Báo cáo tổng hợp'
+    icon: BarChart3
   },
   {
     key: 'config',
     label: 'Cài đặt',
-    icon: Settings,
-    flow: 'Đơn giá điện nước/dịch vụ; tài khoản ngân hàng nhận tiền'
+    icon: Settings
   }
 ];
 
@@ -148,7 +129,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
 
       <div className="hidden md:block p-3 border-t border-slate-100 bg-slate-50 text-[11px] text-slate-500 space-y-0.5">
         <div className="font-semibold text-slate-700">Chung cư mini An Bình</div>
-        <div className="text-[10px] text-slate-400">25 Ngõ 198 Xã Đàn, Đống Đa, Hà Nội</div>
+        <div className="text-[10px] text-slate-400">Quản lý theo hồ sơ · bản trình diễn</div>
       </div>
     </aside>
   );

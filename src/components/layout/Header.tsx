@@ -23,13 +23,13 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-30 flex items-center justify-between gap-8 px-6 py-3.5 bg-white border-b border-slate-200">
+    <header className="sticky top-0 z-30 flex items-center justify-between gap-2 sm:gap-4 px-3 sm:px-5 py-3.5 bg-white border-b border-slate-200">
       {/* Brand title */}
-      <div className="flex items-center gap-3 shrink-0">
+      <div className="flex items-center gap-2 min-w-0">
         <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
           AB
         </div>
-        <span className="text-base font-bold tracking-tight text-slate-900 whitespace-nowrap shrink-0">
+        <span className="text-sm sm:text-base font-bold tracking-tight text-slate-900 truncate max-w-[185px] sm:max-w-xs">
           Chung cư mini An Bình
         </span>
       </div>

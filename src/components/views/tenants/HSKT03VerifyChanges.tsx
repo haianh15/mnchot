@@ -9,9 +9,10 @@ import {
 interface HSKT03Props {
   onNavigateToTab: (tab: 'tenants' | 'co_tenants' | 'verify' | 'update' | 'history') => void;
   onSelectProposalForUpdate?: (proposalId: string) => void;
+  initialTenantId?: string;
 }
 
-export const HSKT03VerifyChanges: React.FC<HSKT03Props> = ({ onNavigateToTab, onSelectProposalForUpdate }) => {
+export const HSKT03VerifyChanges: React.FC<HSKT03Props> = ({ onNavigateToTab, onSelectProposalForUpdate, initialTenantId }) => {
   const {
     tenants,
     tenantProposals,
@@ -32,7 +33,7 @@ export const HSKT03VerifyChanges: React.FC<HSKT03Props> = ({ onNavigateToTab, on
 
   // Mode A: New Proposal Form
   const [showNewProposalModal, setShowNewProposalModal] = useState(false);
-  const [propTenantId, setPropTenantId] = useState<string>(tenants[0]?.id || '');
+  const [propTenantId, setPropTenantId] = useState<string>(initialTenantId || tenants[0]?.id || '');
   const [propAddress, setPropAddress] = useState('');
   const [propPhone, setPropPhone] = useState('');
   const [propIdNumber, setPropIdNumber] = useState('');

@@ -6,7 +6,7 @@ import {
   ShieldCheck, ArrowRight, X, Building2, Check, FileCheck, AlertTriangle, Link2
 } from 'lucide-react';
 
-export const HSKT02CoTenants: React.FC = () => {
+export const HSKT02CoTenants: React.FC<{tenantId?: string}> = ({tenantId}) => {
   const {
     tenants,
     coTenants,
@@ -27,7 +27,7 @@ export const HSKT02CoTenants: React.FC = () => {
   // Add Co-tenant Modal State
   const [showAddModal, setShowAddModal] = useState(false);
   const [coTenantMode, setCoTenantMode] = useState<'Nháp' | 'Dự kiến' | 'Đang cư trú'>('Dự kiến');
-  const [selectedTenantId, setSelectedTenantId] = useState<string>(tenants[0]?.id || '');
+  const [selectedTenantId, setSelectedTenantId] = useState<string>(tenantId || tenants[0]?.id || '');
   const [incomingTenantName, setIncomingTenantName] = useState<string>('');
   const [selectedRoomCode, setSelectedRoomCode] = useState<string>(rooms[0]?.roomCode || '');
   const [fullName, setFullName] = useState('');
@@ -68,6 +68,7 @@ export const HSKT02CoTenants: React.FC = () => {
 
   // Filter co-tenants
   const filteredList = coTenants.filter(c => {
+    if (tenantId && c.tenantId !== tenantId) return false;
     if (filterStatus !== 'all' && c.status !== filterStatus) return false;
     if (filterRoom !== 'all' && c.roomCode !== filterRoom) return false;
     if (searchTerm.trim()) {

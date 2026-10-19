@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 
 interface BillingViewProps {
-  onNavigateToNotices?: () => void;
+  onNavigateToNotices?: (billId: string) => void;
 }
 
 export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices }) => {
@@ -32,18 +32,18 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
 
   // UC-TT-01 Reading Modal State
   const [showReadingModal, setShowReadingModal] = useState(false);
-  const [readRoom, setReadRoom] = useState(rooms[0]?.roomCode || 'P.101');
-  const [readPeriod, setReadPeriod] = useState('Kỳ 10/2026');
+  const [readRoom, setReadRoom] = useState('');
+  const [readPeriod, setReadPeriod] = useState(() => `Kỳ ${String(new Date().getMonth()+1).padStart(2,'0')}/${new Date().getFullYear()}`);
   const [readType, setReadType] = useState<'Theo kỳ chung' | 'Ngoài kỳ chung'>('Theo kỳ chung');
   const [readingDate, setReadingDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
   // Meters and Readings (Bước 3)
-  const [elecMeterCode, setElecMeterCode] = useState('CT-D-101');
-  const [initElec, setInitElec] = useState<number>(1250);
-  const [finalElec, setFinalElec] = useState<number>(1370);
-  const [waterMeterCode, setWaterMeterCode] = useState('CT-N-101');
-  const [initWater, setInitWater] = useState<number>(45);
-  const [finalWater, setFinalWater] = useState<number>(51);
+  const [elecMeterCode, setElecMeterCode] = useState('');
+  const [initElec, setInitElec] = useState<number>(0);
+  const [finalElec, setFinalElec] = useState<number>(0);
+  const [waterMeterCode, setWaterMeterCode] = useState('');
+  const [initWater, setInitWater] = useState<number>(0);
+  const [finalWater, setFinalWater] = useState<number>(0);
 
   // Bất thường chỉ số State (Bước 4)
   const [isAbnormal, setIsAbnormal] = useState(false);
@@ -64,8 +64,8 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
 
   // Generate Bill Modal (TT-03)
   const [showGenBillModal, setShowGenBillModal] = useState(false);
-  const [billRoom, setBillRoom] = useState('P.101');
-  const [billPeriod, setBillPeriod] = useState('Kỳ 10/2026');
+  const [billRoom, setBillRoom] = useState('');
+  const [billPeriod, setBillPeriod] = useState(() => `Kỳ ${String(new Date().getMonth()+1).padStart(2,'0')}/${new Date().getFullYear()}`);
   const [billConfirmError, setBillConfirmError] = useState<string | null>(null);
 
   // Detail Modal for Reading / Abnormal Verification
@@ -95,18 +95,19 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
   // When selected room in modal changes, automatically fetch previous initial readings
   const handleSelectRoomForReading = (roomCode: string) => {
     setReadRoom(roomCode);
+    if (!roomCode) return;
     const room = rooms.find(r => r.roomCode === roomCode);
     const prevReading = meterReadings.find(m => m.roomCode === roomCode);
     
     // Auto-fill initial readings from previous record or room standard defaults
-    const prevElec = prevReading ? prevReading.finalElectricKwh: 1200;
-    const prevWater = prevReading ? prevReading.finalWaterM3: 40;
+    const prevElec = prevReading ? prevReading.finalElectricKwh : 0;
+    const prevWater = prevReading ? prevReading.finalWaterM3 : 0;
     setInitElec(prevElec);
-    setFinalElec(prevElec + 120);
+    setFinalElec(prevElec);
     setInitWater(prevWater);
-    setFinalWater(prevWater + 6);
-    setElecMeterCode('CT-D-' + roomCode.replace(/\D/g, ''));
-    setWaterMeterCode('CT-N-' + roomCode.replace(/\D/g, ''));
+    setFinalWater(prevWater);
+    setElecMeterCode(prevReading?.electricMeterCode || '');
+    setWaterMeterCode(prevReading?.waterMeterCode || '');
 
     // Check if room is returned
     if (room?.status === 'Trống') {
@@ -126,6 +127,8 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
   // Step 5 in UC-TT-01: Save Readings (handles both normal save and partial/draft save)
   const handleSaveReadingSubmit = (isDraftOnly: boolean = false) => {
     setReadingDateError(null);
+    if (!readRoom || !readPeriod.trim()) { setReadingDateError('Chọn đúng phòng và kỳ cần ghi chỉ số.'); return; }
+    if (!elecMeterCode.trim() || !waterMeterCode.trim()) { setReadingDateError('Cần ghi đúng mã công tơ điện và nước từ hồ sơ nguồn; không được tự điền mã giả.'); return; }
 
     // Validation for ngoài kỳ chung
     if (readType === 'Ngoài kỳ chung') {
@@ -147,7 +150,8 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
     }
 
     const room = rooms.find(r => r.roomCode === readRoom);
-    const leaseId = room?.currentLeaseId || `THUE-${readRoom.replace(/\D/g, '')}-L1`;
+    const leaseId = room?.currentLeaseId;
+    if (!leaseId) { setReadingDateError('Không tìm thấy mã lần thuê của phòng được chọn; cần kiểm tra hồ sơ nguồn.'); return; }
 
     const newReading: MeterReading = {
       id: 'mr_' + readRoom.replace(/\D/g, '') + '_' + Date.now().toString().slice(-4),
@@ -206,6 +210,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
   // UC-TT-03: Generate Bill
   const handleGenerateBill = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!billRoom || !billPeriod.trim()) { alert('Chọn phòng và kỳ tính tiền trước khi lập bảng tính.'); return; }
     const res = generatePeriodBillTT03(billRoom, billPeriod);
     if (!res.success) {
       alert(res.message);
@@ -284,7 +289,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
             <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={() => {
-                  handleSelectRoomForReading(rooms[0]?.roomCode || 'P.101');
+                  handleSelectRoomForReading('');
                   setShowReadingModal(true);
                 }}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold flex items-center gap-1.5 shadow-xs cursor-pointer text-xs"
@@ -621,7 +626,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                           </span>
                           {onNavigateToNotices && (
                             <button
-                              onClick={onNavigateToNotices}
+                              onClick={() => onNavigateToNotices(bill.id)}
                               className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold cursor-pointer flex items-center gap-1.5 shadow-xs"
                             >
                               Chuyển sang Đối chiếu khoản phải thu →
@@ -674,6 +679,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                   onChange={(e) => handleSelectRoomForReading(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-300 rounded-xl bg-white font-mono font-bold text-xs"
                 >
+                  <option value="">-- Chọn phòng --</option>
                   {rooms.map(r => (
                     <option key={r.id} value={r.roomCode}>
                       {r.roomCode} ({r.status} {r.status === 'Trống' ? '– Đã trả phòng': ''})
@@ -681,7 +687,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                   ))}
                 </select>
                 <span className="text-[10px] text-slate-500 mt-1 block">
-                  Căn cứ lần thuê: {rooms.find(r => r.roomCode === readRoom)?.currentLeaseId || `THUE-${readRoom}-L1`}
+                  Căn cứ lần thuê: {rooms.find(r => r.roomCode === readRoom)?.currentLeaseId || 'Chưa có — cần kiểm tra'}
                 </span>
               </div>
 
@@ -750,12 +756,15 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                 <div className="flex justify-between items-center border-b border-amber-100 pb-1.5">
                   <span className="font-bold text-amber-900 flex items-center gap-1.5">
                     <Zap className="w-4 h-4 text-amber-600" />
-                    Công tơ Điện ({elecMeterCode})
+                    Công tơ điện
                   </span>
                   <span className="font-mono text-[11px] text-slate-500">
                     Sản lượng tạm tính: <strong className="text-amber-800">{currentElecUsage} kWh</strong>
                   </span>
                 </div>
+                <label className="block text-xs text-slate-700">Mã công tơ điện theo hồ sơ nguồn
+                  <input value={elecMeterCode} onChange={e=>setElecMeterCode(e.target.value)} placeholder="Nhập đúng mã công tơ điện" className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"/>
+                </label>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-slate-500 block mb-1">Chỉ số đầu kỳ (từ BG03 / kỳ trước):</label>
@@ -785,12 +794,15 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                 <div className="flex justify-between items-center border-b border-blue-100 pb-1.5">
                   <span className="font-bold text-blue-900 flex items-center gap-1.5">
                     <Droplets className="w-4 h-4 text-blue-600" />
-                    Công tơ Nước ({waterMeterCode})
+                    Công tơ nước
                   </span>
                   <span className="font-mono text-[11px] text-slate-500">
                     Sản lượng tạm tính: <strong className="text-blue-800">{currentWaterUsage} m³</strong>
                   </span>
                 </div>
+                <label className="block text-xs text-slate-700">Mã công tơ nước theo hồ sơ nguồn
+                  <input value={waterMeterCode} onChange={e=>setWaterMeterCode(e.target.value)} placeholder="Nhập đúng mã công tơ nước" className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"/>
+                </label>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-slate-500 block mb-1">Chỉ số đầu kỳ (từ BG03 / kỳ trước):</label>
@@ -1027,6 +1039,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                 onChange={(e) => setBillRoom(e.target.value)}
                 className="w-full px-3 py-2 border border-slate-300 rounded-xl font-mono font-bold"
               >
+                <option value="">-- Chọn phòng --</option>
                 {rooms.map(r => (
                   <option key={r.id} value={r.roomCode}>{r.roomCode} ({r.status})</option>
                 ))}

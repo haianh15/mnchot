@@ -1,36 +1,32 @@
-# Hệ thống quản lý chung cư mini – Bản mã nguồn hợp nhất
+# Quản lý chung cư mini – Bản thiết kế lại luồng giao diện
 
-Đây là **toàn bộ mã nguồn website** React + TypeScript + Vite, hợp nhất bản sửa nghiệp vụ trước đó và bản cập nhật đăng nhập một tác nhân **Quản lý/Chủ nhà**. Thư mục `src` được đặt ngay tại gốc dự án, cùng cấp với `package.json`, `index.html`, `vite.config.ts`.
+**Bản demo React + TypeScript + Vite, một vai trò Quản lý/Chủ nhà.**
 
-## Chạy trên máy
+Website **không có trang Tổng quan**: sau đăng nhập mở Quản lý phòng. Sidebar chỉ hiển thị các phân hệ chính. Danh sách → Chi tiết hồ sơ → Hành động, thay vì đưa tất cả Use Case lên thanh tab. **Quyết toán cọc chỉ truy cập từ Chi tiết hợp đồng.**
 
-Yêu cầu Node.js và kết nối npm.
+## Khởi chạy
+
+Cài Node.js, trong thư mục chứa `package.json` chạy:
 
 ```bash
 npm install
+npm run lint
+npm run build
 npm run dev
 ```
 
-Mở địa chỉ Vite hiển thị trên Terminal (dự án thiết lập cổng 3000 khi còn trống).
+Lệnh `npm run dev` chạy Vite ở cổng 3000 nếu chưa bị sử dụng; mở đường dẫn xuất hiện trong Terminal.
 
-## Đăng nhập bản xem thử
+## Tài khoản để xem thử
 
-- Tài khoản thử nghiệm duy nhất: `chunha`.
-- Mật khẩu được cấp phải được người bàn giao cung cấp riêng.
-- Lần đăng nhập đầu yêu cầu đổi mật khẩu (ít nhất 12 ký tự) trước khi sử dụng website.
-- Không còn các nút tài khoản mẫu Chủ nhà / Quản lý / Kế toán.
-- Nếu đã kiểm thử phiên bản trước, nên dùng cửa sổ ẩn danh để tránh dữ liệu cục bộ lưu từ trước.
+Tên đăng nhập: `chunha`. Mật khẩu được cấp trong `HUONG_DAN_DANG_NHAP_LAN_DAU.md`; đăng nhập lần đầu bắt buộc đổi mật khẩu. Chỉ dùng trên dữ liệu demo.
 
-**CẢNH BÁO:** Đây là prototype trình duyệt; mật khẩu có hash ở máy người dùng, chưa có backend xác thực hay hệ thống email khôi phục thật. Không nhập thông tin khách thuê, tài khoản ngân hàng hay giao dịch thực tế. Chức năng quên mật khẩu chỉ báo chưa được triển khai, không giả lập gửi email thành công.
+## Triển khai
 
-## Đưa lên GitHub và Vercel
+Giải nén ZIP, mở vào **bên trong** để thấy `src`, `package.json`, `index.html`, `vite.config.ts` ngay cấp gốc. Kéo các mục ấy lên GitHub Web. Trên Vercel: Framework `Vite`, Root Directory `./`, Build `npm run build`, Output `dist`.
 
-Đọc `HUONG_DAN_GITHUB_WEB.md` để tải **toàn bộ mã nguồn** lên một repo GitHub mới mà không tạo thư mục lồng nhau. Trên Vercel: Preset Vite, Root Directory `./`, Build `npm run build`, Output `dist`.
+## Giới hạn
 
-## Mức độ kiểm tra
+Đã chỉnh mã nguồn, kiểm tra cú pháp TS/TSX và import tương đối nhưng **chưa xác nhận build**, chưa chạy test 63 UC. Bản này vẫn lưu dữ liệu và xác thực phía trình duyệt; **không an toàn cho thông tin khách, ngân hàng, tài chính thật**. Cần backend, kiểm thử nghiệp vụ và bảo mật trước khi vận hành.
 
-- Đã kiểm tra cú pháp 34 file `.ts`/`.tsx` bằng TypeScript parser và xác nhận hash mật khẩu được cấp cho bản demo khớp với dữ liệu mã nguồn.
-- Chưa chạy được build (`npm install` bị hạn chế kết nối tới npm registry trong môi trường đóng gói).
-- Chưa thể xác nhận tất cả luồng nghiệp vụ của 63 Use Case đã đạt do chưa chạy kiểm thử end-to-end.
-
-Đọc `BAO_CAO_CHINH_SUA.md` và `HUONG_DAN_DANG_NHAP_LAN_DAU.md` để biết thêm các điều kiện và giới hạn.
+Đọc `BAO_CAO_BAN_GIAO_UI_19-10-2026.md` và `CHECKLIST_KIEM_THU.md`.

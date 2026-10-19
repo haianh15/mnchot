@@ -157,7 +157,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
 
           {/* Breadcrumb Flow indicator */}
           <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-800 text-[11px] text-blue-300 font-medium">
-            {activeTab === 'login' && <span>Đăng nhập → Tổng quan</span>}
+            {activeTab === 'login' && <span>Đăng nhập → Quản lý phòng</span>}
             {(activeTab === 'forgot' || activeTab === 'reset_token') && <span>Quên mật khẩu → Đặt lại mật khẩu</span>}
             {activeTab === 'first_change' && <span>Đổi mật khẩu lần đầu</span>}
           </div>
@@ -268,7 +268,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
           {activeTab === 'first_change' && (
             <form onSubmit={handleFirstChangeSubmit} className="space-y-3.5">
               <div className="p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-lg text-xs">
-                Tài khoản của bạn được cấp mật khẩu tạm thời. Vui lòng đặt mật khẩu mới để tiếp tục vào Tổng quan.
+                Tài khoản của bạn được cấp mật khẩu tạm thời. Vui lòng đặt mật khẩu mới để tiếp tục vào Quản lý phòng.
               </div>
 
               <div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { PaymentNotice, PaymentReceipt, ReceiptAuditEntry } from '../../types';
 import {
@@ -8,7 +8,7 @@ import {
   Calendar, User, Lock, Sparkles
 } from 'lucide-react';
 
-export const PaymentReceiptsView: React.FC = () => {
+export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initialNoticeId}) => {
   const {
     paymentNotices,
     paymentReceipts,
@@ -49,6 +49,16 @@ export const PaymentReceiptsView: React.FC = () => {
   // Detail Modal for Inspection
   const [inspectNotice, setInspectNotice] = useState<PaymentNotice | null>(null);
   const [inspectReceiptAudit, setInspectReceiptAudit] = useState<PaymentReceipt | null>(null);
+
+  useEffect(() => {
+    if (!initialNoticeId) return;
+    const targetNotice = paymentNotices.find(n => n.id === initialNoticeId);
+    if (targetNotice) {
+      setRoomFilter(targetNotice.roomCode);
+      setInspectNotice(targetNotice);
+      setActiveTab('uc08_1');
+    }
+  }, [initialNoticeId, paymentNotices]);
 
   // Quick suggestion reasons for revert
   const QUICK_REVERT_REASONS = [
@@ -193,36 +203,12 @@ export const PaymentReceiptsView: React.FC = () => {
           </div>
         </div>
 
-        {/* 3 Tabs Segmented Control */}
-        <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-semibold shrink-0">
-          <button
-            onClick={() => setActiveTab('uc08_1')}
-            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'uc08_1' ? 'bg-white text-emerald-700 shadow-xs': 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <CreditCard className="w-4 h-4" />
-            Theo dõi thanh toán
-          </button>
-          <button
-            onClick={() => setActiveTab('uc08_2')}
-            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'uc08_2' ? 'bg-white text-emerald-700 shadow-xs': 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <ShieldCheck className="w-4 h-4" />
-            Chứng từ thanh toán
-          </button>
-          <button
-            onClick={() => setActiveTab('uc08_3')}
-            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'uc08_3' ? 'bg-white text-emerald-700 shadow-xs': 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <History className="w-4 h-4 text-purple-600" />
-            Lịch sử sửa xác nhận nhầm ({revertedReceiptsCount})
-          </button>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={()=>setActiveTab('uc08_1')} className={`rounded-lg border px-3 py-2 text-sm font-semibold ${activeTab==='uc08_1'?'bg-blue-50 text-blue-700 border-blue-200':'bg-white text-slate-700 border-slate-200'}`}>Theo dõi thanh toán</button>
+          <button onClick={()=>setActiveTab('uc08_3')} className={`rounded-lg border px-3 py-2 text-sm font-semibold ${activeTab==='uc08_3'?'bg-blue-50 text-blue-700 border-blue-200':'bg-white text-slate-700 border-slate-200'}`}>Lịch sử xác nhận thu</button>
+          {activeTab==='uc08_2' && <button onClick={()=>setActiveTab('uc08_1')} className="rounded-lg border px-3 py-2 text-sm font-semibold bg-white text-slate-700">← Danh sách</button>}
         </div>
+
       </div>
 
       {/* KPI Stats Overview */}

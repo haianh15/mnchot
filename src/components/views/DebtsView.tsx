@@ -105,8 +105,9 @@ export const DebtsView: React.FC = () => {
 
       // Status resolution
       const isPaid = !!activeReceipt || n.paymentStatus === 'Đã thu';
-      const handledByDeposit = n.status === 'Đang hiệu lực' && !isPaid && debtDeduction > 0 ? Math.min(debtDeduction, n.totalAmount): 0;
-      const uncollectedBalance = isPaid || n.status !== 'Đang hiệu lực' ? 0: Math.max(0, n.totalAmount - handledByDeposit);
+      const handledByDeposit = n.status !== 'Đã thay thế' && !isPaid && debtDeduction > 0 ? Math.min(debtDeduction, n.totalAmount) : 0;
+      const uncollectedBalance = isPaid || n.paymentStatus === 'Đã xử lý bằng cọc' || n.status === 'Đã thay thế' || n.status === 'Đã thanh toán'
+        ? 0 : Math.max(0, n.totalAmount - handledByDeposit);
 
       // Overdue check based on dueDate
       const due = new Date(n.dueDate);
@@ -297,7 +298,7 @@ export const DebtsView: React.FC = () => {
       <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-800">Quy trình 09</span>
+            
             <h1 className="text-lg font-bold text-slate-900">Quản lý Công nợ Quá hạn</h1>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
@@ -317,56 +318,16 @@ export const DebtsView: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Tab Navigation */}
-      <div className="flex items-center gap-1 p-1 bg-slate-200/80 rounded-xl text-xs overflow-x-auto">
-        <button
-          onClick={() => setActiveTab('overdue_list')}
-          className={`px-4 py-2 rounded-lg font-semibold transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
-            activeTab === 'overdue_list'
-              ? 'bg-white text-blue-800 shadow-sm border border-slate-200': 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <AlertTriangle className="w-4 h-4 text-red-600" />
-          1. Số dư công nợ quá hạn
-          {totalOverdueCount > 0 && (
-            <span className="px-1.5 py-0.2 rounded-full bg-red-100 text-red-800 font-mono text-[10px]">
-              {totalOverdueCount}
-            </span>
-          )}
-        </button>
-
-        <button
-          onClick={() => setActiveTab('reminders')}
-          className={`px-4 py-2 rounded-lg font-semibold transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
-            activeTab === 'reminders'
-              ? 'bg-white text-blue-800 shadow-sm border border-slate-200': 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <Phone className="w-4 h-4 text-amber-600" />
-          2. Lịch sử nhắc thanh toán
-        </button>
-
-        <button
-          onClick={() => setActiveTab('promises')}
-          className={`px-4 py-2 rounded-lg font-semibold transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
-            activeTab === 'promises'
-              ? 'bg-white text-blue-800 shadow-sm border border-slate-200': 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <MessageCircle className="w-4 h-4 text-blue-600" />
-          3. Phản hồi & Hẹn thanh toán
-        </button>
-
-        <button
-          onClick={() => setActiveTab('long_debt_cn04')}
-          className={`px-4 py-2 rounded-lg font-semibold transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
-            activeTab === 'long_debt_cn04'
-              ? 'bg-white text-blue-800 shadow-sm border border-slate-200': 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <ShieldAlert className="w-4 h-4 text-purple-600" />
-          4. Căn cứ xử lý nợ kéo dài
-        </button>
+      <div className="rounded-xl bg-white border border-slate-200 p-3 flex flex-wrap items-center gap-3">
+        <button onClick={()=>setActiveTab('overdue_list')} className={`rounded-lg px-3 py-2 text-sm font-semibold ${activeTab==='overdue_list'?'bg-blue-600 text-white':'border border-slate-200 hover:bg-slate-50'}`}>Danh sách nợ quá hạn ({totalOverdueCount})</button>
+        <label className="text-xs font-semibold text-slate-600">Tra cứu hoặc ghi nhận theo khoản nợ
+          <select value={activeTab} onChange={e=>setActiveTab(e.target.value as typeof activeTab)} className="block mt-1 border border-slate-300 rounded-lg px-3 py-2 bg-white text-sm min-w-48">
+            <option value="overdue_list">Danh sách nợ quá hạn</option>
+            <option value="reminders">Lịch sử nhắc nợ</option>
+            <option value="promises">Phản hồi và hẹn trả</option>
+            <option value="long_debt_cn04">Căn cứ khoản nợ đã chọn</option>
+          </select>
+        </label>
       </div>
 
       {/* ========================================================================= */}
@@ -394,8 +355,8 @@ export const DebtsView: React.FC = () => {
             </div>
           </div>
 
-          {/* Test Simulation Controls */}
-          <div className="p-3 bg-slate-100 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
+          {/* Developer-only simulation controls intentionally hidden from the owner UI */}
+          <div className="hidden p-3 bg-slate-100 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
             <div className="flex items-center gap-3">
               <span className="font-bold text-slate-700">Kiểm thử luồng ngoại lệ:</span>
               <label className="flex items-center gap-1 cursor-pointer text-slate-600">
