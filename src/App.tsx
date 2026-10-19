@@ -20,7 +20,7 @@ const MainAppContent: React.FC = () => {
   const [currentTab, setCurrentTab] = useState<NavTabKey>('rooms');
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [target, setTarget] = useState<{roomCode?: string; contractId?: string; tenantId?: string; leaseId?: string; billId?: string; noticeId?: string; action?: 'create'}>({});
+  const [target, setTarget] = useState<{roomCode?: string; contractId?: string; tenantId?: string; leaseId?: string; billId?: string; noticeId?: string; action?: 'create' | 'return-plans'}>({});
   const navigate = (tab: NavTabKey, record: typeof target = {}) => { setTarget(record); setCurrentTab(tab); };
   const authenticated = currentSession?.type === 'admin' && currentSession.expiresAt > Date.now();
 
@@ -58,7 +58,7 @@ const MainAppContent: React.FC = () => {
 
           {currentTab === 'tenants' && <TenantsView initialTenantId={target.tenantId} />}
 
-          {currentTab === 'contracts' && <ContractsView initialContractId={target.contractId} initialRoomCode={target.roomCode} initialAction={target.action} onBackToRooms={(roomCode) => navigate('rooms', {roomCode})} />}
+          {currentTab === 'contracts' && <ContractsView initialContractId={target.contractId} initialRoomCode={target.roomCode} initialLeaseId={target.leaseId} initialAction={target.action} onBackToRooms={(roomCode) => navigate('rooms', {roomCode})} />}
 
           {currentTab === 'billing' && (
             <BillingView onNavigateToNotices={(billId) => navigate('notices',{billId})} />

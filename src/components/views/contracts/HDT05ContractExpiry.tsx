@@ -22,7 +22,7 @@ export const HDT05ContractExpiry: React.FC<Props> = ({onSelectContract}) => {
   return <div className="space-y-4">
     <div className="p-4 sm:p-5 bg-white rounded-xl border border-slate-200">
       <h2 className="font-bold text-base flex items-center gap-2"><CalendarClock className="w-5 h-5 text-blue-700"/> Theo dõi thời hạn hợp đồng</h2>
-      <p className="text-sm text-slate-600 mt-1">Theo dõi ngày hết hạn hợp đồng; không tự xác nhận ngày dự kiến trả phòng. Ngày dự kiến trả được ghi nhận riêng trong Quản lý phòng.</p>
+      <p className="text-sm text-slate-600 mt-1">Theo dõi ngày hết hạn hợp đồng; không tự xác nhận ngày dự kiến trả phòng. Ngày dự kiến trả phòng được theo dõi ở mục Theo dõi trả phòng của Quản lý hợp đồng.</p>
     </div>
     <div className="p-4 bg-white border border-slate-200 rounded-xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
       <label className="text-xs font-semibold text-slate-700">Tìm hợp đồng <span className="relative block mt-1"><Search className="absolute left-2.5 top-2.5 w-4 h-4 text-slate-400"/><input className="w-full border rounded-lg pl-9 pr-3 py-2 text-sm" placeholder="Mã, phòng, khách thuê" value={query} onChange={e=>setQuery(e.target.value)}/></span>

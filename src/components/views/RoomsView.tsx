@@ -1,8 +1,8 @@
 import { toUserMessage } from '../../utils/userMessages';
-import { resolveRoomContract, resolveRoomTenantId } from '../../utils/roomLinks';
+import { resolveRoomContract, resolveRoomTenantId, getLeaseContractChain, getConfirmedRoomHandover } from '../../utils/roomLinks';
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Room, ContractExpiryBadge, TenantFeedbackBadge, RoomHistoryLog, TenantContactLog } from '../../types';
+import { Room, ContractExpiryBadge, TenantFeedbackBadge, RoomHistoryLog } from '../../types';
 import {
   Home, Plus, Search, Filter, CheckCircle2, AlertCircle, Clock,
   Calendar, Eye, Edit3, ArrowRight, ShieldCheck, Key, FileText, CheckSquare, X,
@@ -10,7 +10,7 @@ import {
   History, ArrowLeft, RotateCcw, Building2, FileCheck2
 } from 'lucide-react';
 
-export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | 'handover', target: {roomCode?: string; contractId?: string; tenantId?: string; leaseId?: string; action?: 'create'}) => void; initialRoomCode?: string}> = ({onNavigate, initialRoomCode}) => {
+export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | 'handover', target: {roomCode?: string; contractId?: string; tenantId?: string; leaseId?: string; action?: 'create' | 'return-plans'}) => void; initialRoomCode?: string}> = ({onNavigate, initialRoomCode}) => {
   const {
     currentUser,
     currentSession,
@@ -35,7 +35,6 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
     confirmCheckInPH05,
     saveMissingConditionPH06,
     updateExpectedReturnDatePH11_12,
-    recordTenantContactPH13,
     autoCancelReturnPlanPH14,
     checkExtensionResultPH15,
     confirmReturnStep305AndVacantPH08,
@@ -44,7 +43,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
   } = useApp();
 
   // Active sub-tab (bổ sung các luồng,,,, )
-  const [subTab, setSubTab] = useState<'list' | 'checkin' | 'return' | 'expiry' | 'plans'>('list');
+  const [subTab, setSubTab] = useState<'list' | 'checkin' | 'return'>('list');
   const [activeCheckInRoomCode, setActiveCheckInRoomCode] = useState<string>('');
   const [checkInStage, setCheckInStage] = useState<0 | 1 | 2 | 3 | 4>(0);
   const [activeReturnRoomCode, setActiveReturnRoomCode] = useState<string>('');
@@ -86,8 +85,11 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
     // The signed handover report is checked before confirming occupancy.
     // It is not shown as a current occupant's record on a vacant room.
     const contract = getActiveRoomContract(room);
-    return contract ? handoverReports.find(h => h.roomCode === room.roomCode &&
-      h.leaseId === contract.leaseId && h.contractId === contract.id) : undefined;
+    if (!contract) return undefined;
+    const chain = getLeaseContractChain(contract, contracts);
+    return getConfirmedRoomHandover(contract, contracts, handoverReports) ||
+      chain.map(c => handoverReports.find(h => h.roomCode === c.roomCode &&
+        h.leaseId === c.leaseId && h.contractId === c.id)).find(Boolean);
   };
   const getCurrentRoomReturnPlan = (room: Room) => {
     if (room.status === 'Trống') return undefined;
@@ -103,13 +105,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
       return;
     }
     closeRoomDetails();
-    setPlanSearchRoom(room.roomCode);
-    setPlanLinkedLeaseId(contract.leaseId);
-    setPlanStatusFilter('Tất cả');
-    setPlanStartDate('');
-    setPlanEndDate('');
-    setPlansSubTab('plans');
-    setSubTab('plans');
+    onNavigate?.('contracts', {roomCode: room.roomCode, leaseId: contract.leaseId, contractId: contract.id, action: 'return-plans'});
   };
   const openLinkedRecord = (tab: 'contracts' | 'tenants' | 'handover', room: Room) => {
     if (!onNavigate) return;
@@ -134,13 +130,15 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
       showToast('error', 'Chưa có hợp đồng đã ký thuộc phòng và lần thuê này.');
       return;
     }
-    if (tab === 'handover' && (room.status === 'Trống' || !getCurrentRoomHandover(room))) {
-      showToast('error', 'Lần thuê hiện tại chưa có hồ sơ bàn giao để xem.');
+    if (tab === 'handover' && room.status === 'Trống' && !contract.isSignedPaper) {
+      showToast('error', 'Chưa có hợp đồng đã ký nên chưa thể lập biên bản nhận phòng.');
       return;
     }
+    const handover = tab === 'handover' ? getCurrentRoomHandover(room) : undefined;
     closeRoomDetails();
-    onNavigate(tab, { roomCode: room.roomCode, contractId: contract.id, tenantId,
-      leaseId: contract.leaseId });
+    onNavigate(tab, { roomCode: room.roomCode,
+      contractId: handover?.contractId || contract.id, tenantId,
+      leaseId: handover?.leaseId || contract.leaseId });
   };
   // Modals for Actions & Links in Chi tiết phòng
   const [showAddModal, setShowAddModal] = useState(false);
@@ -156,25 +154,6 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
   const [showMissingConditionModal, setShowMissingConditionModal] = useState(false);
   const [showUnfinishedHandoverModal, setShowUnfinishedHandoverModal] = useState(false);
   const [showExtensionModal, setShowExtensionModal] = useState(false);
-
-  // Expiry Tracking () states
-  const [expiryFilter, setExpiryFilter] = useState<ContractExpiryBadge | 'Tất cả'>('Tất cả');
-  const [expiryTimeMode, setExpiryTimeMode] = useState<'none' | 'range' | 'days'>('none');
-  const [expiryStartDate, setExpiryStartDate] = useState('');
-  const [expiryEndDate, setExpiryEndDate] = useState('');
-  const [expiryDaysCount, setExpiryDaysCount] = useState<number | string>(30);
-  const [expiryError, setExpiryError] = useState<string | null>(null);
-  const [simulateExpiryEF01, setSimulateExpiryEF01] = useState(false);
-
-  // Return Plans & Feedback () states
-  const [plansSubTab, setPlansSubTab] = useState<'plans' | 'feedback'>('plans');
-  const [planSearchRoom, setPlanSearchRoom] = useState('');
-  const [planLinkedLeaseId, setPlanLinkedLeaseId] = useState<string | undefined>();
-  const [planStatusFilter, setPlanStatusFilter] = useState<'Tất cả' | 'Đang thuê' | 'Sắp trả'>('Tất cả');
-  const [planStartDate, setPlanStartDate] = useState('');
-  const [planEndDate, setPlanEndDate] = useState('');
-  const [feedbackSelectedRoomCode, setFeedbackSelectedRoomCode] = useState('');
-  const [conflictModalItem, setConflictModalItem] = useState<TenantContactLog | null>(null);
 
   // Specific Related Profile Modals
   const [showContractModal, setShowContractModal] = useState(false);
@@ -272,13 +251,6 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
   const [expTime, setExpTime] = useState(new Date().toISOString().substring(0, 16));
   const [expContent, setExpContent] = useState('');
   const [expReason, setExpReason] = useState('');
-
-  // Contact 13 Form
-  const [contactTime, setContactTime] = useState(new Date().toISOString().substring(0, 16));
-  const [contactSource, setContactSource] = useState<'trực tiếp' | 'điện thoại' | 'tin nhắn' | 'khác'>('tin nhắn');
-  const [contactResult, setContactResult] = useState<'Chưa phản hồi' | 'Không tiếp tục thuê – Chưa xác nhận ngày dự kiến trả' | 'Chờ đối chiếu' | 'Đồng ý tiếp tục thuê'>('Chưa phản hồi');
-  const [contactContent, setContactContent] = useState('');
-  const [contactNextDate, setContactNextDate] = useState('');
 
   // Helper: compute contract expiry badge
   const getExpiryBadge = (contractEndDate?: string): ContractExpiryBadge => {
@@ -488,6 +460,8 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
     ct.tenantId === relatedTenantId && ct.status === 'Đang cư trú') : [];
   const relatedHandover = selectedRoom ? getCurrentRoomHandover(selectedRoom) : undefined;
   const relatedReturnPlan = selectedRoom ? getCurrentRoomReturnPlan(selectedRoom) : undefined;
+  const missingConfirmedCheckIn = Boolean(selectedRoom && selectedRoom.status !== 'Trống' &&
+    !getConfirmedRoomHandover(relatedContract, contracts, handoverReports));
   const relatedSettlement = relatedContract ? settlementSlips.find(s => s.roomCode === relatedContract.roomCode &&
     s.leaseId === relatedContract.leaseId) : undefined;
   const relatedInitialPayment = selectedRoom && relatedContract ? initialPaymentRecords.find(p =>
@@ -533,8 +507,6 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
 
         <div className="flex flex-wrap gap-2 items-center">
           {subTab !== 'list' && <button onClick={()=>setSubTab('list')} className="rounded-lg border px-3 py-2 text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50">← Danh sách phòng</button>}
-          <button onClick={() => setSubTab('expiry')} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50">Theo dõi hạn hợp đồng</button>
-          <button onClick={() => { setPlanLinkedLeaseId(undefined); setPlanSearchRoom(''); setSubTab('plans'); }} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50">Kế hoạch trả phòng</button>
         </div>
 
       </div>
@@ -873,793 +845,6 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
         </div>;
       })()}
 
-      {subTab === 'expiry' && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-4">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-800"></span>
-                <h2 className="text-sm font-bold text-slate-900">Theo dõi thời hạn thuê</h2>
-              </div>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Theo dõi ngày hết hạn hợp đồng theo Hết hạn hợp đồng không đồng nghĩa khách đã trả phòng. </p>
-            </div>
-
-            {/* Toggle mô phỏng */}
-            <label className="hidden flex items-center gap-2 text-xs text-slate-600 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 cursor-pointer self-start md:self-auto">
-              <input
-                type="checkbox"
-                checked={simulateExpiryEF01}
-                onChange={(e) => setSimulateExpiryEF01(e.target.checked)}
-                className="rounded border-slate-300 text-red-600 focus:ring-red-500"
-              />
-              <span className="font-medium text-red-700">Mô phỏng lỗi tải </span>
-            </label>
-          </div>
-
-          {/* Lỗi truy xuất  */}
-          {simulateExpiryEF01 ? (
-            <div className="p-4 bg-red-50 border-2 border-red-300 rounded-xl space-y-2 text-red-900">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />
-                <strong className="text-sm font-bold">Không tải được dữ liệu hợp đồng từ </strong>
-              </div>
-              <p className="text-xs">
-                Không thể truy xuất thông tin hạn hợp đồng hoặc ngày hiệu lực. Hệ thống không tạo cảnh báo 30 ngày hay kết luận quá hạn khi thiếu nguồn. </p>
-              <div className="flex justify-end pt-1">
-                <button
-                  onClick={() => setSimulateExpiryEF01(false)}
-                  className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
-                >
-                  Thử lại tải dữ liệu </button>
-              </div>
-            </div>
-          ): (
-            <>
-              {/* Bộ lọc nhãn thời hạn & thời gian */}
-              <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-3 text-xs">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-semibold text-slate-700">1. Nhãn thời hạn:</span>
-                  {(['Tất cả', 'Còn hạn', 'Sắp hết hạn hợp đồng', 'Đến hạn hôm nay', 'Đã hết hạn hợp đồng', 'Chưa có dữ liệu'] as const).map((tag) => (
-                    <button
-                      key={tag}
-                      onClick={() => {
-                        setExpiryFilter(tag);
-                        if (tag === 'Chưa có dữ liệu') {
-                          // vô hiệu hóa và xóa lọc thời gian
-                          setExpiryTimeMode('none');
-                          setExpiryStartDate('');
-                          setExpiryEndDate('');
-                          setExpiryError(null);
-                        }
-                      }}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
-                        expiryFilter === tag
-                          ? 'bg-blue-600 text-white border-blue-600 shadow-xs': 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
-                      }`}
-                    >
-                      {tag}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Bộ lọc thời gian: Chỉ chọn 1 trong 2 chế độ hoặc Không lọc */}
-                <div className="pt-2 border-t border-slate-200 flex flex-wrap items-center gap-4">
-                  <span className="font-semibold text-slate-700">2. Lọc thời gian:</span>
-
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="expiryTimeMode"
-                      value="none"
-                      disabled={expiryFilter === 'Chưa có dữ liệu'}
-                      checked={expiryTimeMode === 'none'}
-                      onChange={() => {
-                        setExpiryTimeMode('none');
-                        setExpiryError(null);
-                      }}
-                    />
-                    <span className="text-slate-700">Không lọc thời gian</span>
-                  </label>
-
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="expiryTimeMode"
-                      value="range"
-                      disabled={expiryFilter === 'Chưa có dữ liệu'}
-                      checked={expiryTimeMode === 'range'}
-                      onChange={() => {
-                        setExpiryTimeMode('range');
-                        setExpiryDaysCount('');
-                        setExpiryError(null);
-                      }}
-                    />
-                    <span className="text-slate-700">Khoảng ngày hết hạn (từ - đến)</span>
-                  </label>
-
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="expiryTimeMode"
-                      value="days"
-                      disabled={expiryFilter === 'Chưa có dữ liệu'}
-                      checked={expiryTimeMode === 'days'}
-                      onChange={() => {
-                        setExpiryTimeMode('days');
-                        setExpiryStartDate('');
-                        setExpiryEndDate('');
-                        setExpiryError(null);
-                      }}
-                    />
-                    <span className="text-slate-700">Số ngày cần theo dõi (N &ge; 0)</span>
-                  </label>
-                </div>
-
-                {/* Inputs theo chế độ thời gian */}
-                {expiryTimeMode === 'range' && (
-                  <div className="flex flex-wrap items-center gap-2 pt-1">
-                    <span className="text-slate-500">Từ ngày:</span>
-                    <input
-                      type="date"
-                      value={expiryStartDate}
-                      onChange={(e) => setExpiryStartDate(e.target.value)}
-                      className="px-2.5 py-1 border border-slate-300 rounded bg-white font-mono text-xs"
-                    />
-                    <span className="text-slate-500">Đến ngày:</span>
-                    <input
-                      type="date"
-                      value={expiryEndDate}
-                      onChange={(e) => setExpiryEndDate(e.target.value)}
-                      className="px-2.5 py-1 border border-slate-300 rounded bg-white font-mono text-xs"
-                    />
-                    <button
-                      onClick={() => {
-                        if (expiryStartDate && expiryEndDate && expiryStartDate > expiryEndDate) {
-                          setExpiryError('Khoảng ngày đảo ngược (Từ ngày lớn hơn Đến ngày). Vui lòng chọn lại.');
-                        } else {
-                          setExpiryError(null);
-                        }
-                      }}
-                      className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded font-semibold cursor-pointer"
-                    >
-                      Áp dụng </button>
-                  </div>
-                )}
-
-                {expiryTimeMode === 'days' && (
-                  <div className="flex items-center gap-2 pt-1">
-                    <span className="text-slate-500">Theo dõi trong vòng:</span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={expiryDaysCount}
-                      onChange={(e) => setExpiryDaysCount(e.target.value)}
-                      placeholder="Số ngày N"
-                      className="w-24 px-2.5 py-1 border border-slate-300 rounded bg-white font-mono text-xs"
-                    />
-                    <span className="text-slate-500">ngày tới (từ hôm nay đến hôm nay + N)</span>
-                    <button
-                      onClick={() => {
-                        const num = Number(expiryDaysCount);
-                        if (isNaN(num) || num < 0 || !Number.isInteger(num)) {
-                          setExpiryError('Số ngày cần theo dõi N phải là số nguyên không âm (&ge; 0).');
-                        } else {
-                          setExpiryError(null);
-                        }
-                      }}
-                      className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded font-semibold cursor-pointer"
-                    >
-                      Áp dụng </button>
-                  </div>
-                )}
-
-                {/* Error Banner */}
-                {expiryError && (
-                  <div className="p-2.5 bg-red-50 border border-red-200 rounded-lg text-red-800 text-[11px] flex items-center justify-between">
-                    <span className="font-semibold">{expiryError}</span>
-                    <button
-                      onClick={() => setExpiryError(null)}
-                      className="text-red-600 hover:text-red-900 font-bold ml-2"
-                    >
-                      X </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Bảng Danh sách Theo dõi thời hạn thuê */}
-              <div className="overflow-x-auto border border-slate-200 rounded-xl">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-semibold uppercase tracking-wider text-[11px]">
-                      <th className="py-2.5 px-3">Mã phòng</th>
-                      <th className="py-2.5 px-3">Mã hợp đồng</th>
-                      <th className="py-2.5 px-3">Ngày bắt đầu</th>
-                      <th className="py-2.5 px-3">Ngày hết hạn</th>
-                      <th className="py-2.5 px-3">Hiệu lực hợp đồng</th>
-                      <th className="py-2.5 px-3">Số ngày còn lại/Đã qua</th>
-                      <th className="py-2.5 px-3">Ngày dự kiến trả</th>
-                      <th className="py-2.5 px-3">Nhãn thời hạn</th>
-                      <th className="py-2.5 px-3">Nhãn phản hồi </th>
-                      <th className="py-2.5 px-3 text-right">Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {rooms.filter(r => {
-                        const badge = getExpiryBadge(r.contractEndDate);
-                        if (expiryFilter !== 'Tất cả' && badge !== expiryFilter) return false;
-
-                        // Lọc thời gian nếu đang bật và không lỗi
-                        if (expiryTimeMode === 'range' && expiryStartDate && expiryEndDate && !expiryError) {
-                          if (!r.contractEndDate) return false;
-                          if (r.contractEndDate < expiryStartDate || r.contractEndDate > expiryEndDate) return false;
-                        } else if (expiryTimeMode === 'days' && expiryDaysCount !== '' && !expiryError) {
-                          if (!r.contractEndDate) return false;
-                          const target = new Date(r.contractEndDate);
-                          const today = new Date();
-                          today.setHours(0, 0, 0, 0);
-                          const diff = Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-                          const maxDays = Number(expiryDaysCount);
-                          if (diff < 0 || diff > maxDays) return false;
-                        }
-
-                        return true;
-                      }).map(r => {
-                        const badge = getExpiryBadge(r.contractEndDate);
-                        const fbBadge = getFeedbackBadge(r);
-                        const targetContract = contracts.find(c => c.id === r.currentContractId || c.roomCode === r.roomCode);
-                        const rem = getDaysRemainingOrOverdue(r.contractEndDate);
-                        const isOverdue = rem?.isOverdue;
-
-                        return (
-                          <tr key={r.id} className="hover:bg-slate-50 transition-colors">
-                            <td className="py-2.5 px-3 font-mono font-bold text-slate-900">{r.roomCode}</td>
-                            <td className="py-2.5 px-3 font-mono text-slate-700">
-                              {r.currentContractId || <span className="text-slate-400 italic">Chưa có</span>}
-                            </td>
-                            <td className="py-2.5 px-3 font-mono text-slate-600">
-                              {r.contractStartDate || <span className="text-slate-400 italic">—</span>}
-                            </td>
-                            <td className="py-2.5 px-3 font-mono font-semibold text-slate-800">
-                              {r.contractEndDate || <span className="text-slate-400 italic">Chưa xác định</span>}
-                            </td>
-                            <td className="py-2.5 px-3">
-                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                targetContract?.status === 'Hiệu lực' ? 'bg-emerald-100 text-emerald-800':
-                                targetContract?.status === 'Chờ hiệu lực' ? 'bg-indigo-100 text-indigo-800':
-                                'bg-slate-100 text-slate-600'
-                              }`}>
-                                {targetContract?.status || (r.status === 'Đang thuê' ? 'Hiệu lực': 'Chưa xác định')}
-                              </span>
-                            </td>
-                            <td className="py-2.5 px-3 font-medium">
-                              {rem ? (
-                                <span className={isOverdue ? 'text-red-700 font-bold': 'text-slate-700'}>
-                                  {rem.text}
-                                </span>
-                              ): (
-                                <span className="text-slate-400 italic">—</span>
-                              )}
-                            </td>
-                            <td className="py-2.5 px-3 font-mono text-amber-800 font-semibold">
-                              {r.expectedReturnDate || <span className="text-slate-400 font-normal italic">Chưa có</span>}
-                            </td>
-                            <td className="py-2.5 px-3">
-                              <span className={`inline-block px-2 py-0.5 rounded text-[11px] font-semibold ${
-                                badge === 'Sắp hết hạn hợp đồng' ? 'bg-amber-100 text-amber-800':
-                                badge === 'Đến hạn hôm nay' ? 'bg-orange-100 text-orange-900 font-bold':
-                                badge === 'Đã hết hạn hợp đồng' ? 'bg-red-100 text-red-800':
-                                badge === 'Chưa có dữ liệu' ? 'bg-slate-100 text-slate-500':
-                                'bg-emerald-50 text-emerald-700'
-                              }`}>
-                                {badge}
-                              </span>
-                            </td>
-                            <td className="py-2.5 px-3 text-[11px] font-medium text-slate-700">
-                              {fbBadge}
-                            </td>
-                            <td className="py-2.5 px-3 text-right">
-                              <div className="flex items-center justify-end gap-1">
-                                <button
-                                  onClick={() => openLinkedRecord('contracts', r)}
-                                  className="px-2 py-1 bg-white hover:bg-slate-100 text-blue-700 border border-slate-300 rounded text-[11px] font-medium cursor-pointer"
-                                >
-                                  {r.status === 'Trống' ? 'Lập hợp đồng' : 'Xem hợp đồng'}
-                                </button>
-
-                                {/* 2. Theo dõi phản hồi (mở, thẻ Phản hồi) */}
-                                <button
-                                  onClick={() => {
-                                    setFeedbackSelectedRoomCode(r.roomCode);
-                                    setPlansSubTab('feedback');
-                                    setSubTab('plans');
-                                  }}
-                                  className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded text-[11px] font-medium cursor-pointer"
-                                  title="Theo dõi phản hồi tại "
-                                >
-                                  Phản hồi </button>
-
-                                {/* 3. Kiểm tra kết quả trả phòng () */}
-                                <button
-                                  onClick={() => { setSelectedRoom(r); setActiveReturnRoomCode(r.roomCode); setReturnStage(0); setSubTab('return'); }}
-                                  className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded text-[11px] font-medium cursor-pointer"
-                                  title="Kiểm tra kết quả nhận lại phòng tại "
-                                >
-                                  Kiểm tra trả </button>
-
-                                {/* 4. Ghi nhận ngày trả () hoặc Cập nhật () */}
-                                {r.status === 'Đang thuê' || r.status === 'Sắp trả' ? (
-                                  <button
-                                    onClick={() => {
-                                      setSelectedRoom(r);
-                                      setExpDateInput(r.expectedReturnDate || '');
-                                      setShowExpectedDateModal(true);
-                                    }}
-                                    className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded text-[11px] font-semibold cursor-pointer"
-                                    title={r.expectedReturnDate ? 'Cập nhật ngày dự kiến trả': 'Ghi nhận ngày dự kiến trả'}
-                                  >
-                                    {r.expectedReturnDate ? 'Sửa ngày trả': 'Ghi ngày trả'}
-                                  </button>
-                                ): (
-                                  <span className="text-[10px] text-slate-400 italic px-1">Chỉ xem</span>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* ==================== SUB-TAB 3: RETURN PLANS & FEEDBACK () ==================== */}
-      {subTab === 'plans' && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-4">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-800"></span>
-                <h2 className="text-sm font-bold text-slate-900">Theo dõi kế hoạch và phản hồi trả phòng</h2>
-              </div>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Quản lý 2 thẻ độc lập: Kế hoạch trả (theo dõi ngày khách trả) và Phản hồi (nhật ký liên hệ trao đổi). </p>
-            </div>
-
-            {/* Sub-tab 13 navigation (Thẻ Kế hoạch trả vs Thẻ Phản hồi) */}
-            <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg">
-              <button
-                onClick={() => setPlansSubTab('plans')}
-                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
-                  plansSubTab === 'plans' ? 'bg-white text-slate-900 shadow-xs': 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                1. Thẻ Kế hoạch trả </button>
-              <button
-                onClick={() => setPlansSubTab('feedback')}
-                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
-                  plansSubTab === 'feedback' ? 'bg-white text-slate-900 shadow-xs': 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                2. Thẻ Phản hồi &amp; Liên hệ </button>
-            </div>
-          </div>
-
-          {/* ==================== THẺ 1: KẾ HOẠCH TRẢ ==================== */}
-          {plansSubTab === 'plans' && (
-            <div className="space-y-4">
-              {/* Filter Bar Kế hoạch trả */}
-              <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
-                <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[300px]">
-                  <input
-                    type="text"
-                    value={planSearchRoom}
-                    onChange={(e) => setPlanSearchRoom(e.target.value)}
-                    placeholder="Lọc mã phòng..."
-                    className="px-3 py-1.5 border border-slate-300 rounded-lg bg-white"
-                  />
-                  <select
-                    value={planStatusFilter}
-                    onChange={(e) => setPlanStatusFilter(e.target.value as any)}
-                    className="px-3 py-1.5 border border-slate-300 rounded-lg bg-white font-medium"
-                  >
-                    <option value="Tất cả">Tất cả trạng thái</option>
-                    <option value="Đang thuê">Đang thuê</option>
-                    <option value="Sắp trả">Sắp trả phòng</option>
-                  </select>
-                  <span className="text-xs font-semibold text-slate-700">Ngày dự kiến trả phòng:</span>
-                  <input
-                    type="date"
-                    value={planStartDate}
-                    onChange={(e) => setPlanStartDate(e.target.value)}
-                    className="px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white font-mono text-xs"
-                    title="Từ ngày dự kiến trả phòng" aria-label="Từ ngày dự kiến trả phòng"
-                  />
-                  <input
-                    type="date"
-                    value={planEndDate}
-                    onChange={(e) => setPlanEndDate(e.target.value)}
-                    className="px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white font-mono text-xs"
-                    title="Đến ngày dự kiến trả phòng" aria-label="Đến ngày dự kiến trả phòng"
-                  />
-                  {(planSearchRoom || planStatusFilter !== 'Tất cả' || planStartDate || planEndDate) && (
-                    <button
-                      onClick={() => { setPlanSearchRoom(''); setPlanStatusFilter('Tất cả'); setPlanStartDate(''); setPlanEndDate(''); }}
-                      className="text-blue-600 hover:text-blue-800 font-semibold cursor-pointer"
-                    >
-                      Xóa lọc </button>
-                  )}
-                </div>
-
-                <select value={planSearchRoom} onChange={e=>{ setPlanSearchRoom(e.target.value); setPlanLinkedLeaseId(undefined); }} className="px-3 py-1.5 border border-slate-300 rounded-lg text-xs bg-white" aria-label="Chọn phòng cần ghi ngày dự kiến trả">
-                  <option value="">Chọn phòng cần ghi ngày trả</option>
-                  {rooms.filter(r=>r.status==='Đang thuê'||r.status==='Sắp trả').map(r=><option key={r.roomCode} value={r.roomCode}>{r.roomCode} - {r.currentTenantName||'Chưa có tên'}</option>)}
-                </select>
-                <button
-                  onClick={() => {
-                    const rentedRoom = rooms.find(r => r.roomCode === planSearchRoom && (r.status === 'Đang thuê' || r.status === 'Sắp trả')); 
-                    if (rentedRoom) {
-                      setSelectedRoom(rentedRoom);
-                      setExpDateInput(rentedRoom.expectedReturnDate || '');
-                      setPlanLinkedLeaseId(undefined);
-                      setShowExpectedDateModal(true);
-                    } else {
-                      showToast('error', 'Hãy nhập mã phòng đang thuê vào ô tìm kiếm rồi bấm Ghi ngày dự kiến trả mới, hoặc mở chức năng từ Chi tiết phòng.');
-                    }
-                  }}
-                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold cursor-pointer flex items-center gap-1.5"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  Ghi ngày dự kiến trả mới </button>
-              </div>
-
-              <p className="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
-                Khoảng ngày trên chỉ lọc các kế hoạch trả đã ghi nhận. Phòng được hiển thị <strong>Sắp trả phòng</strong> khi ngày dự kiến trả đã xác nhận còn trong 15 ngày hoặc đã qua mà chưa nhận lại thực tế; ngày hết hạn hợp đồng không tự làm phòng chuyển trạng thái.
-              </p>
-
-              {planLinkedLeaseId && <div className="flex items-center justify-between gap-3 bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-900">
-                <span>Đang xem kế hoạch trả của <strong>{planSearchRoom}</strong> · lần thuê <strong>{planLinkedLeaseId}</strong>.</span>
-                <button className="font-semibold underline" onClick={() => { setPlanLinkedLeaseId(undefined); setPlanSearchRoom(''); }}>Xem tất cả</button>
-              </div>}
-              {/* Bảng Kế hoạch trả đang theo dõi */}
-              <div className="overflow-x-auto border border-slate-200 rounded-xl">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-semibold uppercase tracking-wider text-[11px]">
-                      <th className="py-2.5 px-3">Mã phòng</th>
-                      <th className="py-2.5 px-3">Hợp đồng / Lần thuê</th>
-                      <th className="py-2.5 px-3">Trạng thái phòng</th>
-                      <th className="py-2.5 px-3">Ngày dự kiến trả</th>
-                      <th className="py-2.5 px-3">Số ngày còn lại/Đã qua</th>
-                      <th className="py-2.5 px-3">Kết quả bàn giao (bàn giao trả phòng)</th>
-                      <th className="py-2.5 px-3 text-right">Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {rooms.filter(r => r.status !== 'Trống' && r.expectedReturnDate && getActiveRoomContract(r)).filter(r => {
-                        if (planLinkedLeaseId && (r.roomCode !== planSearchRoom || r.currentLeaseId !== planLinkedLeaseId)) return false;
-                        if (planSearchRoom && !r.roomCode.toLowerCase().includes(planSearchRoom.toLowerCase())) return false;
-                        if (planStatusFilter !== 'Tất cả' && r.status !== planStatusFilter) return false;
-                        if (planStartDate && r.expectedReturnDate! < planStartDate) return false;
-                        if (planEndDate && r.expectedReturnDate! > planEndDate) return false;
-                        return true;
-                      }).map(r => {
-                        const rem = getDaysRemainingOrOverdue(r.expectedReturnDate);
-                        const inspection = returnInspections.find(i => i.roomCode === r.roomCode && i.leaseId === r.currentLeaseId);
-                        return (
-                          <tr key={r.id} className="hover:bg-slate-50">
-                            <td className="py-2.5 px-3 font-mono font-bold text-slate-900">{r.roomCode}</td>
-                            <td className="py-2.5 px-3">
-                              <span className="font-mono font-semibold text-slate-800">{r.currentContractId || '—'}</span>
-                              <span className="block text-[10px] text-slate-500 font-mono">{r.currentLeaseId}</span>
-                            </td>
-                            <td className="py-2.5 px-3">
-                              <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                                r.status === 'Sắp trả' ? 'bg-amber-100 text-amber-800': 'bg-blue-100 text-blue-800'
-                              }`}>
-                                {r.status === 'Sắp trả' ? 'Sắp trả phòng' : r.status}
-                              </span>
-                            </td>
-                            <td className="py-2.5 px-3 font-mono font-bold text-amber-800">
-                              {r.expectedReturnDate}
-                            </td>
-                            <td className="py-2.5 px-3">
-                              <span className={`font-semibold ${rem?.isOverdue ? 'text-red-700 font-bold': 'text-slate-800'}`}>
-                                {rem?.text}
-                              </span>
-                              <span className="block text-[10px] text-slate-400 italic">(chỉ xem, không sửa)</span>
-                            </td>
-                            <td className="py-2.5 px-3">
-                              {inspection ? (
-                                <span className={`text-[11px] font-medium ${inspection.step304Status === 'Đã nhận lại' ? 'text-emerald-700': 'text-amber-700'}`}>
-                                  {inspection.step304Status} · {inspection.step305Confirmed ? 'xác nhận của chủ nhà Đã xác nhận': 'Chưa xác nhận của chủ nhà'}
-                                </span>
-                              ): (
-                                <span className="text-slate-400 italic">Chưa bàn giao</span>
-                              )}
-                            </td>
-                            <td className="py-2.5 px-3 text-right">
-                              <div className="flex items-center justify-end gap-1">
-                                <button
-                                  onClick={() => {
-                                    setSelectedRoom(r);
-                                    setExpDateInput(r.expectedReturnDate || '');
-                                    setShowExpectedDateModal(true);
-                                  }}
-                                  className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded text-[11px] font-semibold cursor-pointer"
-                                  title="Cập nhật ngày dự kiến trả "
-                                >
-                                  Cập nhật ngày </button>
-                                <button
-                                  onClick={() => { setSelectedRoom(r); setActiveReturnRoomCode(r.roomCode); setReturnStage(0); setSubTab('return'); }}
-                                  className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded text-[11px] font-medium cursor-pointer"
-                                  title="Kiểm tra kết quả trả phòng "
-                                >
-                                  Kiểm tra trả </button>
-                                <button
-                                  onClick={() => { setSelectedRoom(r); setShowExtensionModal(true); }}
-                                  className="px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded text-[11px] font-medium cursor-pointer"
-                                  title="Kiểm tra kết quả tiếp tục thuê "
-                                >
-                                  Tiếp tục thuê </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                  </tbody>
-                </table>
-              </div>
-
-              <p className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg p-3">
-                Khi hợp đồng nối tiếp đã ký và có hiệu lực, kế hoạch trả cũ được cập nhật tự động. Kế hoạch trả sẽ tự cập nhật theo hợp đồng có hiệu lực.
-              </p>
-
-            </div>
-          )}
-
-          {/* ==================== THẺ 2: PHẢN HỒI & LIÊN HỆ () ==================== */}
-          {plansSubTab === 'feedback' && (
-            <div className="space-y-4">
-              {/* Chọn phòng & lần thuê để ghi nhận phản hồi */}
-              <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-slate-700">Chọn phòng &amp; lần thuê:</span>
-                  <select
-                    value={feedbackSelectedRoomCode || (rooms[0]?.roomCode || '')}
-                    onChange={(e) => setFeedbackSelectedRoomCode(e.target.value)}
-                    className="px-3 py-1.5 border border-slate-300 rounded-lg bg-white font-mono font-bold text-blue-700"
-                  >
-                    {rooms.map(r => (
-                      <option key={r.id} value={r.roomCode}>
-                        {r.roomCode} - {r.currentTenantName || 'Trống'} ({r.status}) </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Nhãn phản hồi hiện hành của phòng theo */}
-                {(() => {
-                  const currRoom = rooms.find(r => r.roomCode === (feedbackSelectedRoomCode || rooms[0]?.roomCode));
-                  const fbBadge = currRoom ? getFeedbackBadge(currRoom): 'Chưa có ghi nhận liên hệ';
-                  return (
-                    <div className="flex items-center gap-2">
-                      <span className="text-slate-500">Nhãn phản hồi hiện hành:</span>
-                      <span className="px-2.5 py-1 rounded-md bg-indigo-100 text-indigo-900 font-bold">
-                        {fbBadge}
-                      </span>
-                    </div>
-                  );
-                })()}
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Form Ghi nhận kết quả liên hệ thực tế (Bước 4) */}
-                <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-3 text-xs shadow-xs">
-                  <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                    <UserCheck className="w-4 h-4 text-blue-600" />
-                    Ghi nhận kết quả liên hệ khách thuê </h3>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block font-semibold text-slate-700 mb-1">
-                        Thời điểm liên hệ thực tế <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="datetime-local"
-                        value={contactTime}
-                        onChange={(e) => setContactTime(e.target.value)}
-                        className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg font-mono text-[11px]"
-                      />
-                      <span className="text-[10px] text-slate-400 block mt-0.5">Không được ở tương lai</span>
-                    </div>
-
-                    <div>
-                      <label className="block font-semibold text-slate-700 mb-1">
-                        Kênh liên hệ <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={contactSource}
-                        onChange={(e) => setContactSource(e.target.value as any)}
-                        className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg"
-                      >
-                        <option value="tin nhắn">Tin nhắn Zalo/SMS</option>
-                        <option value="điện thoại">Điện thoại</option>
-                        <option value="trực tiếp">Gặp trực tiếp</option>
-                        <option value="khác">Khác</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">
-                      Kết quả phản hồi của khách <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={contactResult}
-                      onChange={(e) => setContactResult(e.target.value as any)}
-                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg font-semibold text-slate-800"
-                    >
-                      <option value="Chưa phản hồi">Chưa phản hồi (đã liên hệ nhưng chưa nhận trả lời)</option>
-                      <option value="Không tiếp tục thuê – Chưa xác nhận ngày dự kiến trả">
-                        Không tiếp tục thuê – Chưa xác nhận ngày dự kiến trả </option>
-                      <option value="Đồng ý tiếp tục thuê">Đồng ý tiếp tục thuê</option>
-                      <option value="Chờ đối chiếu">Chờ đối chiếu</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">
-                      Nội dung trao đổi xác minh được <span className="text-red-500">*</span>
-                    </label>
-                    <textarea
-                      rows={2}
-                      value={contactContent}
-                      onChange={(e) => setContactContent(e.target.value)}
-                      placeholder="Chi tiết câu trả lời của khách thuê..."
-                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">
-                      Ngày hẹn liên hệ lại tiếp theo (tùy chọn) </label>
-                    <input
-                      type="date"
-                      value={contactNextDate}
-                      onChange={(e) => setContactNextDate(e.target.value)}
-                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg font-mono"
-                    />
-                  </div>
-
-                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
-                    {/* Trường hợp 09: Hẹn liên hệ lại khi chưa liên hệ */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const targetCode = feedbackSelectedRoomCode || rooms[0]?.roomCode;
-                        if (!contactNextDate) {
-                          showToast('error', 'Vui lòng chọn Ngày hẹn liên hệ lại trước khi lưu lịch hẹn.');
-                          return;
-                        }
-                        const res = recordTenantContactPH13({
-                          roomCode: targetCode,
-                          leaseId: 'THUE-' + targetCode,
-                          contactTimeActual: contactTime,
-                          contactSource,
-                          contactResult: 'Chưa phản hồi',
-                          content: 'Lưu lịch hẹn liên hệ tiếp theo (Trường hợp 09)',
-                          nextContactDate: contactNextDate,
-                          isAppointmentOnly: true
-                        });
-                        showToast('success', toUserMessage(res.message));
-                      }}
-                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium cursor-pointer"
-                    >
-                      Lưu lịch hẹn riêng </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const targetCode = feedbackSelectedRoomCode || rooms[0]?.roomCode;
-                        if (!contactContent.trim()) {
-                          showToast('error', 'Nội dung trao đổi không được để trống.');
-                          return;
-                        }
-                        const res = recordTenantContactPH13({
-                          roomCode: targetCode,
-                          leaseId: 'THUE-' + targetCode,
-                          contactTimeActual: contactTime,
-                          contactSource,
-                          contactResult,
-                          content: contactContent,
-                          nextContactDate: contactNextDate
-                        });
-                        if (res.isConflict) {
-                          showToast('error', toUserMessage(res.message));
-                        } else {
-                          showToast('success', toUserMessage(res.message));
-                          setContactContent('');
-                        }
-                      }}
-                      className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold cursor-pointer"
-                    >
-                      Lưu ghi nhận liên hệ </button>
-                  </div>
-                </div>
-
-                {/* Nhật ký liên hệ (Phản hồi) */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
-                      <Clock className="w-4 h-4 text-blue-600" />
-                      Nhật ký phản hồi liên hệ khách thuê </h3>
-                    <span className="text-[11px] text-slate-500 font-mono">
-                      {contactLogs.length} bản ghi </span>
-                  </div>
-
-                  <div className="space-y-2 max-h-[460px] overflow-y-auto">
-                    {contactLogs.map((log) => (
-                      <div
-                        key={log.id}
-                        className={`p-3 rounded-xl border text-xs space-y-1.5 ${
-                          log.conflictFlag
-                            ? 'bg-rose-50 border-rose-300 text-rose-950': 'bg-slate-50 border-slate-200'
-                        }`}
-                      >
-                        <div className="flex justify-between items-center text-[11px]">
-                          <span className="font-bold text-slate-900">
-                            Phòng {log.roomCode} · Kênh: {log.contactSource}
-                          </span>
-                          <span className="font-mono text-slate-500">
-                            {log.contactTimeActual.replace('T', ' ')}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-slate-700">Kết quả:</span>
-                          <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${
-                            log.contactResult === 'Chờ đối chiếu' ? 'bg-rose-200 text-rose-900':
-                            log.contactResult === 'Chưa phản hồi' ? 'bg-amber-100 text-amber-900':
-                            'bg-blue-100 text-blue-900'
-                          }`}>
-                            {log.contactResult}
-                          </span>
-                          {log.conflictFlag && (
-                            <span className="text-[10px] font-mono text-rose-700 font-bold">
-                              [{log.hdt06Reference}] </span>
-                          )}
-                        </div>
-
-                        <p className="text-slate-700 text-[11px] leading-relaxed">
-                          {log.content}
-                        </p>
-
-                        <div className="flex flex-wrap items-center justify-between text-[10px] text-slate-500 pt-1 border-t border-slate-200">
-                          <span>Người ghi: <strong>{log.loggedBy}</strong> (Hệ thống nhập: {log.systemInputTime.substring(11, 19)})</span>
-                          {log.nextContactDate && (
-                            <span className="font-semibold text-blue-700">
-                              Hẹn liên hệ lại: {log.nextContactDate}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                    {contactLogs.length === 0 && (
-                      <p className="text-slate-400 italic text-center py-8 border border-dashed border-slate-200 rounded-xl text-xs">
-                        Chưa có ghi nhận liên hệ nào. </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* ==================== 3. & 4. CHI TIẾT PHÒNG (MODAL/PANEL CHÍNH) ==================== */}
       {/* User chọn một phòng. Hệ thống hiển thị khách thuê, hợp đồng, số người ở, thông tin bàn giao, ngày dự kiến trả và các khoản đã thanh toán.
           Ngày dự kiến trả và Số ngày còn lại/Quá ngày trả (chỉ xem, không sửa, nếu có); Có kế hoạch trả có thể đồng thời Đang thuê.
@@ -1728,6 +913,9 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                 </div>
               )}
 
+              {missingConfirmedCheckIn && <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-amber-950 text-sm">
+                <strong>Hồ sơ nhận phòng chưa đầy đủ.</strong> Phòng đang có khách nhưng chưa tìm thấy biên bản nhận phòng đã xác nhận đúng hợp đồng/lần thuê. Đây là dữ liệu cần đối chiếu, không phải bằng chứng đã bàn giao. Vui lòng mở <strong>Bổ sung biên bản nhận phòng</strong> và chỉ xác nhận khi có bản giấy thực tế đủ chữ ký.
+              </div>}
               {/* 1. THÔNG TIN CƠ BẢN PHÒNG */}
               <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block mb-2">
@@ -1841,34 +1029,42 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                 </div>
               </div>
 
-              {/* Current lease only: never show historic handover on an empty room. */}
-              {selectedRoom.status !== 'Trống' && relatedContract && <div className="p-3.5 bg-white rounded-xl border border-slate-200 space-y-2">
+              {/* A signed contract waiting for check-in needs the new BG03 too;
+                  a truly empty room without a contract has no handover. */}
+              {relatedContract && (selectedRoom.status !== 'Trống' || relatedContract.isSignedPaper) && <div className="p-3.5 bg-white rounded-xl border border-slate-200 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                     <PackageCheck className="w-4 h-4 text-emerald-600" />
                     4. Thông tin bàn giao </span>
                   {/* Liên kết Xem bàn giao */}
-                  {relatedHandover && <button
+                  <button
                     onClick={() => openLinkedRecord('handover', selectedRoom)}
                     className="text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1 hover:underline cursor-pointer"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
-                    Xem bàn giao
-                  </button>}
+                    {getConfirmedRoomHandover(relatedContract, contracts, handoverReports)
+                      ? 'Xem biên bản nhận phòng' : selectedRoom.status === 'Trống'
+                        ? 'Lập biên bản nhận phòng' : 'Bổ sung biên bản nhận phòng'}
+                  </button>
                 </div>
                 <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-100 text-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div>
                     <span className="text-slate-500 block text-[11px]">Biên bản bàn giao nhận phòng:</span>
                     <span className="font-bold text-slate-900 font-mono">
-                      {relatedHandover ? relatedHandover.reportNumber : 'Chưa lập biên bản bàn giao'}
+                      {relatedHandover?.reportNumber || 'Chưa có biên bản nhận phòng liên kết'}
                     </span>
                     <span className="text-slate-500 text-[11px] ml-2">
                       (Bàn giao đầy đủ điều hòa, nóng lạnh, giường tủ, chìa khóa &amp; thẻ từ) </span>
                   </div>
-                  <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200 font-semibold self-start sm:self-auto shrink-0">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    {relatedHandover?.tenantSignedPaper === 'Đã ký giấy' && relatedHandover?.ownerSignedPaper === 'Đã ký giấy' ? 'Đã xác nhận ký biên bản' : 'Chưa xác nhận đủ chữ ký'}
-                  </span>
+                  {getConfirmedRoomHandover(relatedContract, contracts, handoverReports) ? (
+                    <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200 font-semibold self-start sm:self-auto shrink-0">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Đã xác nhận đủ chữ ký
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-amber-900 bg-amber-50 px-2.5 py-1 rounded border border-amber-300 font-semibold self-start sm:self-auto shrink-0">
+                      <AlertTriangle className="w-3.5 h-3.5" /> {selectedRoom.status === 'Trống' ? 'Chưa xác nhận nhận phòng' : 'Thiếu biên bản nhận phòng đã xác nhận – cần đối chiếu giấy tờ'}
+                    </span>
+                  )}
                 </div>
               </div>}
 
@@ -1879,7 +1075,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                     <Calendar className="w-4 h-4 text-amber-600" />
                     5. Ngày dự kiến trả &amp; Phản hồi khách thuê </span>
                   {/* Liên kết Xem kế hoạch trả (mở, thẻ Kế hoạch trả) */}
-                  {relatedContract && selectedRoom.expectedReturnDate && <button
+                  {relatedReturnPlan && <button
                     onClick={() => openLinkedReturnPlan(selectedRoom)}
                     className="text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1 hover:underline cursor-pointer"
                   >
@@ -2287,7 +1483,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Ngày bắt đầu thuê:</span>
-                <span className="font-mono">{selectedRoom.contractStartDate || '2026-09-01'}</span>
+                <span className="font-mono">{relatedHandover?.date || selectedRoom.contractStartDate || 'Chưa ghi nhận'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Hạn kết thúc hợp đồng:</span>
@@ -2417,11 +1613,11 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Ngày bàn giao nhận phòng:</span>
-                <span className="font-mono">{selectedRoom.contractStartDate || '2026-09-01'}</span>
+                <span className="font-mono">{relatedHandover?.date || selectedRoom.contractStartDate || 'Chưa ghi nhận'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Trạng thái chữ ký:</span>
-                <span className="font-bold text-emerald-700">Đại diện Chủ nhà ĐÃ KÝ &amp; Khách thuê ĐÃ KÝ</span>
+                <span className={getConfirmedRoomHandover(relatedContract, contracts, handoverReports) ? 'font-bold text-emerald-700' : 'font-bold text-amber-800'}>{getConfirmedRoomHandover(relatedContract, contracts, handoverReports) ? 'Đã xác nhận đủ chữ ký hai bên' : 'Chưa có xác nhận đủ chữ ký'}</span>
               </div>
             </div>
 
@@ -3059,7 +2255,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                         </button>}
 
                         {/* 4. Xem kế hoạch trả (mở, thẻ Kế hoạch trả) */}
-                        {getActiveRoomContract(targetRoom) && targetRoom.expectedReturnDate && (
+                        {getCurrentRoomReturnPlan(targetRoom) && (
                           <button
                             onClick={() => {
                               setShowCheckRentableModal(false);
@@ -4471,9 +3667,11 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                     type="button"
                     onClick={() => {
                       setShowUnfinishedHandoverModal(false);
-                      setFeedbackSelectedRoomCode(selectedRoom.roomCode);
-                      setPlansSubTab('feedback');
-                      setSubTab('plans');
+                      const linkedContract = getActiveRoomContract(selectedRoom);
+                      if (linkedContract && selectedRoom.status !== 'Trống') {
+                        onNavigate?.('contracts', {roomCode: selectedRoom.roomCode,
+                          contractId: linkedContract.id, leaseId: linkedContract.leaseId, action: 'return-plans'});
+                      }
                     }}
                     className="px-2.5 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-800 rounded text-xs font-semibold cursor-pointer"
                   >
@@ -4678,10 +3876,11 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                   type="button"
                   onClick={() => {
                     setShowExpectedDateModal(false);
-                    setFeedbackSelectedRoomCode(selectedRoom.roomCode);
-                    setPlansSubTab('feedback');
-                    setSubTab('plans');
-                    showToast('success', "Đã chuyển sang thẻ Phản hồi để ghi nhận kết quả liên hệ.");
+                    const linkedContract = getActiveRoomContract(selectedRoom);
+                    if (linkedContract && selectedRoom.status !== 'Trống') {
+                      onNavigate?.('contracts', {roomCode: selectedRoom.roomCode, contractId: linkedContract.id,
+                        leaseId: linkedContract.leaseId, action: 'return-plans'});
+                    } else showToast('error', 'Chưa có hồ sơ thuê hiện tại để ghi nhận phản hồi.');
                   }}
                   className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium cursor-pointer"
                 >
@@ -4853,8 +4052,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                     type="button"
                     onClick={() => {
                       setShowExtensionModal(false);
-                      setPlansSubTab('plans');
-                      setSubTab('plans');
+                      if (selectedRoom) openLinkedReturnPlan(selectedRoom);
                     }}
                     className="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-amber-800 border border-slate-300 rounded text-xs font-semibold cursor-pointer"
                   >

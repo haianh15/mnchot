@@ -26,3 +26,8 @@ Các tên, mã Use Case, mã quy tắc và ghi chú đặc tả chỉ phục v�
 ## Lưu ý bảo mật
 
 Đây là phiên bản demo React có dữ liệu lưu cục bộ trong trình duyệt, **chưa có backend xác thực, cơ sở dữ liệu và email khôi phục mật khẩu thực tế**. Không sử dụng dữ liệu khách thuê hay giao dịch thật. Chưa được chứng nhận vượt qua toàn bộ kiểm thử tích hợp 63 Use Case.
+
+
+## Cập nhật 19/10 – Theo dõi trả phòng
+
+Danh sách theo dõi trả phòng đã chuyển vào **Quản lý hợp đồng**; Quản lý phòng chỉ giữ các thao tác chi tiết phòng, không có danh sách trùng. Xem `BAO_CAO_CHUYEN_THEO_DOI_TRA_PHONG.md`. Chạy `npm run test:returns` để kiểm tra liên kết.

@@ -1,4 +1,4 @@
-import type { Contract, Room, ReturnInspection, Tenant } from '../types';
+import type { Contract, HandoverReport, Room, ReturnInspection, Tenant } from '../types';
 
 /**
  * Resolve the contract shown from a room without confusing an upcoming signed
@@ -31,4 +31,31 @@ export function resolveRoomTenantId(room: Room, contract: Contract | undefined, 
   }
   return contract?.tenantId && tenants.some(t => t.id === contract.tenantId)
     ? contract.tenantId : undefined;
+}
+
+/** A continuing/renewed contract inherits the actual signed handover from its
+ * previous contract; do not manufacture a new handover document on renewal. */
+export function getLeaseContractChain(contract: Contract | undefined, contracts: Contract[]): Contract[] {
+  if (!contract) return [];
+  const chain: Contract[] = [];
+  const visited = new Set<string>();
+  let cursor: Contract | undefined = contract;
+  while (cursor && !visited.has(cursor.id)) {
+    chain.push(cursor);
+    visited.add(cursor.id);
+    cursor = cursor.previousContractId
+      ? contracts.find(c => c.id === cursor!.previousContractId && c.roomCode === contract.roomCode)
+      : undefined;
+  }
+  return chain;
+}
+
+/** Never equate status=Đang thuê/Sắp trả with proof of a signed paper report. */
+export function getConfirmedRoomHandover(
+  contract: Contract | undefined, contracts: Contract[], reports: HandoverReport[]
+): HandoverReport | undefined {
+  return getLeaseContractChain(contract, contracts).map(c => reports.find(r =>
+    r.roomCode === c.roomCode && r.leaseId === c.leaseId && r.contractId === c.id &&
+    r.status === 'Đã xác nhận' && r.tenantSignedPaper === 'Đã ký giấy' &&
+    r.ownerSignedPaper === 'Đã ký giấy')).find(Boolean);
 }

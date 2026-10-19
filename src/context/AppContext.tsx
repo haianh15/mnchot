@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { getConfirmedRoomHandover } from '../utils/roomLinks';
 import {
   UserAccount,
   AuthSession,
@@ -192,7 +193,7 @@ interface AppContextType {
   saveInventoryBG01: (record: InventoryRecord) => void;
   saveHandoverConditionBG02: (condition: HandoverCondition) => { success: boolean; message: string };
   saveHandoverReportBG03: (report: HandoverReport) => void;
-  confirmHandoverSignaturesBG03: (reportId: string, tenantSigned: boolean, ownerSigned: boolean, paperLocation?: string) => void;
+  confirmHandoverSignaturesBG03: (reportId: string, tenantSigned: boolean, ownerSigned: boolean, paperLocation?: string, scanUrl?: string) => void;
   recordIncidentBG04: (incident: AssetIncident) => void;
   recordReturnInspectionBG09: (inspection: ReturnInspection) => void;
   confirmReturnInspectionStep305: (roomCode: string, leaseId: string, evidence: string, photos?: string[], videoUrl?: string) => void;
@@ -1275,6 +1276,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         !contracts.some(c => c.roomCode === room.roomCode && c.leaseId === params.leaseId && c.status !== 'Đã hủy')) {
       return { success: false, message: 'Phòng chưa có lần thuê hiện tại hoặc mã lần thuê không khớp.' };
     }
+    const currentContract = contracts.find(c => c.id === room.currentContractId && c.roomCode === room.roomCode && c.leaseId === params.leaseId);
+    if (!getConfirmedRoomHandover(currentContract, contracts, handoverReports)) {
+      return { success: false, message: 'Phòng đang thiếu biên bản nhận phòng có đủ chữ ký và xác nhận. Hãy đối chiếu hồ sơ bản giấy và bổ sung đúng lần thuê trước khi cập nhật kế hoạch trả.' };
+    }
 
     const expDate = new Date(params.expectedDate);
     const now = new Date();
@@ -1388,6 +1393,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (!renewal || renewal.status !== 'Hiệu lực') {
       return { success: false, message: 'EF-01: Chưa có hợp đồng nối tiếp mới đã ký và có hiệu lực theo UC-HDT-07. Giữ nguyên kế hoạch trả và trạng thái phòng.' };
+    }
+    const previousContract = contracts.find(c => c.id === room.currentContractId && c.leaseId === room.currentLeaseId);
+    if (!getConfirmedRoomHandover(previousContract, contracts, handoverReports)) {
+      return { success: false, message: 'Phòng chưa có biên bản nhận phòng được xác nhận cho lần thuê đang tiếp tục. Cần đối chiếu, bổ sung hồ sơ trước khi chuyển trạng thái.' };
     }
 
     // Tự đánh dấu kế hoạch cũ Đã hủy do gia hạn
@@ -1641,7 +1650,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
-  const confirmHandoverSignaturesBG03 = (reportId: string, tenantSigned: boolean, ownerSigned: boolean, paperLocation?: string) => {
+  const confirmHandoverSignaturesBG03 = (reportId: string, tenantSigned: boolean, ownerSigned: boolean, paperLocation?: string, scanUrl?: string) => {
     setHandoverReports(prev => prev.map(r => {
       if (r.id !== reportId) return r;
       const bothSigned = tenantSigned && ownerSigned;
@@ -1649,9 +1658,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ...r,
         tenantSignedPaper: tenantSigned ? 'Đã ký giấy' : 'Chưa ký',
         ownerSignedPaper: ownerSigned ? 'Đã ký giấy' : 'Chưa ký',
-        status: bothSigned ? 'Đã xác nhận' : r.status,
+        status: bothSigned ? 'Đã xác nhận' : (r.status === 'Đã xác nhận' ? 'Đã lập' : r.status),
         paperLocation: paperLocation || r.paperLocation,
-        confirmedAt: bothSigned ? new Date().toISOString() : r.confirmedAt
+        signedDocumentScanUrl: scanUrl?.trim() || r.signedDocumentScanUrl,
+        confirmedAt: bothSigned ? new Date().toISOString() : undefined
       };
     }));
   };
@@ -3072,6 +3082,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const contract = contracts.find(c => c.id === contractId);
     if (!contract || !contract.previousContractId) {
       return { success: false, message: 'Hợp đồng gia hạn không hợp lệ hoặc thiếu liên kết hợp đồng cũ.' };
+    }
+    const previousContract = contracts.find(c => c.id === contract.previousContractId && c.roomCode === contract.roomCode);
+    const roomForRenewal = rooms.find(r => r.roomCode === contract.roomCode);
+    if (!previousContract || !roomForRenewal || roomForRenewal.status === 'Trống' ||
+        roomForRenewal.currentLeaseId !== previousContract.leaseId ||
+        !getConfirmedRoomHandover(previousContract, contracts, handoverReports)) {
+      return { success: false, message: 'Không thể kích hoạt hợp đồng nối tiếp: phòng chưa có lần thuê và biên bản nhận phòng đã xác nhận liên kết với hợp đồng trước.' };
     }
 
     const nowStr = new Date().toISOString();

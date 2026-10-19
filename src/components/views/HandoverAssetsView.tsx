@@ -1,5 +1,6 @@
 import { toUserMessage } from '../../utils/userMessages';
 import React, { useState, useEffect } from 'react';
+import { getLeaseContractChain } from '../../utils/roomLinks';
 import { useApp } from '../../context/AppContext';
 import {
   InventoryRecord,
@@ -114,10 +115,9 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
       return;
     }
     handleRoomChange(initialRoomCode);
-    // From Room Details, show that exact lease's existing handover, not inventory of another room.
-    if (initialLeaseId && handoverReports.some(h => h.roomCode === initialRoomCode && h.leaseId === initialLeaseId)) {
-      setActiveTab('handover_bg03');
-    }
+    // From Room Details, open the matching lease's handover form, including when
+    // the legacy occupied room is missing a paper report that must be reconciled.
+    if (initialLeaseId) setActiveTab('handover_bg03');
   }, [initialRoomCode, initialLeaseId, initialContractId]);
   // Toast feedback
   const [toast, setToast] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
@@ -134,10 +134,19 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
     c.leaseId === selectedLeaseId && (c.id === selectedRoom?.currentContractId || c.id === initialContractId)) ||
     contracts.find(c => c.roomCode === selectedRoomCode && c.leaseId === selectedLeaseId &&
       c.status !== 'Đã hủy');
-  const linkedRoomMismatch = Boolean(initialRoomCode === selectedRoomCode &&
-    ((initialLeaseId && selectedRoom?.currentLeaseId !== initialLeaseId) ||
-      (initialContractId && !contracts.some(c => c.roomCode === selectedRoomCode &&
-        c.leaseId === initialLeaseId && c.id === initialContractId))));
+  const activeCurrentContract = contracts.find(c => c.id === selectedRoom?.currentContractId && c.roomCode === selectedRoomCode);
+  const permittedRenewalChain = getLeaseContractChain(activeCurrentContract, contracts);
+  const pendingHandoverMatch = Boolean(initialLeaseId && selectedRoom?.status === 'Trống' &&
+    selectedRoom?.pendingLeaseId === initialLeaseId &&
+    selectedRoom?.pendingContractId === initialContractId &&
+    contracts.some(c => c.id === initialContractId && c.roomCode === selectedRoomCode &&
+      c.leaseId === initialLeaseId && c.isSignedPaper));
+  const linkedRoomMismatch = Boolean(initialRoomCode === selectedRoomCode && (
+    (initialLeaseId && selectedRoom?.currentLeaseId !== initialLeaseId &&
+      !pendingHandoverMatch &&
+      !permittedRenewalChain.some(c => c.leaseId === initialLeaseId)) ||
+    (initialContractId && !contracts.some(c => c.roomCode === selectedRoomCode &&
+      c.leaseId === initialLeaseId && c.id === initialContractId))));
   const currentInitialPayment = initialPaymentRecords.find(p => p.roomCode === selectedRoomCode && p.leaseId === selectedLeaseId);
   const returnInspectionTarget = returnInspections.find(r => r.roomCode === selectedRoomCode && r.leaseId === selectedLeaseId);
   const [comparisonItems, setComparisonItems] = useState<{
@@ -209,6 +218,14 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
   const [signPaperOwner, setSignPaperOwner] = useState<boolean>(existingReport?.ownerSignedPaper === 'Đã ký giấy');
   const [paperLocation, setPaperLocation] = useState<string>(existingReport?.paperLocation || 'Tủ hồ sơ tầng 1 - Kẹp P.' + selectedRoomCode.replace(/\D/g, ''));
   const [signedDocumentScanUrl, setSignedDocumentScanUrl] = useState<string>(existingReport?.signedDocumentScanUrl || '');
+  // Never carry signature indicators or evidence from another room/lease.
+  useEffect(() => {
+    setSignPaperTenant(existingReport?.tenantSignedPaper === 'Đã ký giấy');
+    setSignPaperOwner(existingReport?.ownerSignedPaper === 'Đã ký giấy');
+    setPaperLocation(existingReport?.paperLocation || '');
+    setSignedDocumentScanUrl(existingReport?.signedDocumentScanUrl || '');
+  }, [selectedRoomCode, selectedLeaseId, existingReport?.id,
+      existingReport?.tenantSignedPaper, existingReport?.ownerSignedPaper]);
 
   // ==================== STATE : GHI NHẬN SỰ CỐ TÀI SẢN ====================
   const [incScope, setIncScope] = useState<'Tài sản cụ thể' | 'Hiện trạng chung'>('Tài sản cụ thể');
@@ -232,7 +249,6 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
   const [bg05FilterEndDate, setBg05FilterEndDate] = useState<string>('');
   const [bg05SearchKeyword, setBg05SearchKeyword] = useState<string>('');
   const [selectedIncidentDetail, setSelectedIncidentDetail] = useState<AssetIncident | null>(null);
-  const [bg05AuditStamp, setBg05AuditStamp] = useState<string | null>(null);
 
   // ==================== STATE : GHI NHẬN KẾT QUẢ ĐỐI CHIẾU TÀI SẢN ====================
   const existingCompResult = assetComparisonResults.find(r => r.roomCode === selectedRoomCode && r.leaseId === selectedLeaseId);
@@ -1205,7 +1221,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                 <p className="text-[11px] text-slate-600 font-medium">Độc lập - Tự do - Hạnh phúc</p>
                 <h4 className="font-bold text-slate-900 text-base pt-2">BIÊN BẢN BÀN GIAO NHẬN PHÒNG &amp; TÀI SẢN</h4>
                 <div className="flex justify-center items-center gap-3 text-[11px] font-mono text-slate-500">
-                  <span>Số BB: <strong>{existingReport?.reportNumber || 'BB-' + selectedRoomCode.replace(/\D/g, '') + '-2026'}</strong></span>
+                  <span>Số BB: <strong>{existingReport?.reportNumber || (targetContract ? 'BB-' + selectedRoomCode.replace(/\W/g, '') + '-' + targetContract.leaseId.replace(/\W/g, '') : 'Chưa lập biên bản')}</strong></span>
                   <span>·</span>
                   <span>Mã HĐ: <strong>{targetContract?.id || 'HD-' + selectedRoomCode.replace(/\D/g, '') + '-2026'}</strong></span>
                   <span>·</span>
@@ -1222,7 +1238,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                 </div>
                 <div>
                   <span className="font-bold text-slate-900 block mb-1">BÊN NHẬN (Khách thuê phòng {selectedRoom.roomCode}):</span>
-                  <div>Họ tên: <strong>{existingReport?.receiverName || selectedRoom.currentTenantName || 'Trần Văn Bình'}</strong></div>
+                  <div>Họ tên: <strong>{existingReport?.receiverName || targetContract?.tenantName || selectedRoom.currentTenantName || 'Chưa có thông tin khách'}</strong></div>
                   <div>CCCD: <strong>001095012345</strong></div>
                 </div>
               </div>
@@ -1273,7 +1289,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                   <div className="h-16 flex items-center justify-center font-serif text-slate-600">
                     {existingReport?.tenantSignedPaper === 'Đã ký giấy' ? '✓ Đã ký bản giấy' : '[Chờ ký tay ngoài hệ thống]'}
                   </div>
-                  <strong>{existingReport?.receiverName || selectedRoom.currentTenantName || 'Trần Văn Bình'}</strong>
+                  <strong>{existingReport?.receiverName || targetContract?.tenantName || selectedRoom.currentTenantName || 'Chưa có thông tin khách'}</strong>
                 </div>
 
                 <div className="space-y-1">
@@ -1302,15 +1318,19 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                 {/* Lưu nháp biên bản */}
                 <button
                   onClick={() => {
+                    if (!targetContract || !targetContract.isSignedPaper) {
+                      showToast('error', 'Chưa có hợp đồng đã ký đúng phòng và lần thuê. Không thể lập biên bản nhận phòng.');
+                      return;
+                    }
                     const draft: HandoverReport = {
-                      id: existingReport?.id || 'bb_' + selectedRoomCode.replace(/\D/g, ''),
-                      reportNumber: existingReport?.reportNumber || 'BB-' + selectedRoomCode.replace(/\D/g, '') + '-2026',
+                      id: existingReport?.id || 'bb_' + selectedRoomCode.replace(/\W/g, '_') + '_' + targetContract!.leaseId.replace(/\W/g, '_'),
+                      reportNumber: existingReport?.reportNumber || 'BB-' + selectedRoomCode.replace(/\W/g, '') + '-' + targetContract!.leaseId.replace(/\W/g, ''),
                       roomCode: selectedRoomCode,
-                      contractId: targetContract?.id || 'HD-' + selectedRoomCode.replace(/\D/g, '') + '-2026',
-                      leaseId: targetContract?.leaseId || 'THUE-' + selectedRoomCode + '-L1',
+                      contractId: targetContract!.id,
+                      leaseId: targetContract!.leaseId,
                       date: new Date().toISOString().substring(0, 10),
                       giverName: currentUser?.fullName || 'Nguyễn Văn An',
-                      receiverName: selectedRoom.currentTenantName || 'Trần Văn Bình',
+                      receiverName: targetContract!.tenantName,
                       status: 'Nháp',
                       tenantSignedPaper: 'Chưa ký',
                       ownerSignedPaper: 'Chưa ký',
@@ -1322,27 +1342,28 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                     saveHandoverReportBG03(draft);
                     showToast('info', 'Đã lưu nháp biên bản nhận phòng.');
                   }}
-                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg font-semibold cursor-pointer"
+                  disabled={existingReport?.status === 'Đã xác nhận'}
+                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Lưu nháp biên bản </button>
 
                 {/* Bước 5: Lưu Đã lập (1.06) */}
                 <button
-                  disabled={!canSaveOfficially106}
+                  disabled={!canSaveOfficially106 || existingReport?.status === 'Đã xác nhận'}
                   onClick={() => {
-                    if (!canSaveOfficially106) {
-                      showToast('error', 'Chưa đủ điều kiện tiên quyết bắt buộc để Lưu Đã lập (1.06).');
+                    if (!targetContract || !canSaveOfficially106) {
+                      showToast('error', 'Chưa có hợp đồng hợp lệ hoặc chưa đủ điều kiện để lưu biên bản.');
                       return;
                     }
                     const officialReport: HandoverReport = {
-                      id: existingReport?.id || 'bb_' + selectedRoomCode.replace(/\D/g, ''),
-                      reportNumber: existingReport?.reportNumber || 'BB-' + selectedRoomCode.replace(/\D/g, '') + '-2026',
+                      id: existingReport?.id || 'bb_' + selectedRoomCode.replace(/\W/g, '_') + '_' + targetContract!.leaseId.replace(/\W/g, '_'),
+                      reportNumber: existingReport?.reportNumber || 'BB-' + selectedRoomCode.replace(/\W/g, '') + '-' + targetContract!.leaseId.replace(/\W/g, ''),
                       roomCode: selectedRoomCode,
-                      contractId: targetContract?.id || 'HD-' + selectedRoomCode.replace(/\D/g, '') + '-2026',
-                      leaseId: targetContract?.leaseId || 'THUE-' + selectedRoomCode + '-L1',
+                      contractId: targetContract!.id,
+                      leaseId: targetContract!.leaseId,
                       date: new Date().toISOString().substring(0, 10),
                       giverName: currentUser?.fullName || 'Nguyễn Văn An',
-                      receiverName: selectedRoom.currentTenantName || 'Trần Văn Bình',
+                      receiverName: targetContract!.tenantName,
                       status: 'Đã lập',
                       tenantSignedPaper: existingReport?.tenantSignedPaper || 'Chưa ký',
                       ownerSignedPaper: existingReport?.ownerSignedPaper || 'Chưa ký',
@@ -1632,19 +1653,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                   Tra cứu các sự cố đã phát sinh trong thời gian thuê để làm căn cứ đối chiếu khi trả phòng. Dữ liệu chỉ đọc. </p>
               </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    const stamp = `AUDIT-BG05-${selectedRoomCode}-${Date.now().toString().slice(-6)}`;
-                    setBg05AuditStamp(stamp);
-                    showToast('success', `Đã ghi nhận dấu tra cứu phiên đối chiếu: ${stamp}`);
-                  }}
-                  className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg font-semibold flex items-center gap-1 cursor-pointer"
-                >
-                  <History className="w- h-" />
-                  <span>Gắn dấu tra cứu /</span>
-                </button>
-              </div>
+
             </div>
 
             {/* Filter Bar (Giao diện mục 2) */}
@@ -2089,11 +2098,6 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
             showToast('error', ': Khách chưa phản hồi hoặc không liên hệ được, không thể lưu trạng thái "Đã thống nhất" (không suy đoán im lặng là đồng ý - ).');
             return;
           }
-          const hasValidBG05 = Boolean(bg05AuditStamp || existingCompResult?.bg05AuditStamp);
-          if (!hasValidBG05 && bg07UnanimousStatus === 'Đã thống nhất') {
-            showToast('error', ": Chưa có dấu tra cứu sự cố hợp lệ cùng phiên bản nguồn. Vui lòng đối soát trước hoặc chọn lại tình trạng thực tế.");
-            return;
-          }
 
           try {
             if (bg07SimulateSaveFailure) {
@@ -2121,7 +2125,6 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
               unreachableConfirmedBy: bg07TenantFeedbackStatus === 'Không liên hệ được' ? (currentUser?.fullName || 'Chủ nhà') : undefined,
               transferredToSettlement318: step318Transferred,
               transferredAt: step318Transferred ? (existingCompResult?.transferredAt || new Date().toISOString()) : undefined,
-              bg05AuditStamp: bg05AuditStamp || existingCompResult?.bg05AuditStamp || 'AUDIT-BG05-VALID',
               version: (existingCompResult?.version || 1),
               loggedAt: new Date().toISOString()
             };
@@ -2231,17 +2234,11 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                 </span>
                 <span className="text-[10px] text-slate-400 block mt-0.5">* Chỉ đọc từ, không được sửa</span>
               </div>
-              <div>
-                <span className="text-slate-500 block text-[11px]">Dấu tra cứu sự cố:</span>
-                <span className="font-mono text-slate-800 font-semibold">
-                  {bg05AuditStamp || existingCompResult?.bg05AuditStamp || 'Đã đối soát hợp lệ (BG05-OK)'}
-                </span>
-                <span className="text-[10px] text-slate-400 block mt-0.5">*: kế thừa hoặc kiểm tra nguồn</span>
-              </div>
+
               <div>
                 <span className="text-slate-500 block text-[11px]">Biên bản nhận:</span>
                 <span className="font-semibold text-emerald-700">
-                  {existingReport?.reportNumber || 'BB-BG03'} ({existingReport?.status || 'Đã xác nhận'}) </span>
+                  {existingReport ? `${existingReport.reportNumber} (${existingReport.status})` : 'Chưa có biên bản xác nhận'} </span>
               </div>
               <div>
                 <span className="text-slate-500 block text-[11px]">Xác nhận nhận lại:</span>
@@ -3761,7 +3758,8 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                     saveHandoverReturnReportBG11(rep);
                     showToast('info', 'Đã lưu nháp biên bản trả phòng.');
                   }}
-                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg font-semibold cursor-pointer"
+                  disabled={existingReport?.status === 'Đã xác nhận'}
+                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Lưu nháp biên bản </button>
 
@@ -4456,7 +4454,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                 Hủy </button>
               <button
                 onClick={() => {
-                  confirmHandoverSignaturesBG03(existingReport.id, signPaperTenant, signPaperOwner, paperLocation);
+                  confirmHandoverSignaturesBG03(existingReport.id, signPaperTenant, signPaperOwner, paperLocation, signedDocumentScanUrl);
                   if (signPaperTenant && signPaperOwner) {
                     showToast('success', 'Đã ghi nhận cả 2 bên đã ký tay! Biên bản chuyển sang trạng thái ĐÃ XÁC NHẬN.');
                   } else {

@@ -11,6 +11,7 @@ import { HDT03SendAndNegotiate } from './contracts/HDT03SendAndNegotiate';
 import { HDT04ReceiveSignedContract } from './contracts/HDT04ReceiveSignedContract';
 import { HDT05BatchSchedules } from './contracts/HDT05BatchSchedules';
 import { HDT05ContractExpiry } from './contracts/HDT05ContractExpiry';
+import { ContractReturnTracking } from './contracts/ContractReturnTracking';
 import { HDT06RenewalContract } from './contracts/HDT06RenewalContract';
 import { DepositSettlementView } from './DepositSettlementView';
 import { HDT07ActivateRenewal } from './contracts/HDT07ActivateRenewal';
@@ -23,18 +24,21 @@ export type ContractTabKey =
   | 'negotiate'
   | 'sign'
   | 'expiry'
+  | 'returns'
   | 'schedules'
   | 'renewal'
   | 'activate';
 
-export const ContractsView: React.FC<{initialContractId?: string; initialRoomCode?: string; initialAction?: 'create'; onBackToRooms?: (roomCode: string) => void}> = ({initialContractId, initialRoomCode, initialAction, onBackToRooms}) => {
+export const ContractsView: React.FC<{initialContractId?: string; initialRoomCode?: string; initialAction?: 'create' | 'return-plans'; initialLeaseId?: string; onBackToRooms?: (roomCode: string) => void}> = ({initialContractId, initialRoomCode, initialAction, initialLeaseId, onBackToRooms}) => {
   const {
     contracts,
     leaseConditions,
     batchSchedules,
     settlementSlips,
     initialPaymentRecords,
-    returnInspections
+    returnInspections,
+    rooms,
+    returnPlans
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<ContractTabKey>('overview');
@@ -42,8 +46,16 @@ export const ContractsView: React.FC<{initialContractId?: string; initialRoomCod
   const [selectedContractId, setSelectedContractId] = useState(initialContractId || '');
   const [pendingCreateRoomCode, setPendingCreateRoomCode] = useState<string | undefined>(initialAction === 'create' ? initialRoomCode : undefined);
   const [searchContract, setSearchContract] = useState('');
+  const [returnFocus, setReturnFocus] = useState<{roomCode?: string; leaseId?: string; contractId?: string}>({});
+  const openReturnTracking = (record: {roomCode?: string; leaseId?: string; contractId?: string} = {}) => {
+    setReturnFocus(record);
+    setActiveTab('returns');
+  };
   useEffect(() => {
-    if (initialAction === 'create' && initialRoomCode) {
+    if (initialAction === 'return-plans') {
+      setSelectedContractId(initialContractId || '');
+      openReturnTracking({roomCode: initialRoomCode, leaseId: initialLeaseId, contractId: initialContractId});
+    } else if (initialAction === 'create' && initialRoomCode) {
       setSelectedContractId('');
       setPendingCreateRoomCode(initialRoomCode);
       setActiveTab('conditions');
@@ -51,11 +63,17 @@ export const ContractsView: React.FC<{initialContractId?: string; initialRoomCod
       setSelectedContractId(initialContractId);
       setActiveTab('overview');
     }
-  }, [initialContractId, initialRoomCode, initialAction]);
+  }, [initialContractId, initialRoomCode, initialLeaseId, initialAction]);
   const selectedContract = contracts.find(c => c.id === selectedContractId);
   const linkedSlips = settlementSlips.filter(s => s.leaseId === selectedContract?.leaseId);
   const firstPayment = initialPaymentRecords.find(r => r.leaseId === selectedContract?.leaseId);
   const hasReturnConfirmation = returnInspections.some(i => i.leaseId === selectedContract?.leaseId && i.step304Status === 'Đã nhận lại' && i.step305Confirmed);
+  const hasCurrentReturnPlan = !!selectedContract && rooms.some(room =>
+    room.roomCode === selectedContract.roomCode && room.status !== 'Trống' &&
+    room.currentLeaseId === selectedContract.leaseId && !!room.expectedReturnDate &&
+    returnPlans.some(plan => plan.roomCode === room.roomCode && plan.leaseId === selectedContract.leaseId &&
+      plan.status === 'Còn theo dõi' && plan.expectedDate === room.expectedReturnDate)
+  );
   // Inter-tab State
   const [selectedConditionForDraft, setSelectedConditionForDraft] = useState<LeaseConditionDraft | null>(null);
   const [selectedContractForSign, setSelectedContractForSign] = useState<Contract | null>(null);
@@ -89,6 +107,7 @@ export const ContractsView: React.FC<{initialContractId?: string; initialRoomCod
           <div className="flex flex-wrap gap-2 mt-3 items-center">
             <input value={searchContract} onChange={e=>setSearchContract(e.target.value)} placeholder="Tìm mã hợp đồng, phòng hoặc khách thuê" className="w-full sm:w-auto sm:flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm" />
             <button onClick={()=>setActiveTab('schedules')} className="px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">Lịch hợp đồng chung</button>
+            <button onClick={()=>openReturnTracking()} className="px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">Theo dõi trả phòng</button>
             <button onClick={()=>setActiveTab('expiry')} className="px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">Theo dõi hạn hợp đồng</button>
             <button onClick={()=>setActiveTab('conditions')} className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold">+ Lập hợp đồng</button>
           </div>
@@ -124,6 +143,7 @@ export const ContractsView: React.FC<{initialContractId?: string; initialRoomCod
                 {!hasReturnConfirmation && <p className="text-xs text-amber-700">Cần xác nhận nhận lại phòng thực tế trước khi lập phiếu.</p>}
               </div>
               <div className="flex flex-wrap gap-2 text-sm">
+                {hasCurrentReturnPlan && selectedContract && <button onClick={()=>openReturnTracking({roomCode: selectedContract.roomCode, leaseId: selectedContract.leaseId, contractId: selectedContract.id})} className="px-3 py-2 rounded-lg border">Xem kế hoạch trả phòng</button>}
                 {onBackToRooms && <button onClick={()=>onBackToRooms(selectedContract.roomCode)} className="px-3 py-2 rounded-lg border">Xem phòng</button>}
                 {selectedContract.status==='Nháp' && <button onClick={()=>setActiveTab('negotiate')} className="px-3 py-2 rounded-lg border">Điều chỉnh dự thảo</button>}
                 {['Nháp','Chờ khách ký'].includes(selectedContract.status) && <button onClick={()=>handleSelectContractForSign(selectedContract)} className="px-3 py-2 rounded-lg border">Ghi nhận ký</button>}
@@ -138,13 +158,20 @@ export const ContractsView: React.FC<{initialContractId?: string; initialRoomCod
         <DepositSettlementView leaseId={selectedContract.leaseId} />
       </div>}
       {/* Action screens are contextual. The page no longer exposes every UC as a navigation tab. */}
-      {activeTab !== 'overview' && activeTab !== 'settlement' && <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-wrap gap-3 items-center justify-between">
+      {activeTab !== 'overview' && activeTab !== 'settlement' && activeTab !== 'returns' && <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-wrap gap-3 items-center justify-between">
         <div>
           <p className="text-xs font-semibold text-blue-700">Quản lý hợp đồng</p>
-          <h1 className="font-bold text-lg">{{conditions:'Ghi nhận điều kiện thuê đã thống nhất',draft:'Lập dự thảo hợp đồng',negotiate:'Điều chỉnh dự thảo',sign:'Ghi nhận hợp đồng đã ký',expiry:'Theo dõi hạn hợp đồng',schedules:'Lịch đợt hợp đồng chung',renewal:'Lập hợp đồng nối tiếp',activate:'Ghi nhận ký hợp đồng nối tiếp'}[activeTab]}</h1>
+          <h1 className="font-bold text-lg">{{conditions:'Ghi nhận điều kiện thuê đã thống nhất',draft:'Lập dự thảo hợp đồng',negotiate:'Điều chỉnh dự thảo',sign:'Ghi nhận hợp đồng đã ký',expiry:'Theo dõi hạn hợp đồng',returns:'Theo dõi trả phòng',schedules:'Lịch đợt hợp đồng chung',renewal:'Lập hợp đồng nối tiếp',activate:'Ghi nhận ký hợp đồng nối tiếp'}[activeTab]}</h1>
         </div>
         <button onClick={()=>setActiveTab('overview')} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold hover:bg-slate-50">← Danh sách hợp đồng</button>
       </div>}
+      {activeTab === 'returns' && <ContractReturnTracking
+        focusRoomCode={returnFocus.roomCode}
+        focusLeaseId={returnFocus.leaseId}
+        focusContractId={returnFocus.contractId}
+        onSelectContract={id => { setSelectedContractId(id); setActiveTab('overview'); }}
+        onBack={() => {setReturnFocus({});setActiveTab('overview');}} onOpenRoom={onBackToRooms}
+      />}
       {activeTab === 'expiry' && <HDT05ContractExpiry onSelectContract={(id)=>{setSelectedContractId(id);setActiveTab('overview');}}/>}
       {/* Tab Panels */}
       <div>
