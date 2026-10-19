@@ -178,6 +178,7 @@ export const ContractsView: React.FC<{initialContractId?: string; initialRoomCod
           <HDT04ReceiveSignedContract
             initialContract={selectedContractForSign}
             onNavigateToTab={handleNavigateToTab}
+            onSigned={(contractId) => { setSelectedContractId(contractId); setActiveTab('overview'); }}
           />
         )}
 

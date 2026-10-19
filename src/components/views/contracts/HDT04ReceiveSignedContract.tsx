@@ -10,12 +10,14 @@ import {
 
 interface HDT04Props {
   initialContract?: Contract | null;
+  onSigned?: (contractId: string) => void;
   onNavigateToTab?: (tab: 'conditions' | 'draft' | 'negotiate' | 'sign' | 'schedules' | 'renewal' | 'activate') => void;
 }
 
 export const HDT04ReceiveSignedContract: React.FC<HDT04Props> = ({
   initialContract,
-  onNavigateToTab
+  onNavigateToTab,
+  onSigned
 }) => {
   const {
     contracts,
@@ -77,6 +79,7 @@ export const HDT04ReceiveSignedContract: React.FC<HDT04Props> = ({
     if (res.success) {
       setSuccessMessage(res.message);
       alert(toUserMessage(res.message));
+      onSigned?.(selectedContract.id);
     } else {
       alert(toUserMessage(res.message));
     }

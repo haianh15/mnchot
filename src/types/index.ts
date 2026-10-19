@@ -96,7 +96,7 @@ export type TenantFeedbackBadge =
 export interface Room {
   id: string;
   roomCode: string; // Mã phòng (duy nhất, không đổi)
-  floor: number; // Tầng >= 0
+  floor: number; // Tầng là số nguyên >= 1
   area: number; // Diện tích m2 > 0
   status: RoomStatus;
   note?: string;
@@ -108,7 +108,10 @@ export interface Room {
   contractStartDate?: string;
   contractEndDate?: string;
   currentContractId?: string;
-  currentLeaseId?: string; // Định danh lần thuê
+  currentLeaseId?: string; // Định danh lần thuê đang cư trú
+  /** Hợp đồng đã ký nhưng chưa xác nhận nhận phòng; không phải lần thuê đang cư trú. */
+  pendingContractId?: string;
+  pendingLeaseId?: string;
   expectedReturnDate?: string; // Ngày dự kiến trả
   totalOccupants: number;
   returnPlanCancelled?: boolean;
