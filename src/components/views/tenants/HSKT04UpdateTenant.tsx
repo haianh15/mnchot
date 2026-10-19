@@ -192,9 +192,7 @@ export const HSKT04UpdateTenant: React.FC<HSKT04Props> = ({
               <h2 className="text-base font-bold text-cyan-950">Cập nhật hồ sơ khách thuê</h2>
             </div>
             <p className="text-xs text-cyan-800 mt-1">
-              Chỉ cập nhật trên hồ sơ khách chính đã tồn tại theo kết quả xác minh hợp lệ.
-              Bao gồm trường hợp bổ sung thông tin khách cũ tại  3.10 sau khi kiểm soát 3.12 đạt. Không sửa người ở cùng tại đây.
-            </p>
+              Chỉ cập nhật trên hồ sơ khách chính đã tồn tại theo kết quả xác minh hợp lệ. Bao gồm trường hợp bổ sung thông tin khách cũ tại 3.10 sau khi kiểm soát 3.12 đạt. Không sửa người ở cùng tại đây. </p>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -202,16 +200,14 @@ export const HSKT04UpdateTenant: React.FC<HSKT04Props> = ({
               className="px-3 py-2 bg-white hover:bg-slate-100 text-purple-700 border border-purple-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <ShieldCheck className="w-4 h-4" />
-              Kiểm tra thay đổi
-            </button>
+              Kiểm tra thay đổi </button>
             <button
               onClick={() => onNavigateToTab('co_tenants')}
               className="px-3 py-2 bg-white hover:bg-slate-100 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
               title="Nếu thay đổi liên quan người ở cùng"
             >
               <Users className="w-4 h-4" />
-              Sửa người ở cùng
-            </button>
+              Sửa người ở cùng </button>
           </div>
         </div>
       </div>
@@ -262,12 +258,10 @@ export const HSKT04UpdateTenant: React.FC<HSKT04Props> = ({
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-bold text-slate-800">2. Bộ đề nghị thay đổi đã xác minh</h3>
               <span className="text-[10px] text-purple-700 font-semibold bg-purple-50 px-1.5 py-0.5 rounded">
-                Dùng chung BDL
-              </span>
+                Dùng chung BDL </span>
             </div>
             <p className="text-[11px] text-slate-500">
-              Chọn bộ dữ liệu đã được xác nhận ĐẠT để nạp tự động vào biểu mẫu cập nhật.
-            </p>
+              Chọn bộ dữ liệu đã được xác nhận ĐẠT để nạp tự động vào biểu mẫu cập nhật. </p>
 
             <div className="space-y-2 max-h-60 overflow-y-auto">
               {tenantProposals.filter(p => p.tenantId === selectedTenantId).map(p => (
@@ -298,8 +292,7 @@ export const HSKT04UpdateTenant: React.FC<HSKT04Props> = ({
                 ))}
               {tenantProposals.filter(p => p.tenantId === selectedTenantId).length === 0 && (
                 <div className="text-center py-4 text-slate-400 text-xs">
-                  Chưa có bộ đề nghị thay đổi nào cho khách này.
-                </div>
+                  Chưa có bộ đề nghị thay đổi nào cho khách này. </div>
               )}
             </div>
           </div>
@@ -325,19 +318,15 @@ export const HSKT04UpdateTenant: React.FC<HSKT04Props> = ({
               <div className="p-3 bg-amber-50 border border-amber-300 rounded-lg text-amber-900 space-y-2">
                 <div className="flex items-center gap-2 font-bold text-xs">
                   <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                  CẢNH BÁO: Dữ liệu đã thay đổi sau khi xác minh!
-                </div>
+                  CẢNH BÁO: Dữ liệu đã thay đổi sau khi xác minh! </div>
                 <p className="text-[11px]">
-                  Lưu ý: Khi có bất kỳ sửa đổi nào, bạn phải kiểm tra đối chiếu lại trước khi lưu.
-                  Bạn phải kiểm tra lại trước khi được phép ghi vào hồ sơ.
-                </p>
+                  Lưu ý: Khi có bất kỳ sửa đổi nào, bạn phải kiểm tra đối chiếu lại trước khi lưu. Bạn phải kiểm tra lại trước khi được phép ghi vào hồ sơ. </p>
                 <button
                   type="button"
                   onClick={handleSendToReverify}
                   className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded text-xs cursor-pointer"
                 >
-                  Gửi đối chiếu lại
-                </button>
+                  Gửi đối chiếu lại </button>
               </div>
             )}
 
@@ -397,8 +386,7 @@ export const HSKT04UpdateTenant: React.FC<HSKT04Props> = ({
             {/* Action Buttons */}
             <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
               <span className="text-[11px] text-slate-500">
-                Hồ sơ mới sẽ được lưu kèm phiên bản và ghi nhật ký trước/sau.
-              </span>
+                Hồ sơ mới sẽ được lưu kèm phiên bản và ghi nhật ký trước/sau. </span>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
@@ -412,16 +400,14 @@ export const HSKT04UpdateTenant: React.FC<HSKT04Props> = ({
                   }}
                   className="px-3 py-2 border border-slate-300 text-slate-600 hover:bg-slate-100 rounded-lg font-semibold cursor-pointer"
                 >
-                  Hủy sửa
-                </button>
+                  Hủy sửa </button>
                 <button
                   type="button"
                   disabled={isDataModifiedAfterCheck}
                   onClick={handleSaveUpdate}
                   className="px-4 py-2 bg-cyan-700 hover:bg-cyan-800 text-white font-bold rounded-lg shadow-xs cursor-pointer disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
                 >
-                  Lưu thay đổi (Bước 4 & 5)
-                </button>
+                  Lưu thay đổi </button>
               </div>
             </div>
           </div>

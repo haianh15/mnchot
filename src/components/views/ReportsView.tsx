@@ -35,7 +35,7 @@ export const ReportsView: React.FC = () => {
   const handleRefreshData = () => {
     const d = new Date();
     setAsOfTimestamp(d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN'));
-    showToast('success', 'Đã làm mới dữ liệu từ nguồn  thời gian thực');
+    showToast('success', "Đã làm mới dữ liệu từ nguồn thời gian thực");
   };
 
   // Toast feedback
@@ -512,7 +512,7 @@ export const ReportsView: React.FC = () => {
     link.click();
     document.body.removeChild(link);
 
-    showToast('success', 'Đã xuất file Excel báo cáo quản trị tổng hợp (CSV UTF-8 BOM) thành công !');
+    showToast('success', "Đã xuất file Excel báo cáo quản trị tổng hợp (CSV UTF-8 BOM) thành công!");
   };
 
   // Save Report Snapshot to system history
@@ -623,16 +623,14 @@ export const ReportsView: React.FC = () => {
             title="Làm mới trạng thái từ nguồn "
           >
             <RefreshCw className="w-3.5 h-3.5 text-slate-600" />
-            Làm mới
-          </button>
+            Làm mới </button>
 
           <button
             onClick={() => setShowSourceViewerModal(true)}
             className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-pointer border border-indigo-200 transition-colors"
           >
             <Eye className="w-3.5 h-3.5" />
-            Tra cứu nguồn
-          </button>
+            Tra cứu nguồn </button>
         </div>
       </div>
 
@@ -719,14 +717,12 @@ export const ReportsView: React.FC = () => {
               <AlertOctagon className="w-10 h-10 text-red-600 mx-auto" />
               <h3 className="text-base font-bold text-red-900">Ngoại lệ Không thể tải dữ liệu phòng từ </h3>
               <p className="text-xs text-red-700 max-w-lg mx-auto">
-                Hệ thống tuân thủ: Tuyệt đối không tự động hiển thị số liệu thay bằng số 0 khi không kết nối được nguồn. Không kết luận tỷ lệ lấp đầy.
-              </p>
+                Hệ thống tuân thủ: Tuyệt đối không tự động hiển thị số liệu thay bằng số 0 khi không kết nối được nguồn. Không kết luận tỷ lệ lấp đầy. </p>
               <button
                 onClick={() => setSimulateBC01_EF01(false)}
                 className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-semibold cursor-pointer shadow-xs"
               >
-                Tải lại dữ liệu nguồn 
-              </button>
+                Tải lại dữ liệu nguồn </button>
             </div>
           ): (
             <>
@@ -818,8 +814,7 @@ export const ReportsView: React.FC = () => {
                     {occupancyRateValue === 'N/A' ? 'Chưa có dữ liệu (N/A)': `${occupancyRateValue}%`}
                   </span>
                   <span className="text-[10px] text-slate-400 block mt-1">
-                    (Đang thuê + Sắp trả) / {totalRoomsCount} phòng
-                  </span>
+                    (Đang thuê + Sắp trả) / {totalRoomsCount} phòng </span>
                 </div>
               </div>
 
@@ -828,8 +823,7 @@ export const ReportsView: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-blue-700 shrink-0" />
                   <span>
-                    <strong>Lưu ý:</strong> Phòng có cọc giữ chỗ (Đã cọc) vẫn thuộc nhóm <strong>Trống</strong> cho đến khi đủ điều kiện nhận phòng. Thông tin Đã cọc chỉ là phụ, <strong>không tính vào tử số tỷ lệ lấp đầy</strong>.
-                  </span>
+                    <strong>Lưu ý:</strong> Phòng có cọc giữ chỗ (Đã cọc) vẫn thuộc nhóm <strong>Trống</strong> cho đến khi đủ điều kiện nhận phòng. Thông tin Đã cọc chỉ là phụ, <strong>không tính vào tử số tỷ lệ lấp đầy</strong>. </span>
                 </div>
                 <button
                   onClick={() => {
@@ -842,8 +836,7 @@ export const ReportsView: React.FC = () => {
                   }}
                   className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold cursor-pointer shadow-xs flex items-center gap-1"
                 >
-                  Lập báo cáo tổng hợp (BC-04)
-                  <ArrowRight className="w-3.5 h-3.5" />
+                  Lập báo cáo tổng hợp (BC-04) <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
 
@@ -852,11 +845,9 @@ export const ReportsView: React.FC = () => {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
                   <div>
                     <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                      Danh sách chi tiết phòng (Drill-down nguồn )
-                    </h3>
+                      Danh sách chi tiết phòng (Drill-down nguồn ) </h3>
                     <p className="text-[11px] text-slate-500">
-                      Bấm vào phòng để mở hồ sơ chi tiết tại. Màn báo cáo chỉ đọc, không có nút cập nhật trạng thái phòng.
-                    </p>
+                      Bấm vào phòng để mở hồ sơ chi tiết tại. Màn báo cáo chỉ đọc, không có nút cập nhật trạng thái phòng. </p>
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -928,8 +919,7 @@ export const ReportsView: React.FC = () => {
                             <td className="py-2.5 px-3">
                               {r.hasDeposit ? (
                                 <span className="px-2 py-0.5 bg-purple-100 text-purple-800 rounded font-semibold text-[10px]">
-                                  Đã cọc giữ chỗ
-                                </span>
+                                  Đã cọc giữ chỗ </span>
                               ): (
                                 <span className="text-slate-400 text-[11px]">Chưa cọc</span>
                               )}
@@ -940,16 +930,14 @@ export const ReportsView: React.FC = () => {
                                 onClick={() => setDrilldownRoom(r)}
                                 className="px-2 py-1 bg-slate-100 hover:bg-blue-100 hover:text-blue-800 rounded text-[11px] font-semibold text-slate-600 cursor-pointer transition-colors"
                               >
-                                Xem chi tiết
-                              </button>
+                                Xem chi tiết </button>
                             </td>
                           </tr>
                         ))
                       ): (
                         <tr>
                           <td colSpan={9} className="py-6 text-center text-slate-400 italic">
-                            Không tìm thấy phòng nào phù hợp với bộ lọc.
-                          </td>
+                            Không tìm thấy phòng nào phù hợp với bộ lọc. </td>
                         </tr>
                       )}
                     </tbody>
@@ -971,8 +959,7 @@ export const ReportsView: React.FC = () => {
             <div className="flex flex-wrap items-center gap-3">
               <span className="font-bold text-slate-700 flex items-center gap-1.5">
                 <Filter className="w-3.5 h-3.5 text-blue-600" />
-                Bộ lọc tài chính:
-              </span>
+                Bộ lọc tài chính: </span>
 
               {/* Lọc kỳ */}
               <div className="flex items-center gap-1.5">
@@ -1015,7 +1002,7 @@ export const ReportsView: React.FC = () => {
                   onChange={(e) => setSimulateBC02_EF01(e.target.checked)}
                   className="rounded border-slate-300 text-amber-600"
                 />
-                <span>(Thiếu TT-03/PH-07)</span>
+                <span>(Thiếu)</span>
               </label>
 
               <label className="flex items-center gap-1 cursor-pointer">
@@ -1036,15 +1023,13 @@ export const ReportsView: React.FC = () => {
               <div className="flex items-center gap-2">
                 <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
                 <span>
-                  <strong>Ngoại lệ </strong> Thiếu dữ liệu từ nguồn TT-03 hoặc PH-07. Hệ thống hiển thị rõ nguồn còn thiếu, không tự coi là 0 hoặc Đã thu.
-                </span>
+                  <strong>Ngoại lệ </strong> Thiếu dữ liệu từ nguồn hoặc. Hệ thống hiển thị rõ nguồn còn thiếu, không tự coi là 0 hoặc Đã thu. </span>
               </div>
               <button
                 onClick={() => setSimulateBC02_EF01(false)}
                 className="px-3 py-1 bg-amber-600 text-white rounded text-xs font-semibold cursor-pointer"
               >
-                Khôi phục nguồn
-              </button>
+                Khôi phục nguồn </button>
             </div>
           )}
 
@@ -1053,66 +1038,51 @@ export const ReportsView: React.FC = () => {
             {/* 1. Tổng phải thu */}
             <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs space-y-1">
               <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                1. Tổng phải thu (Gross)
-              </span>
+                1. Tổng phải thu (Gross) </span>
               <span className="text-xl font-bold font-mono text-slate-900 block">
-                {totalReceivableGross.toLocaleString('vi-VN')} đ
-              </span>
+                {totalReceivableGross.toLocaleString('vi-VN')} đ </span>
               <p className="text-[10px] text-slate-400">
-                Gồm PH-07 tiền thuê đầu + TT-03 từng kỳ
-              </p>
+                Gồm tiền thuê đầu + từng kỳ </p>
             </div>
 
             {/* 2. Thực thu ngân hàng */}
             <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs space-y-1">
               <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                2. Thực thu ngân hàng
-              </span>
+                2. Thực thu ngân hàng </span>
               <span className="text-xl font-bold font-mono text-emerald-700 block">
-                {totalCollectedBank.toLocaleString('vi-VN')} đ
-              </span>
+                {totalCollectedBank.toLocaleString('vi-VN')} đ </span>
               <p className="text-[10px] text-emerald-600">
-                Chỉ tiền chuyển khoản đã xác nhận
-              </p>
+                Chỉ tiền chuyển khoản đã xác nhận </p>
             </div>
 
             {/* 3. Khoản nợ bù cọc */}
             <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs space-y-1">
               <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                3. Khoản nợ bù cọc
-              </span>
+                3. Khoản nợ bù cọc </span>
               <span className="text-xl font-bold font-mono text-indigo-700 block">
-                {totalHandledByDeposit.toLocaleString('vi-VN')} đ
-              </span>
+                {totalHandledByDeposit.toLocaleString('vi-VN')} đ </span>
               <p className="text-[10px] text-indigo-600">
-                Theo dõi riêng
-              </p>
+                Theo dõi riêng </p>
             </div>
 
             {/* 4. Chưa thu */}
             <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs space-y-1">
               <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                4. Số tiền chưa thu
-              </span>
+                4. Số tiền chưa thu </span>
               <span className="text-xl font-bold font-mono text-amber-700 block">
-                {totalUncollected.toLocaleString('vi-VN')} đ
-              </span>
+                {totalUncollected.toLocaleString('vi-VN')} đ </span>
               <p className="text-[10px] text-amber-600">
-                = Phải thu - Thực thu - Bù cọc
-              </p>
+                = Phải thu - Thực thu - Bù cọc </p>
             </div>
 
             {/* 5. Công nợ quá hạn */}
             <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs space-y-1">
               <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                5. Công nợ quá hạn
-              </span>
+                5. Công nợ quá hạn </span>
               <span className="text-xl font-bold font-mono text-red-600 block">
-                {totalOverdueDebt.toLocaleString('vi-VN')} đ
-              </span>
+                {totalOverdueDebt.toLocaleString('vi-VN')} đ </span>
               <p className="text-[10px] text-red-500">
-                Chỉ phần Chưa thu đã qua hạn TT
-              </p>
+                Chỉ phần Chưa thu đã qua hạn TT </p>
             </div>
           </div>
 
@@ -1120,11 +1090,9 @@ export const ReportsView: React.FC = () => {
           <div className="p-4 bg-slate-900 rounded-xl border border-slate-800 text-white flex flex-wrap items-center justify-between gap-4 text-xs">
             <div>
               <span className="text-[11px] font-mono uppercase font-bold text-indigo-400 block">
-                THEO DÕI RIÊNG TIỀN CỌC GỐC & HOÀN CỌC
-              </span>
+                THEO DÕI RIÊNG TIỀN CỌC GỐC & HOÀN CỌC </span>
               <p className="text-slate-300 text-xs mt-0.5">
-                Tiền cọc gốc thuộc hợp đồng ban đầu và hoàn cọc quyết toán không tính vào doanh thu thuê, không cộng vào tổng Phải thu/Thực thu.
-              </p>
+                Tiền cọc gốc thuộc hợp đồng ban đầu và hoàn cọc quyết toán không tính vào doanh thu thuê, không cộng vào tổng Phải thu/Thực thu. </p>
             </div>
             <div className="flex items-center gap-6">
               <div>
@@ -1143,11 +1111,9 @@ export const ReportsView: React.FC = () => {
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                  Bảng chi tiết nghĩa vụ phải thu, thực thu ngân hàng và công nợ
-                </h3>
+                  Bảng chi tiết nghĩa vụ phải thu, thực thu ngân hàng và công nợ </h3>
                 <p className="text-[11px] text-slate-500">
-                  Tách riêng: Tiền thuê kỳ đầu, Tiền thuê kỳ tiếp theo, Tiền điện/nước/dịch vụ kỳ vừa sử dụng. Chỉ thanh toán qua ngân hàng.
-                </p>
+                  Tách riêng: Tiền thuê kỳ đầu, Tiền thuê kỳ tiếp theo, Tiền điện/nước/dịch vụ kỳ vừa sử dụng. Chỉ thanh toán qua ngân hàng. </p>
               </div>
 
               <div className="flex items-center gap-2">
@@ -1156,8 +1122,7 @@ export const ReportsView: React.FC = () => {
                   className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold cursor-pointer shadow-xs flex items-center gap-1"
                 >
                   <ShieldCheck className="w-3.5 h-3.5" />
-                  Đối soát số liệu 
-                </button>
+                  Đối soát số liệu </button>
               </div>
             </div>
 
@@ -1199,11 +1164,9 @@ export const ReportsView: React.FC = () => {
                         <td className="py-2.5 px-3 text-slate-600 font-mono text-[11px]">{f.servicePeriod}</td>
                         <td className="py-2.5 px-3 font-mono text-slate-600">{f.dueDate}</td>
                         <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">
-                          {f.receivable.toLocaleString('vi-VN')} đ
-                        </td>
+                          {f.receivable.toLocaleString('vi-VN')} đ </td>
                         <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-700">
-                          {f.collected.toLocaleString('vi-VN')} đ
-                        </td>
+                          {f.collected.toLocaleString('vi-VN')} đ </td>
                         <td className="py-2.5 px-3 text-right font-mono text-indigo-700">
                           {f.handledByDeposit > 0 ? f.handledByDeposit.toLocaleString('vi-VN') + ' đ': '—'}
                         </td>
@@ -1224,8 +1187,7 @@ export const ReportsView: React.FC = () => {
                   ): (
                     <tr>
                       <td colSpan={12} className="py-6 text-center text-slate-400 italic">
-                        Không có dữ liệu tài chính trong kỳ được chọn.
-                      </td>
+                        Không có dữ liệu tài chính trong kỳ được chọn. </td>
                     </tr>
                   )}
                 </tbody>
@@ -1243,7 +1205,7 @@ export const ReportsView: React.FC = () => {
           {/* Simulation Toggles */}
           <div className="p-3 bg-slate-100 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
             <span className="font-bold text-slate-700">Kiểm tra tính khớp nối số liệu Phải thu, Thực thu & Công nợ:</span>
-            <div className="flex items-center gap-3 text-[11px] text-slate-600 bg-white px-3 py-1.5 rounded-lg border border-slate-200">
+            <div className="hidden items-center gap-3 text-[11px] text-slate-600 bg-white px-3 py-1.5 rounded-lg border border-slate-200">
               <span className="font-bold text-slate-700">Mô phỏng ngoại lệ:</span>
               <label className="flex items-center gap-1 cursor-pointer">
                 <input
@@ -1274,12 +1236,10 @@ export const ReportsView: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="w-5 h-5 text-purple-600" />
                   <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-                    Đối soát số liệu tài chính trước khi xuất báo cáo
-                  </h2>
+                    Đối soát số liệu tài chính trước khi xuất báo cáo </h2>
                 </div>
                 <p className="text-slate-500 mt-0.5">
-                  Tự động rà soát đối chiếu các tiêu chí hạch toán chống đếm trùng, chống gộp nợ cũ và không đưa tiền cọc vào doanh thu.
-                </p>
+                  Tự động rà soát đối chiếu các tiêu chí hạch toán chống đếm trùng, chống gộp nợ cũ và không đưa tiền cọc vào doanh thu. </p>
               </div>
 
               <div className="flex items-center gap-2">
@@ -1305,15 +1265,13 @@ export const ReportsView: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <strong className="text-xs font-bold flex items-center gap-1.5">
                     {auditChecks.check1Passed ? <CheckCircle2 className="w-4 h-4 text-emerald-600" />: <AlertOctagon className="w-4 h-4 text-red-600" />}
-                    Tiêu chí 1: Không đếm trùng tiền thuê trả trước
-                  </strong>
+                    Tiêu chí 1: Không đếm trùng tiền thuê trả trước </strong>
                   <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${auditChecks.check1Passed ? 'bg-emerald-200 text-emerald-900': 'bg-red-200 text-red-900'}`}>
                     {auditChecks.check1Passed ? 'Khớp 100%': 'Chưa đạt'}
                   </span>
                 </div>
                 <p className="text-[11px] leading-relaxed">
-                  Tiền thuê kỳ đầu đã thanh toán tại PH-07 chỉ cộng 1 lần vào phải thu và thực thu. Không bị lặp lại trong các thông báo QR kỳ kế tiếp.
-                </p>
+                  Tiền thuê kỳ đầu đã thanh toán tại chỉ cộng 1 lần vào phải thu và thực thu. Không bị lặp lại trong các thông báo QR kỳ kế tiếp. </p>
               </div>
 
               <div className={`p-4 rounded-xl border space-y-1.5 ${
@@ -1322,15 +1280,13 @@ export const ReportsView: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <strong className="text-xs font-bold flex items-center gap-1.5">
                     {auditChecks.check2Passed ? <CheckCircle2 className="w-4 h-4 text-emerald-600" />: <AlertOctagon className="w-4 h-4 text-red-600" />}
-                    Tiêu chí 2: Tách biệt cọc gốc & hoàn cọc
-                  </strong>
+                    Tiêu chí 2: Tách biệt cọc gốc & hoàn cọc </strong>
                   <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${auditChecks.check2Passed ? 'bg-emerald-200 text-emerald-900': 'bg-red-200 text-red-900'}`}>
                     {auditChecks.check2Passed ? 'Khớp 100%': 'Chưa đạt'}
                   </span>
                 </div>
                 <p className="text-[11px] leading-relaxed">
-                  Cọc gốc ({initialDepositTotal.toLocaleString('vi-VN')} đ) được theo dõi riêng. Khoản bù cọc trừ khỏi phải thu nhưng không tính vào tiền thực thu ngân hàng.
-                </p>
+                  Cọc gốc ({initialDepositTotal.toLocaleString('vi-VN')} đ) được theo dõi riêng. Khoản bù cọc trừ khỏi phải thu nhưng không tính vào tiền thực thu ngân hàng. </p>
               </div>
 
               <div className={`p-4 rounded-xl border space-y-1.5 ${
@@ -1339,15 +1295,13 @@ export const ReportsView: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <strong className="text-xs font-bold flex items-center gap-1.5">
                     {auditChecks.check3Passed ? <CheckCircle2 className="w-4 h-4 text-emerald-600" />: <AlertOctagon className="w-4 h-4 text-red-600" />}
-                    Tiêu chí 3: Không thu thuê sau ngày trả phòng
-                  </strong>
+                    Tiêu chí 3: Không thu thuê sau ngày trả phòng </strong>
                   <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${auditChecks.check3Passed ? 'bg-emerald-200 text-emerald-900': 'bg-red-200 text-red-900'}`}>
                     {auditChecks.check3Passed ? 'Khớp 100%': 'Chưa đạt'}
                   </span>
                 </div>
                 <p className="text-[11px] leading-relaxed">
-                  Các phòng đã xác nhận nhận lại thực tế chỉ chốt số điện nước và phí dịch vụ phát sinh đến ngày trả phòng; không tạo kỳ thuê tiếp theo.
-                </p>
+                  Các phòng đã xác nhận nhận lại thực tế chỉ chốt số điện nước và phí dịch vụ phát sinh đến ngày trả phòng; không tạo kỳ thuê tiếp theo. </p>
               </div>
 
               <div className={`p-4 rounded-xl border space-y-1.5 ${
@@ -1356,23 +1310,20 @@ export const ReportsView: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <strong className="text-xs font-bold flex items-center gap-1.5">
                     {auditChecks.check4Passed ? <CheckCircle2 className="w-4 h-4 text-emerald-600" />: <AlertOctagon className="w-4 h-4 text-red-600" />}
-                    Tiêu chí 4: Biên lai thu tiền có hiệu lực
-                  </strong>
+                    Tiêu chí 4: Biên lai thu tiền có hiệu lực </strong>
                   <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${auditChecks.check4Passed ? 'bg-emerald-200 text-emerald-900': 'bg-red-200 text-red-900'}`}>
                     {auditChecks.check4Passed ? 'Khớp 100%': 'Chưa đạt'}
                   </span>
                 </div>
                 <p className="text-[11px] leading-relaxed">
-                  Chỉ cộng các xác nhận chuyển khoản đang hiệu lực từ UC08.2. Khi User sửa xác nhận thu nhầm, hệ thống tự động loại bỏ biên lai cũ và tính lại công nợ.
-                </p>
+                  Chỉ cộng các xác nhận chuyển khoản đang hiệu lực từ UC08.2. Khi User sửa xác nhận thu nhầm, hệ thống tự động loại bỏ biên lai cũ và tính lại công nợ. </p>
               </div>
             </div>
 
             {/* Reconciliation KPI Strip */}
             <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
               <span className="font-bold text-slate-700 uppercase tracking-wider block text-[11px]">
-                Số liệu đối chiếu tài chính hợp nhất:
-              </span>
+                Số liệu đối chiếu tài chính hợp nhất: </span>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[11px]">
                 <div className="p-3 bg-white rounded border border-slate-200">
                   <span className="text-slate-500 block">Tổng phải thu:</span>
@@ -1402,8 +1353,7 @@ export const ReportsView: React.FC = () => {
                   className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
                 >
                   <Eye className="w-3.5 h-3.5" />
-                  Xem chi tiết nguồn
-                </button>
+                  Xem chi tiết nguồn </button>
 
                 <button
                   type="button"
@@ -1411,8 +1361,7 @@ export const ReportsView: React.FC = () => {
                   className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
-                  Làm mới kiểm tra
-                </button>
+                  Làm mới kiểm tra </button>
               </div>
 
               <div className="flex items-center gap-2">
@@ -1421,8 +1370,7 @@ export const ReportsView: React.FC = () => {
                   onClick={() => setActiveTab('financial_bc02')}
                   className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer"
                 >
-                  Trở về
-                </button>
+                  Trở về </button>
 
                 <button
                   type="button"
@@ -1434,8 +1382,7 @@ export const ReportsView: React.FC = () => {
                   }`}
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  Xác nhận đã kiểm tra & Sang BC-04 (Bước 3)
-                </button>
+                  Xác nhận đã kiểm tra & Sang BC-04 </button>
               </div>
             </div>
           </div>
@@ -1452,11 +1399,9 @@ export const ReportsView: React.FC = () => {
             <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
               <div>
                 <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-100 text-indigo-800 uppercase">
-                  Báo cáo quản trị cấp quản lý
-                </span>
+                  Báo cáo quản trị cấp quản lý </span>
                 <h2 className="text-base font-bold text-slate-900 mt-1">
-                  Lập Báo cáo Quản trị Tổng hợp Chung cư Mini
-                </h2>
+                  Lập Báo cáo Quản trị Tổng hợp Chung cư Mini </h2>
                 <div className="flex flex-wrap items-center gap-3 text-slate-500 text-[11px] mt-1">
                   <span>Mốc chốt: <strong className="text-slate-800 font-mono">{asOfTimestamp}</strong></span>
                   <span>•</span>
@@ -1473,16 +1418,14 @@ export const ReportsView: React.FC = () => {
                   title="Lưu lại snapshot dữ liệu vào lịch sử chốt kỳ"
                 >
                   <Database className="w-4 h-4 text-indigo-600" />
-                  Lưu snapshot báo cáo
-                </button>
+                  Lưu snapshot báo cáo </button>
 
                 <button
                   onClick={handleExportExecutiveReportExcel}
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-2 shadow-sm cursor-pointer transition-colors"
                 >
                   <Download className="w-4 h-4" />
-                  Xuất Excel (CSV UTF-8 BOM)
-                </button>
+                  Xuất Excel (CSV UTF-8 BOM) </button>
               </div>
             </div>
 
@@ -1519,11 +1462,9 @@ export const ReportsView: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-slate-800 uppercase tracking-wider text-xs flex items-center gap-1.5">
                     <PieChart className="w-4 h-4 text-blue-600" />
-                    Khối 1: Tình trạng & Tỷ lệ lấp đầy phòng 
-                  </span>
+                    Khối 1: Tình trạng & Tỷ lệ lấp đầy phòng </span>
                   <span className="font-mono text-xs font-bold text-blue-800 bg-blue-100 px-2 py-0.5 rounded">
-                    Lấp đầy: {occupancyRateValue}%
-                  </span>
+                    Lấp đầy: {occupancyRateValue}% </span>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-slate-700">
@@ -1551,11 +1492,9 @@ export const ReportsView: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-slate-800 uppercase tracking-wider text-xs flex items-center gap-1.5">
                     <DollarSign className="w-4 h-4 text-emerald-600" />
-                    Khối 2: Tài chính, Thực thu & Công nợ 
-                  </span>
+                    Khối 2: Tài chính, Thực thu & Công nợ </span>
                   <span className="text-[11px] text-slate-500">
-                    Chỉ nhận chuyển khoản ngân hàng
-                  </span>
+                    Chỉ nhận chuyển khoản ngân hàng </span>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-slate-700">
@@ -1587,11 +1526,9 @@ export const ReportsView: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-slate-800 uppercase tracking-wider text-xs flex items-center gap-1.5">
                     <FileText className="w-4 h-4 text-purple-600" />
-                    Khối 3: Hợp đồng cần chú ý (Sắp hết hạn ≤ 30 ngày)
-                  </span>
+                    Khối 3: Hợp đồng cần chú ý (Sắp hết hạn ≤ 30 ngày) </span>
                   <span className="text-[11px] font-semibold text-purple-800">
-                    {expiringContracts.length} hợp đồng
-                  </span>
+                    {expiringContracts.length} hợp đồng </span>
                 </div>
 
                 {expiringContracts.length > 0 ? (
@@ -1631,8 +1568,7 @@ export const ReportsView: React.FC = () => {
                   </div>
                 ): (
                   <p className="text-slate-400 italic text-[11px] p-2 bg-white rounded border border-slate-200">
-                    Không có hợp đồng nào sắp hết hạn trong vòng 30 ngày.
-                  </p>
+                    Không có hợp đồng nào sắp hết hạn trong vòng 30 ngày. </p>
                 )}
               </div>
 
@@ -1640,8 +1576,7 @@ export const ReportsView: React.FC = () => {
               <div className="p-4 bg-slate-50/80 border border-slate-200 rounded-xl space-y-3">
                 <span className="font-bold text-slate-800 uppercase tracking-wider text-xs flex items-center gap-1.5">
                   <Database className="w-4 h-4 text-slate-700" />
-                  Khối 4: Lịch sử snapshot báo cáo quản trị đã chốt
-                </span>
+                  Khối 4: Lịch sử snapshot báo cáo quản trị đã chốt </span>
 
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-[11px] bg-white rounded-lg border border-slate-200 overflow-hidden">
@@ -1665,11 +1600,9 @@ export const ReportsView: React.FC = () => {
                           <td className="py-2 px-3 text-slate-800 font-medium">{s.periodLabel}</td>
                           <td className="py-2 px-3 font-mono font-bold text-blue-700">{s.roomStats.occupancyRate}%</td>
                           <td className="py-2 px-3 font-mono font-semibold text-slate-900">
-                            {s.financialStats.totalReceivable.toLocaleString('vi-VN')} đ
-                          </td>
+                            {s.financialStats.totalReceivable.toLocaleString('vi-VN')} đ </td>
                           <td className="py-2 px-3 font-mono font-semibold text-emerald-700">
-                            {s.financialStats.totalCollected.toLocaleString('vi-VN')} đ
-                          </td>
+                            {s.financialStats.totalCollected.toLocaleString('vi-VN')} đ </td>
                           <td className="py-2 px-3 text-slate-700">{s.createdBy}</td>
                           <td className="py-2 px-3 text-center">
                             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
@@ -1712,8 +1645,7 @@ export const ReportsView: React.FC = () => {
             </div>
 
             <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-950 text-[11px]">
-              *  Chế độ xem chỉ đọc đối chiếu báo cáo. Mọi cập nhật trạng thái phòng chỉ được thực hiện tại Quy trình 01 (Nhận phòng, Trả phòng thực tế hoặc Gia hạn có hiệu lực).
-            </div>
+              * Chế độ xem chỉ đọc đối chiếu báo cáo. Mọi cập nhật trạng thái phòng chỉ được thực hiện tại (Nhận phòng, Trả phòng thực tế hoặc Gia hạn có hiệu lực). </div>
 
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200 text-[11px]">
@@ -1748,8 +1680,7 @@ export const ReportsView: React.FC = () => {
                 onClick={() => setDrilldownRoom(null)}
                 className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer"
               >
-                Đóng
-              </button>
+                Đóng </button>
             </div>
           </div>
         </div>
@@ -1767,8 +1698,7 @@ export const ReportsView: React.FC = () => {
                 <div>
                   <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-800">TRA CỨU NGUỒN</span>
                   <h3 className="font-bold text-slate-900 text-base">
-                    Tra cứu dữ liệu đối soát nguồn
-                  </h3>
+                    Tra cứu dữ liệu đối soát nguồn </h3>
                 </div>
               </div>
               <button
@@ -1783,8 +1713,7 @@ export const ReportsView: React.FC = () => {
               {/* Nguồn 1: Thuê kỳ đầu PH-07 */}
               <div className="p-3 bg-purple-50/70 border border-purple-200 rounded-xl space-y-2">
                 <strong className="font-bold text-purple-900 block">
-                  1. Dữ liệu thanh toán ban đầu - {initialPaymentRecords.length} giao dịch:
-                </strong>
+                  1. Dữ liệu thanh toán ban đầu - {initialPaymentRecords.length} giao dịch: </strong>
                 <div className="space-y-1.5 text-[11px]">
                   {initialPaymentRecords.map(p => (
                     <div key={p.id} className="p-2 bg-white rounded border border-purple-200 flex justify-between items-center">
@@ -1800,8 +1729,7 @@ export const ReportsView: React.FC = () => {
               {/* Nguồn 2: Thông báo thu tiền TT-03 */}
               <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl space-y-2">
                 <strong className="font-bold text-blue-900 block">
-                  2. Thông báo thu tiền định kỳ - {paymentNotices.length} thông báo:
-                </strong>
+                  2. Thông báo thu tiền định kỳ - {paymentNotices.length} thông báo: </strong>
                 <div className="space-y-1.5 text-[11px] max-h-40 overflow-y-auto">
                   {paymentNotices.map(n => (
                     <div key={n.id} className="p-2 bg-white rounded border border-blue-200 flex justify-between items-center">
@@ -1819,8 +1747,7 @@ export const ReportsView: React.FC = () => {
               {/* Nguồn 3: Biên lai thu tiền UC08.2 */}
               <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-2">
                 <strong className="font-bold text-emerald-900 block">
-                  3. Biên lai thu tiền chuyển khoản - {paymentReceipts.length} biên lai:
-                </strong>
+                  3. Biên lai thu tiền chuyển khoản - {paymentReceipts.length} biên lai: </strong>
                 <div className="space-y-1.5 text-[11px] max-h-40 overflow-y-auto">
                   {paymentReceipts.map(r => (
                     <div key={r.id} className="p-2 bg-white rounded border border-emerald-200 flex justify-between items-center">
@@ -1838,8 +1765,7 @@ export const ReportsView: React.FC = () => {
               {/* Nguồn 4: Quyết toán cọc hoàn tất QT05 */}
               <div className="p-3 bg-slate-100 border border-slate-200 rounded-xl space-y-2">
                 <strong className="font-bold text-slate-800 block">
-                  4. Quyết toán cọc bù trừ công nợ - {settlementSlips.length} hồ sơ:
-                </strong>
+                  4. Quyết toán cọc bù trừ công nợ - {settlementSlips.length} hồ sơ: </strong>
                 <div className="space-y-1.5 text-[11px]">
                   {settlementSlips.map(s => {
                     const debtDed = s.deductions.filter(d => d.category === 'Công nợ kỳ trước').reduce((acc, d) => acc + d.amount, 0);
@@ -1862,8 +1788,7 @@ export const ReportsView: React.FC = () => {
                 onClick={() => setShowSourceViewerModal(false)}
                 className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer"
               >
-                Đóng tra cứu
-              </button>
+                Đóng tra cứu </button>
             </div>
           </div>
         </div>

@@ -25,17 +25,13 @@ export const HDT05ContractExpiry: React.FC<Props> = ({onSelectContract}) => {
       <p className="text-sm text-slate-600 mt-1">Theo dõi ngày hết hạn hợp đồng; không tự xác nhận ngày dự kiến trả phòng. Ngày dự kiến trả được ghi nhận riêng trong Quản lý phòng.</p>
     </div>
     <div className="p-4 bg-white border border-slate-200 rounded-xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-      <label className="text-xs font-semibold text-slate-700">Tìm hợp đồng
-        <span className="relative block mt-1"><Search className="absolute left-2.5 top-2.5 w-4 h-4 text-slate-400"/><input className="w-full border rounded-lg pl-9 pr-3 py-2 text-sm" placeholder="Mã, phòng, khách thuê" value={query} onChange={e=>setQuery(e.target.value)}/></span>
+      <label className="text-xs font-semibold text-slate-700">Tìm hợp đồng <span className="relative block mt-1"><Search className="absolute left-2.5 top-2.5 w-4 h-4 text-slate-400"/><input className="w-full border rounded-lg pl-9 pr-3 py-2 text-sm" placeholder="Mã, phòng, khách thuê" value={query} onChange={e=>setQuery(e.target.value)}/></span>
       </label>
-      <label className="text-xs font-semibold text-slate-700">Trạng thái
-        <select className="block w-full mt-1 border rounded-lg px-3 py-2 text-sm" value={status} onChange={e=>setStatus(e.target.value)}><option value="all">Tất cả</option>{[...new Set(contracts.map(c=>c.status))].map(s=><option key={s}>{s}</option>)}</select>
+      <label className="text-xs font-semibold text-slate-700">Trạng thái <select className="block w-full mt-1 border rounded-lg px-3 py-2 text-sm" value={status} onChange={e=>setStatus(e.target.value)}><option value="all">Tất cả</option>{[...new Set(contracts.map(c=>c.status))].map(s=><option key={s}>{s}</option>)}</select>
       </label>
-      <label className="text-xs font-semibold text-slate-700">Hết hạn từ ngày
-        <input type="date" className="block w-full mt-1 border rounded-lg px-3 py-2 text-sm" value={from} onChange={e=>setFrom(e.target.value)}/>
+      <label className="text-xs font-semibold text-slate-700">Hết hạn từ ngày <input type="date" className="block w-full mt-1 border rounded-lg px-3 py-2 text-sm" value={from} onChange={e=>setFrom(e.target.value)}/>
       </label>
-      <label className="text-xs font-semibold text-slate-700">Hết hạn đến ngày
-        <input type="date" min={from||undefined} className="block w-full mt-1 border rounded-lg px-3 py-2 text-sm" value={to} onChange={e=>setTo(e.target.value)}/>
+      <label className="text-xs font-semibold text-slate-700">Hết hạn đến ngày <input type="date" min={from||undefined} className="block w-full mt-1 border rounded-lg px-3 py-2 text-sm" value={to} onChange={e=>setTo(e.target.value)}/>
       </label>
     </div>
     <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto">

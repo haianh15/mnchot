@@ -1,3 +1,4 @@
+import { toUserMessage } from '../../../utils/userMessages';
 import React, { useState } from 'react';
 import { useApp } from '../../../context/AppContext';
 import { CoTenant } from '../../../types';
@@ -160,7 +161,7 @@ export const HSKT02CoTenants: React.FC<{tenantId?: string}> = ({tenantId}) => {
       promoteEvidence
     );
     if (!res.success) {
-      alert(res.message);
+      alert(toUserMessage(res.message));
     } else {
       setPromotingCoTenant(null);
     }
@@ -175,7 +176,7 @@ export const HSKT02CoTenants: React.FC<{tenantId?: string}> = ({tenantId}) => {
       closeReason
     );
     if (!res.success) {
-      alert(res.message);
+      alert(toUserMessage(res.message));
     } else {
       setClosingCoTenant(null);
     }
@@ -190,7 +191,7 @@ export const HSKT02CoTenants: React.FC<{tenantId?: string}> = ({tenantId}) => {
       idNumber: editIdNumber || undefined
     });
     if (!res.success) {
-      alert(res.message);
+      alert(toUserMessage(res.message));
     } else {
       setEditingCoTenant(null);
     }
@@ -207,9 +208,7 @@ export const HSKT02CoTenants: React.FC<{tenantId?: string}> = ({tenantId}) => {
               <h2 className="text-base font-bold text-emerald-950">Quản lý người ở cùng & cư trú</h2>
             </div>
             <p className="text-xs text-emerald-800 mt-1">
-              Ghi danh sách từ  3.9 (kể cả chưa có hồ sơ chính thức). Trạng thái phân tầng: Nháp → Dự kiến → Đang cư trú → Đã kết thúc.
-              Hợp đồng nối tiếp giữ một chuỗi cư trú liên tục, đóng cư trú theo ngày nhận lại thực tế.
-            </p>
+              Ghi danh sách từ 3.9 (kể cả chưa có hồ sơ chính thức). Trạng thái phân tầng: Nháp → Dự kiến → Đang cư trú → Đã kết thúc. Hợp đồng nối tiếp giữ một chuỗi cư trú liên tục, đóng cư trú theo ngày nhận lại thực tế. </p>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -221,15 +220,13 @@ export const HSKT02CoTenants: React.FC<{tenantId?: string}> = ({tenantId}) => {
               className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
             >
               <UserPlus className="w-4 h-4" />
-              Thêm người ở cùng
-            </button>
+              Thêm người ở cùng </button>
             <button
               onClick={() => setShowConsecutiveModal(true)}
               className="px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Link2 className="w-4 h-4 text-emerald-600" />
-              Nối tiếp hợp đồng
-            </button>
+              Nối tiếp hợp đồng </button>
           </div>
         </div>
       </div>
@@ -239,9 +236,7 @@ export const HSKT02CoTenants: React.FC<{tenantId?: string}> = ({tenantId}) => {
         <ShieldCheck className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
         <div>
           <span className="font-bold">Đầu mối đại diện: </span>
-          Người đại diện phòng trong mỗi lần thuê là người đứng tên nhận thông báo thanh toán và làm đầu mối liên hệ với Chủ nhà.
-          Người ở cùng chỉ ghi nhận thông tin cư trú, không phát sinh thông báo thanh toán hoặc khoản phải thu riêng.
-        </div>
+          Người đại diện phòng trong mỗi lần thuê là người đứng tên nhận thông báo thanh toán và làm đầu mối liên hệ với Chủ nhà. Người ở cùng chỉ ghi nhận thông tin cư trú, không phát sinh thông báo thanh toán hoặc khoản phải thu riêng. </div>
       </div>
 
       {/* Filters & Co-tenant List */}
@@ -250,8 +245,7 @@ export const HSKT02CoTenants: React.FC<{tenantId?: string}> = ({tenantId}) => {
           <div className="flex items-center gap-2">
             <Users className="w-4 h-4 text-emerald-600" />
             <h3 className="text-sm font-bold text-slate-800">
-              Danh sách người ở cùng ({filteredList.length})
-            </h3>
+              Danh sách người ở cùng ({filteredList.length}) </h3>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <select
@@ -360,8 +354,7 @@ export const HSKT02CoTenants: React.FC<{tenantId?: string}> = ({tenantId}) => {
                             className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-semibold cursor-pointer"
                             title="Xác nhận ngày đến thực tế và chuyển sang Đang cư trú"
                           >
-                            Đến ở thực tế
-                          </button>
+                            Đến ở thực tế </button>
                         )}
                         {/* Close Residency */}
                         {c.status === 'Đang cư trú' && (
@@ -373,8 +366,7 @@ export const HSKT02CoTenants: React.FC<{tenantId?: string}> = ({tenantId}) => {
                             className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-[10px] font-semibold cursor-pointer"
                             title="Kết thúc cư trú"
                           >
-                            Kết thúc cư trú
-                          </button>
+                            Kết thúc cư trú </button>
                         )}
                         {/* Edit info during tenancy */}
                         <button
@@ -387,8 +379,7 @@ export const HSKT02CoTenants: React.FC<{tenantId?: string}> = ({tenantId}) => {
                           className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] font-medium cursor-pointer"
                           title="Sửa thông tin trong kỳ thuê"
                         >
-                          Sửa
-                        </button>
+                          Sửa </button>
                       </div>
                     </td>
                   </tr>
@@ -408,9 +399,7 @@ export const HSKT02CoTenants: React.FC<{tenantId?: string}> = ({tenantId}) => {
             <h3 className="text-xs font-bold text-slate-800">Điều phối trả phòng thực tế</h3>
           </div>
           <p className="text-[11px] text-slate-600">
-            Khi quy trình bàn giao hoàn tất, hệ thống đồng bộ ngày kết thúc lần thuê và kết thúc cư trú.
-            Không suy diễn từ hạn hợp đồng. Nếu một bên chưa ghi, đánh dấu "Chờ đồng bộ".
-          </p>
+            Khi bàn giao phòng hoàn tất, hệ thống đồng bộ ngày kết thúc lần thuê và kết thúc cư trú. Không suy diễn từ hạn hợp đồng. Nếu một bên chưa ghi, đánh dấu "Chờ đồng bộ". </p>
           <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-1 text-xs">
             <div className="flex items-center justify-between text-slate-700">
               <span>Sự kiện bàn giao trả:</span>
@@ -421,10 +410,9 @@ export const HSKT02CoTenants: React.FC<{tenantId?: string}> = ({tenantId}) => {
               <span className="font-bold text-slate-900">15/10/2026</span>
             </div>
             <div className="flex items-center justify-between text-slate-700">
-              <span>Trạng thái đồng bộ liên quy trình:</span>
+              <span>Tình trạng cập nhật hồ sơ:</span>
               <span className="px-1.5 py-0.2 bg-emerald-100 text-emerald-800 rounded font-semibold text-[10px]">
-                Đã đồng bộ nhất quán
-              </span>
+                Đã đồng bộ nhất quán </span>
             </div>
           </div>
         </div>
@@ -436,11 +424,9 @@ export const HSKT02CoTenants: React.FC<{tenantId?: string}> = ({tenantId}) => {
             <h3 className="text-xs font-bold text-slate-800">Kiểm soát Chưa nhận lại phòng</h3>
           </div>
           <p className="text-[11px] text-slate-600">
-            Theo Phân biệt 4 trường hợp (a) kết quả nhận lại phòng Chưa nhận lại & vướng mắc -&gt; mở PH-09; (b) Đã nhận lại nhưng chờ xác nhận xác nhận của chủ nhà -&gt; không mở PH-09; (c) Lỗi nguồn -&gt; tra soát qua PH-08; (d) Khách tiếp tục bàn giao.
-          </p>
+            Theo Phân biệt 4 trường hợp (a) kết quả nhận lại phòng Chưa nhận lại & vướng mắc -&gt; mở; (b) Đã nhận lại nhưng chờ xác nhận xác nhận của chủ nhà -&gt; không mở; (c) Lỗi nguồn -&gt; tra soát qua; (d) Khách tiếp tục bàn giao. </p>
           <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-[11px] text-amber-900 space-y-1">
-            <span className="font-bold">Lưu ý: </span> Cả 4 trường hợp đều chưa ghi Trống, chưa kết thúc lần thuê hoặc cư trú; HSKT-02 giữ nguyên các bản ghi cư trú đang mở.
-          </div>
+            <span className="font-bold">Lưu ý: </span> Cả 4 trường hợp đều chưa ghi Trống, chưa kết thúc lần thuê hoặc cư trú; HSKT-02 giữ nguyên các bản ghi cư trú đang mở. </div>
         </div>
       </div>
 
@@ -451,8 +437,7 @@ export const HSKT02CoTenants: React.FC<{tenantId?: string}> = ({tenantId}) => {
             <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
               <h3 className="text-sm font-bold flex items-center gap-2">
                 <UserPlus className="w-4 h-4 text-emerald-400" />
-                Thêm người ở cùng
-              </h3>
+                Thêm người ở cùng </h3>
               <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-white cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
@@ -527,7 +512,7 @@ export const HSKT02CoTenants: React.FC<{tenantId?: string}> = ({tenantId}) => {
                     type="text"
                     value={incomingTenantName}
                     onChange={(e) => setIncomingTenantName(e.target.value)}
-                    placeholder="Tên khách đang tiếp nhận tại bước 3.5..."
+                    placeholder="Tên khách đang tiếp nhận tại..."
                     className="w-full p-2 border border-slate-300 rounded-lg"
                   />
                 </div>
@@ -614,8 +599,7 @@ export const HSKT02CoTenants: React.FC<{tenantId?: string}> = ({tenantId}) => {
                 }`}>
                   <div className="font-bold flex items-center gap-1.5 mb-1">
                     {checkInfo.valid ? <CheckCircle2 className="w-4 h-4 text-emerald-600" />: <AlertCircle className="w-4 h-4 text-red-600" />}
-                    Kết quả kiểm tra giai đoạn {coTenantMode}:
-                  </div>
+                    Kết quả kiểm tra giai đoạn {coTenantMode}: </div>
                   {checkInfo.messages.map((m, i) => (
                     <div key={i}>• {m}</div>
                   ))}
@@ -630,23 +614,20 @@ export const HSKT02CoTenants: React.FC<{tenantId?: string}> = ({tenantId}) => {
                 onClick={() => setShowAddModal(false)}
                 className="px-3 py-1.5 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-100"
               >
-                Hủy
-              </button>
+                Hủy </button>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={handleCheckAddData}
                   className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg font-semibold"
                 >
-                  Kiểm tra (Bước 5)
-                </button>
+                  Kiểm tra </button>
                 <button
                   type="button"
                   onClick={handleConfirmAddSubmit}
                   className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold"
                 >
-                  Xác nhận lưu (Bước 6)
-                </button>
+                  Xác nhận lưu </button>
               </div>
             </div>
           </div>
@@ -660,17 +641,14 @@ export const HSKT02CoTenants: React.FC<{tenantId?: string}> = ({tenantId}) => {
             <div className="p-4 bg-emerald-800 text-white flex items-center justify-between">
               <h3 className="text-sm font-bold flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4" />
-                Xác nhận đến ở thực tế
-              </h3>
+                Xác nhận đến ở thực tế </h3>
               <button onClick={() => setPromotingCoTenant(null)} className="text-emerald-200 hover:text-white cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="p-5 space-y-3 text-xs">
               <p className="text-slate-600">
-                Người ở cùng <strong className="text-slate-900">{promotingCoTenant.fullName}</strong> chuyển sang trạng thái <strong>Đang cư trú</strong>.
-                Bắt buộc nhập ngày đến thực tế và căn cứ xác nhận.
-              </p>
+                Người ở cùng <strong className="text-slate-900">{promotingCoTenant.fullName}</strong> chuyển sang trạng thái <strong>Đang cư trú</strong>. Bắt buộc nhập ngày đến thực tế và căn cứ xác nhận. </p>
               <div>
                 <label className="block font-bold text-slate-700 mb-1">Ngày đến thực tế *</label>
                 <input
@@ -695,15 +673,13 @@ export const HSKT02CoTenants: React.FC<{tenantId?: string}> = ({tenantId}) => {
                   onClick={() => setPromotingCoTenant(null)}
                   className="px-3 py-1.5 border border-slate-300 rounded-lg text-slate-600"
                 >
-                  Hủy
-                </button>
+                  Hủy </button>
                 <button
                   type="button"
                   onClick={handleConfirmPromote}
                   className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg"
                 >
-                  Xác nhận chuyển Đang cư trú
-                </button>
+                  Xác nhận chuyển Đang cư trú </button>
               </div>
             </div>
           </div>
@@ -717,17 +693,14 @@ export const HSKT02CoTenants: React.FC<{tenantId?: string}> = ({tenantId}) => {
             <div className="p-4 bg-red-800 text-white flex items-center justify-between">
               <h3 className="text-sm font-bold flex items-center gap-2">
                 <X className="w-4 h-4" />
-                Kết thúc cư trú
-              </h3>
+                Kết thúc cư trú </h3>
               <button onClick={() => setClosingCoTenant(null)} className="text-red-200 hover:text-white cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="p-5 space-y-3 text-xs">
               <p className="text-slate-600">
-                Ghi nhận ngày kết thúc cư trú thực tế cho <strong className="text-slate-900">{closingCoTenant.fullName}</strong>.
-                Không lấy ngày hết hạn hợp đồng để tự suy ngày trả phòng.
-              </p>
+                Ghi nhận ngày kết thúc cư trú thực tế cho <strong className="text-slate-900">{closingCoTenant.fullName}</strong>. Không lấy ngày hết hạn hợp đồng để tự suy ngày trả phòng. </p>
               <div>
                 <label className="block font-bold text-slate-700 mb-1">Ngày kết thúc thực tế *</label>
                 <input
@@ -752,15 +725,13 @@ export const HSKT02CoTenants: React.FC<{tenantId?: string}> = ({tenantId}) => {
                   onClick={() => setClosingCoTenant(null)}
                   className="px-3 py-1.5 border border-slate-300 rounded-lg text-slate-600"
                 >
-                  Hủy
-                </button>
+                  Hủy </button>
                 <button
                   type="button"
                   onClick={handleConfirmClose}
                   className="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg"
                 >
-                  Đóng cư trú
-                </button>
+                  Đóng cư trú </button>
               </div>
             </div>
           </div>
@@ -774,17 +745,14 @@ export const HSKT02CoTenants: React.FC<{tenantId?: string}> = ({tenantId}) => {
             <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
               <h3 className="text-sm font-bold flex items-center gap-2">
                 <Link2 className="w-4 h-4 text-emerald-400" />
-                Nối tiếp hợp đồng không trả phòng
-              </h3>
+                Nối tiếp hợp đồng không trả phòng </h3>
               <button onClick={() => setShowConsecutiveModal(false)} className="text-slate-400 hover:text-white cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="p-5 space-y-3 text-xs">
               <p className="text-slate-600">
-                Gia hạn hợp đồng cùng lần thuê liên tục không tự kết thúc cư trú hoặc tạo lần thuê mới.
-                Hệ thống giữ 1 chuỗi cư trú và cập nhật liên kết hợp đồng mới cho tất cả người đang ở.
-              </p>
+                Gia hạn hợp đồng cùng lần thuê liên tục không tự kết thúc cư trú hoặc tạo lần thuê mới. Hệ thống giữ 1 chuỗi cư trú và cập nhật liên kết hợp đồng mới cho tất cả người đang ở. </p>
               <div>
                 <label className="block font-bold text-slate-700 mb-1">Khách đại diện phòng</label>
                 <select
@@ -813,8 +781,7 @@ export const HSKT02CoTenants: React.FC<{tenantId?: string}> = ({tenantId}) => {
                   onClick={() => setShowConsecutiveModal(false)}
                   className="px-3 py-1.5 border border-slate-300 rounded-lg text-slate-600"
                 >
-                  Hủy
-                </button>
+                  Hủy </button>
                 <button
                   type="button"
                   onClick={() => {
@@ -823,8 +790,7 @@ export const HSKT02CoTenants: React.FC<{tenantId?: string}> = ({tenantId}) => {
                   }}
                   className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg"
                 >
-                  Liên kết chuỗi cư trú
-                </button>
+                  Liên kết chuỗi cư trú </button>
               </div>
             </div>
           </div>
@@ -843,8 +809,7 @@ export const HSKT02CoTenants: React.FC<{tenantId?: string}> = ({tenantId}) => {
             </div>
             <div className="p-5 space-y-3 text-xs">
               <p className="text-slate-500">
-                Thực hiện tiêu chí điểm kiểm soát 3.12 trên dữ liệu người ở cùng. Thay đổi được lưu tại HSKT-02, không đi HSKT-04.
-              </p>
+                Thực hiện tiêu chí điểm kiểm soát 3.12 trên dữ liệu người ở cùng. Thay đổi được lưu tại HSKT-02, không đi HSKT-04. </p>
               <div>
                 <label className="block font-bold text-slate-700 mb-1">Họ và tên</label>
                 <input
@@ -878,15 +843,13 @@ export const HSKT02CoTenants: React.FC<{tenantId?: string}> = ({tenantId}) => {
                   onClick={() => setEditingCoTenant(null)}
                   className="px-3 py-1.5 border border-slate-300 rounded-lg text-slate-600"
                 >
-                  Hủy
-                </button>
+                  Hủy </button>
                 <button
                   type="button"
                   onClick={handleConfirmEdit}
                   className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg"
                 >
-                  Lưu thay đổi
-                </button>
+                  Lưu thay đổi </button>
               </div>
             </div>
           </div>

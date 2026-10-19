@@ -1,3 +1,4 @@
+import { toUserMessage } from '../../../utils/userMessages';
 import React, { useState } from 'react';
 import { useApp } from '../../../context/AppContext';
 import { Contract } from '../../../types';
@@ -51,7 +52,7 @@ export const HDT03SendAndNegotiate: React.FC<HDT03Props> = ({
   const handleSendToTenant = (contractId: string) => {
     const res = sendContractToTenantHDT03(contractId);
     if (res.success) {
-      alert(res.message);
+      alert(toUserMessage(res.message));
     }
   };
 
@@ -82,7 +83,7 @@ export const HDT03SendAndNegotiate: React.FC<HDT03Props> = ({
 
     if (res.success) {
       setShowEditModal(false);
-      alert(res.message);
+      alert(toUserMessage(res.message));
     }
   };
 
@@ -101,7 +102,7 @@ export const HDT03SendAndNegotiate: React.FC<HDT03Props> = ({
     const res = cancelContractDraftHDT03(selectedContract.id, cancelReason);
     if (res.success) {
       setShowCancelModal(false);
-      alert(res.message);
+      alert(toUserMessage(res.message));
     }
   };
 
@@ -115,18 +116,15 @@ export const HDT03SendAndNegotiate: React.FC<HDT03Props> = ({
               
             </span>
             <h2 className="text-sm font-bold text-slate-900">
-              Gửi và theo dõi ký hợp đồng (Gửi ký hợp đồng)
-            </h2>
+              Gửi và theo dõi ký hợp đồng (Gửi ký hợp đồng) </h2>
           </div>
           <p className="text-xs text-slate-600 mt-1 max-w-2xl leading-relaxed">
-            Theo dõi các bản hợp đồng đang ở trạng thái Nháp hoặc Chờ khách ký. Xuất bản thảo gửi cho khách xem xét, tiếp nhận phản hồi điều chỉnh điều khoản, hủy dự thảo nếu khách từ chối, hoặc chuyển sang bước đối chiếu lưu bản ký.
-          </p>
+            Theo dõi các bản hợp đồng đang ở trạng thái Nháp hoặc Chờ khách ký. Xuất bản thảo gửi cho khách xem xét, tiếp nhận phản hồi điều chỉnh điều khoản, hủy dự thảo nếu khách từ chối, hoặc chuyển sang bước đối chiếu lưu bản ký. </p>
         </div>
 
         <div className="flex items-center gap-2 text-xs">
           <span className="bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-2xs font-semibold text-slate-700">
-            Đang theo dõi ký: <strong>{candidateContracts.length}</strong> hợp đồng
-          </span>
+            Đang theo dõi ký: <strong>{candidateContracts.length}</strong> hợp đồng </span>
         </div>
       </div>
 
@@ -150,8 +148,7 @@ export const HDT03SendAndNegotiate: React.FC<HDT03Props> = ({
           className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
         >
           <FileText className="w-4 h-4" />
-          Lập thêm dự thảo
-        </button>
+          Lập thêm dự thảo </button>
       </div>
 
       {/* Contracts Table / Card List */}
@@ -205,11 +202,9 @@ export const HDT03SendAndNegotiate: React.FC<HDT03Props> = ({
                 <div>
                   <span className="text-[11px] text-slate-400 block">Đơn giá thuê:</span>
                   <span className="font-mono font-bold text-slate-900">
-                    {c.monthlyRent.toLocaleString('vi-VN')} đ/tháng
-                  </span>
+                    {c.monthlyRent.toLocaleString('vi-VN')} đ/tháng </span>
                   <span className="text-[10px] text-emerald-700 block">
-                    Cọc: {c.depositAmount.toLocaleString('vi-VN')} đ
-                  </span>
+                    Cọc: {c.depositAmount.toLocaleString('vi-VN')} đ </span>
                 </div>
               </div>
 
@@ -257,8 +252,7 @@ export const HDT03SendAndNegotiate: React.FC<HDT03Props> = ({
                     className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs"
                   >
                     <Send className="w-3.5 h-3.5" />
-                    Gửi khách ký (4.9)
-                  </button>
+                    Gửi khách ký (4.9) </button>
                 )}
 
                 {c.status === 'Chờ khách ký' && (
@@ -274,8 +268,7 @@ export const HDT03SendAndNegotiate: React.FC<HDT03Props> = ({
                     className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
                   >
                     <CheckCircle2 className="w-3.5 h-3.5" />
-                    Khách đã ký (Lưu HD-04)
-                    <ArrowRight className="w-3.5 h-3.5" />
+                    Khách đã ký (Lưu HD-04) <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 )}
 
@@ -302,8 +295,7 @@ export const HDT03SendAndNegotiate: React.FC<HDT03Props> = ({
             }}
             className="mt-3 px-3.5 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold inline-flex items-center gap-1.5"
           >
-            Lập hợp đồng dự thảo mới
-          </button>
+            Lập hợp đồng dự thảo mới </button>
         </div>
       )}
 
@@ -314,8 +306,7 @@ export const HDT03SendAndNegotiate: React.FC<HDT03Props> = ({
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="font-bold text-slate-900 text-base">
-                  Điều chỉnh điều khoản dự thảo
-                </h3>
+                  Điều chỉnh điều khoản dự thảo </h3>
                 <p className="text-slate-500 text-xs">
                   Mã HĐ: <strong className="font-mono text-blue-700">{selectedContract.id}</strong> | Phiên bản hiện tại: v{selectedContract.version}
                 </p>
@@ -324,8 +315,7 @@ export const HDT03SendAndNegotiate: React.FC<HDT03Props> = ({
                 onClick={() => setShowEditModal(false)}
                 className="p-1 text-slate-400 hover:text-slate-700 cursor-pointer"
               >
-                ✕
-              </button>
+                ✕ </button>
             </div>
 
             <form onSubmit={handleSaveEdit} className="space-y-3.5">
@@ -342,14 +332,12 @@ export const HDT03SendAndNegotiate: React.FC<HDT03Props> = ({
                   className="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-mono font-bold text-xs"
                 />
                 <span className="text-[10px] text-slate-400 mt-0.5 block">
-                  Tiền cọc sẽ tự động cập nhật bằng 1 tháng thuê: {editMonthlyRent.toLocaleString('vi-VN')} đ
-                </span>
+                  Tiền cọc sẽ tự động cập nhật bằng 1 tháng thuê: {editMonthlyRent.toLocaleString('vi-VN')} đ </span>
               </div>
 
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">
-                  Nội dung điều khoản thỏa thuận bổ sung
-                </label>
+                  Nội dung điều khoản thỏa thuận bổ sung </label>
                 <textarea
                   rows={3}
                   value={editTerms}
@@ -378,14 +366,12 @@ export const HDT03SendAndNegotiate: React.FC<HDT03Props> = ({
                   onClick={() => setShowEditModal(false)}
                   className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-semibold cursor-pointer"
                 >
-                  Đóng
-                </button>
+                  Đóng </button>
                 <button
                   type="submit"
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold cursor-pointer"
                 >
-                  Lưu & Nâng phiên bản (v{selectedContract.version + 1})
-                </button>
+                  Lưu & Nâng phiên bản (v{selectedContract.version + 1}) </button>
               </div>
             </form>
           </div>
@@ -401,8 +387,7 @@ export const HDT03SendAndNegotiate: React.FC<HDT03Props> = ({
               <h3 className="font-bold text-base text-slate-900">Hủy dự thảo hợp đồng</h3>
             </div>
             <p className="text-slate-600 leading-relaxed">
-              Bạn đang thực hiện hủy bỏ hợp đồng dự thảo <strong className="font-mono">{selectedContract.id}</strong> (Phòng {selectedContract.roomCode} - Khách {selectedContract.tenantName}). Phòng dự kiến sẽ được giải phóng ngay lập tức.
-            </p>
+              Bạn đang thực hiện hủy bỏ hợp đồng dự thảo <strong className="font-mono">{selectedContract.id}</strong> (Phòng {selectedContract.roomCode} - Khách {selectedContract.tenantName}). Phòng dự kiến sẽ được giải phóng ngay lập tức. </p>
 
             <div>
               <label className="block font-semibold text-slate-700 mb-1">
@@ -424,15 +409,13 @@ export const HDT03SendAndNegotiate: React.FC<HDT03Props> = ({
                 onClick={() => setShowCancelModal(false)}
                 className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-semibold cursor-pointer"
               >
-                Đóng
-              </button>
+                Đóng </button>
               <button
                 type="button"
                 onClick={handleConfirmCancel}
                 className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold cursor-pointer"
               >
-                Xác nhận hủy dự thảo
-              </button>
+                Xác nhận hủy dự thảo </button>
             </div>
           </div>
         </div>
@@ -445,8 +428,7 @@ export const HDT03SendAndNegotiate: React.FC<HDT03Props> = ({
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="font-bold text-slate-900 text-base">
-                  Nhật ký vòng đời hợp đồng
-                </h3>
+                  Nhật ký vòng đời hợp đồng </h3>
                 <p className="text-slate-500 text-xs">
                   Mã HĐ: <strong className="font-mono text-blue-700">{selectedContract.id}</strong> | Phòng: {selectedContract.roomCode}
                 </p>
@@ -455,8 +437,7 @@ export const HDT03SendAndNegotiate: React.FC<HDT03Props> = ({
                 onClick={() => setShowHistoryModal(false)}
                 className="p-1 text-slate-400 hover:text-slate-700 cursor-pointer"
               >
-                ✕
-              </button>
+                ✕ </button>
             </div>
 
             <div className="space-y-3">
@@ -464,8 +445,7 @@ export const HDT03SendAndNegotiate: React.FC<HDT03Props> = ({
                 <div key={idx} className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
                   <div className="flex justify-between items-center">
                     <span className="font-mono font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded text-[11px]">
-                      {h.action} (v{h.version})
-                    </span>
+                      {h.action} (v{h.version}) </span>
                     <span className="text-[10px] text-slate-400 font-mono">
                       {new Date(h.timestamp).toLocaleString('vi-VN')}
                     </span>
@@ -487,8 +467,7 @@ export const HDT03SendAndNegotiate: React.FC<HDT03Props> = ({
                 onClick={() => setShowHistoryModal(false)}
                 className="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg font-semibold cursor-pointer"
               >
-                Đóng
-              </button>
+                Đóng </button>
             </div>
           </div>
         </div>

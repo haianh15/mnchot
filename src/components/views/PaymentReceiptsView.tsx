@@ -1,3 +1,4 @@
+import { toUserMessage } from '../../utils/userMessages';
 import React, { useEffect, useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { PaymentNotice, PaymentReceipt, ReceiptAuditEntry } from '../../types';
@@ -162,7 +163,7 @@ export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initi
 
     if (res.success) {
       setShowConfirmModal(false);
-      alert(res.message);
+      alert(toUserMessage(res.message));
       setActiveTab('uc08_2');
     } else {
       setConfirmError(res.message);
@@ -185,7 +186,7 @@ export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initi
     if (res.success) {
       setShowRevertModal(false);
       setRevertReason('');
-      alert(res.message);
+      alert(toUserMessage(res.message));
       setActiveTab('uc08_3'); // Switch to audit history tab to view results
     } else {
       setRevertError(res.message);
@@ -216,26 +217,22 @@ export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initi
         <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-xs">
           <span className="text-[11px] text-slate-500 block">Tổng phải thu (Hiệu lực):</span>
           <span className="text-base font-bold font-mono text-slate-900">
-            {totalReceivable.toLocaleString('vi-VN')} đ
-          </span>
+            {totalReceivable.toLocaleString('vi-VN')} đ </span>
         </div>
         <div className="p-3.5 bg-emerald-50/60 rounded-xl border border-emerald-200 shadow-xs">
           <span className="text-[11px] text-emerald-800 block">Đã thực thu vào tài khoản:</span>
           <span className="text-base font-bold font-mono text-emerald-700">
-            {totalCollected.toLocaleString('vi-VN')} đ
-          </span>
+            {totalCollected.toLocaleString('vi-VN')} đ </span>
         </div>
         <div className="p-3.5 bg-blue-50/60 rounded-xl border border-blue-200 shadow-xs">
           <span className="text-[11px] text-blue-800 block">Còn phải thu:</span>
           <span className="text-base font-bold font-mono text-blue-700">
-            {totalUncollected.toLocaleString('vi-VN')} đ
-          </span>
+            {totalUncollected.toLocaleString('vi-VN')} đ </span>
         </div>
         <div className="p-3.5 bg-purple-50/60 rounded-xl border border-purple-200 shadow-xs">
           <span className="text-[11px] text-purple-800 block">Giao dịch đã sửa thu nhầm:</span>
           <span className="text-base font-bold font-mono text-purple-700">
-            {revertedReceiptsCount} giao dịch (Bảo toàn)
-          </span>
+            {revertedReceiptsCount} giao dịch (Bảo toàn) </span>
         </div>
       </div>
 
@@ -248,8 +245,7 @@ export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initi
           <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-slate-500 flex items-center gap-1 font-medium">
-                <Filter className="w-3.5 h-3.5" /> Lọc trạng thái:
-              </span>
+                <Filter className="w-3.5 h-3.5" /> Lọc trạng thái: </span>
               {(['ALL', 'UNPAID', 'PAID', 'OVERDUE'] as const).map(st => (
                 <button
                   key={st}
@@ -268,16 +264,14 @@ export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initi
             </div>
 
             <span className="text-slate-400 text-[11px]">
-              Hiển thị <strong>{filteredNotices.length}</strong> thông báo
-            </span>
+              Hiển thị <strong>{filteredNotices.length}</strong> thông báo </span>
           </div>
 
           {/* Notices List */}
           <div className="space-y-3">
             {filteredNotices.length === 0 ? (
               <div className="p-12 text-center text-slate-400 text-xs bg-white rounded-2xl border border-slate-200">
-                Không tìm thấy thông báo thanh toán nào phù hợp với bộ lọc.
-              </div>
+                Không tìm thấy thông báo thanh toán nào phù hợp với bộ lọc. </div>
             ): (
               filteredNotices.map((n) => {
                 const isOverdue = n.paymentStatus === 'Chưa thu' && new Date(n.dueDate) < new Date();
@@ -310,8 +304,7 @@ export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initi
                           </span>
                         </div>
                         <div className="text-slate-500 text-[11px]">
-                          Hạn thanh toán: <strong className="font-mono text-slate-700">{n.dueDate}</strong> ·
-                          Nội dung CK: <strong className="font-mono text-slate-800">{n.qrBankSnapshot.transferContent}</strong>
+                          Hạn thanh toán: <strong className="font-mono text-slate-700">{n.dueDate}</strong> · Nội dung CK: <strong className="font-mono text-slate-800">{n.qrBankSnapshot.transferContent}</strong>
                         </div>
                       </div>
 
@@ -319,8 +312,7 @@ export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initi
                         <div className="text-right">
                           <span className="text-[10px] text-slate-400 block">Tổng tiền QR:</span>
                           <span className="font-mono font-bold text-sm text-blue-900">
-                            {n.totalAmount.toLocaleString('vi-VN')} đ
-                          </span>
+                            {n.totalAmount.toLocaleString('vi-VN')} đ </span>
                         </div>
 
                         <div className="flex items-center gap-1.5">
@@ -338,8 +330,7 @@ export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initi
                               className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs flex items-center gap-1.5 shadow-xs cursor-pointer"
                             >
                               <CheckCircle2 className="w-4 h-4" />
-                              Xác nhận thu đủ
-                            </button>
+                              Xác nhận thu đủ </button>
                           )}
 
                           {n.status === 'Đang hiệu lực' && n.paymentStatus === 'Đã thu' && relatedReceipt && (
@@ -354,8 +345,7 @@ export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initi
                               title="Sửa xác nhận thu nhầm"
                             >
                               <RotateCcw className="w-3.5 h-3.5 text-amber-700" />
-                              Sửa thu nhầm
-                            </button>
+                              Sửa thu nhầm </button>
                           )}
                         </div>
                       </div>
@@ -377,8 +367,7 @@ export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initi
             <div>
               <span className="font-bold block text-sm">Quản lý Chứng từ & Xác nhận Chuyển khoản </span>
               <p className="text-emerald-800 text-[11px] mt-0.5">
-                Ghi nhận chứng từ xác nhận chuyển khoản ngân hàng khớp 100% mã QR. Cho phép sửa xác nhận thu nhầm với lý do bắt buộc và bảo toàn tuyệt đối giao dịch nguồn.
-              </p>
+                Ghi nhận chứng từ xác nhận chuyển khoản ngân hàng khớp 100% mã QR. Cho phép sửa xác nhận thu nhầm với lý do bắt buộc và bảo toàn tuyệt đối giao dịch nguồn. </p>
             </div>
           </div>
 
@@ -386,8 +375,7 @@ export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initi
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {paymentReceipts.length === 0 ? (
               <div className="col-span-2 py-16 text-center text-slate-400 text-xs bg-white rounded-2xl border border-slate-200">
-                Chưa có chứng từ thu tiền nào được xác nhận.
-              </div>
+                Chưa có chứng từ thu tiền nào được xác nhận. </div>
             ): (
               paymentReceipts.map((r) => {
                 const isInvalid = r.status === 'Không còn hiệu lực';
@@ -435,8 +423,7 @@ export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initi
                           Thời gian hủy: {new Date(r.invalidatedAt || '').toLocaleString('vi-VN')} · Người hủy: {r.invalidatedBy || 'Chủ nhà'}
                         </p>
                         <span className="inline-block px-1.5 py-0.5 bg-red-100 rounded text-[9px] font-bold text-red-800 mt-1">
-                          Giao dịch nguồn được bảo toàn – Không xóa dữ liệu
-                        </span>
+                          Giao dịch nguồn được bảo toàn – Không xóa dữ liệu </span>
                       </div>
                     )}
 
@@ -446,8 +433,7 @@ export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initi
                         className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-medium flex items-center gap-1 cursor-pointer"
                       >
                         <History className="w-3 h-3 text-purple-600" />
-                        Xem lịch sử kiểm toán
-                      </button>
+                        Xem lịch sử kiểm toán </button>
 
                       {!isInvalid && (
                         <button
@@ -460,8 +446,7 @@ export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initi
                           className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded-lg font-semibold text-xs flex items-center gap-1.5 cursor-pointer border border-amber-200"
                         >
                           <RotateCcw className="w-3.5 h-3.5 text-amber-700" />
-                          Sửa xác nhận thu nhầm
-                        </button>
+                          Sửa xác nhận thu nhầm </button>
                       )}
                     </div>
                   </div>
@@ -484,14 +469,12 @@ export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initi
                 <span>Nhật ký Kiểm toán & Lịch sử Sửa xác nhận thu nhầm (Requirement 4)</span>
               </div>
               <p className="text-purple-800 text-[11px] mt-0.5">
-                Bảo toàn tuyệt đối giao dịch nguồn theo & 10. Khi User sửa thu nhầm, hệ thống giữ lại bản ghi chứng từ trong lịch sử và lưu đầy đủ lý do bắt buộc, thời gian, người thực hiện.
-              </p>
+                Bảo toàn tuyệt đối giao dịch nguồn theo & 10. Khi User sửa thu nhầm, hệ thống giữ lại bản ghi chứng từ trong lịch sử và lưu đầy đủ lý do bắt buộc, thời gian, người thực hiện. </p>
             </div>
 
             <div className="flex items-center gap-2">
               <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-lg font-bold text-xs border border-purple-200">
-                {revertedReceiptsCount} lần sửa thu nhầm
-              </span>
+                {revertedReceiptsCount} lần sửa thu nhầm </span>
             </div>
           </div>
 
@@ -545,8 +528,7 @@ export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initi
                   {filteredAuditReceipts.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="py-12 text-center text-slate-400">
-                        Không có bản ghi kiểm toán nào phù hợp.
-                      </td>
+                        Không có bản ghi kiểm toán nào phù hợp. </td>
                     </tr>
                   ): (
                     filteredAuditReceipts.map((r) => {
@@ -564,19 +546,16 @@ export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initi
                             <span className="block text-[10px] text-slate-400">{r.periodCode}</span>
                           </td>
                           <td className="py-3 px-3 font-mono font-bold text-blue-900">
-                            {r.amountReceived.toLocaleString('vi-VN')} đ
-                          </td>
+                            {r.amountReceived.toLocaleString('vi-VN')} đ </td>
                           <td className="py-3 px-3">
                             {isReverted ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800 border border-red-200">
                                 <AlertTriangle className="w-3 h-3 text-red-600" />
-                                Không còn hiệu lực (Đã sửa)
-                              </span>
+                                Không còn hiệu lực (Đã sửa) </span>
                             ): (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
                                 <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                                Đang hiệu lực
-                              </span>
+                                Đang hiệu lực </span>
                             )}
                           </td>
                           <td className="py-3 px-3 max-w-xs">
@@ -586,8 +565,7 @@ export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initi
                                   {r.invalidatedReason}
                                 </span>
                                 <span className="text-[10px] text-emerald-700 font-semibold block">
-                                  ✓ Không xóa giao dịch nguồn
-                                </span>
+                                  ✓ Không xóa giao dịch nguồn </span>
                               </div>
                             ): (
                               <span className="text-slate-400 text-[11px]">— Không sửa đổi —</span>
@@ -616,8 +594,7 @@ export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initi
                               className="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-800 rounded-lg text-xs font-semibold cursor-pointer border border-purple-200 inline-flex items-center gap-1"
                             >
                               <History className="w-3.5 h-3.5" />
-                              Xem dòng thời gian
-                            </button>
+                              Xem dòng thời gian </button>
                           </td>
                         </tr>
                       );
@@ -719,8 +696,7 @@ export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initi
 
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">
-                  Tệp ảnh minh chứng chuyển khoản
-                </label>
+                  Tệp ảnh minh chứng chuyển khoản </label>
                 <input
                   type="text"
                   value={proofFile}
@@ -736,14 +712,12 @@ export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initi
                   onClick={() => setShowConfirmModal(false)}
                   className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-medium cursor-pointer"
                 >
-                  Hủy
-                </button>
+                  Hủy </button>
                 <button
                   type="submit"
                   className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold cursor-pointer shadow-xs"
                 >
-                  Xác nhận đã thu đủ
-                </button>
+                  Xác nhận đã thu đủ </button>
               </div>
             </form>
           </div>
@@ -760,8 +734,7 @@ export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initi
               <div>
                 <h3 className="font-bold text-slate-900 text-base">Sửa xác nhận thu nhầm</h3>
                 <span className="text-[11px] text-purple-700 font-semibold">
-                  Ghi nhận điều chỉnh và lưu vết lịch sử giao dịch
-                </span>
+                  Ghi nhận điều chỉnh và lưu vết lịch sử giao dịch </span>
               </div>
               <button
                 onClick={() => setShowRevertModal(false)}
@@ -782,11 +755,9 @@ export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initi
             <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 space-y-1 text-[11px]">
               <p className="font-bold flex items-center gap-1.5 text-amber-950">
                 <ShieldAlert className="w-4 h-4 text-amber-700" />
-                Bảo toàn dữ liệu kiểm toán & giao dịch nguồn:
-              </p>
+                Bảo toàn dữ liệu kiểm toán & giao dịch nguồn: </p>
               <p>
-                Hệ thống <strong>giữ lại nguyên vẹn bản ghi chứng từ nguồn</strong> trong cơ sở dữ liệu và đánh dấu trạng thái <strong>&quot;Không còn hiệu lực&quot;</strong>. Thông báo thanh toán tương ứng sẽ hoàn tác về <strong>&quot;Chưa thu&quot;</strong> để tính lại công nợ chính xác.
-              </p>
+                Hệ thống <strong>giữ lại nguyên vẹn bản ghi chứng từ nguồn</strong> trong cơ sở dữ liệu và đánh dấu trạng thái <strong>&quot;Không còn hiệu lực&quot;</strong>. Thông báo thanh toán tương ứng sẽ hoàn tác về <strong>&quot;Chưa thu&quot;</strong> để tính lại công nợ chính xác. </p>
             </div>
 
             <div className="p-3 bg-slate-100 rounded-xl space-y-1 text-slate-700 text-xs">
@@ -840,14 +811,12 @@ export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initi
                   onClick={() => setShowRevertModal(false)}
                   className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-medium cursor-pointer"
                 >
-                  Hủy
-                </button>
+                  Hủy </button>
                 <button
                   type="submit"
                   className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold cursor-pointer shadow-xs"
                 >
-                  Xác nhận sửa thu nhầm & Lưu lịch sử
-                </button>
+                  Xác nhận sửa thu nhầm & Lưu lịch sử </button>
               </div>
             </form>
           </div>
@@ -863,11 +832,9 @@ export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initi
             <div className="flex justify-between items-center border-b border-slate-200 pb-3">
               <div>
                 <h3 className="font-bold text-slate-900 text-base">
-                  Dòng thời gian Kiểm toán Chứng từ
-                </h3>
+                  Dòng thời gian Kiểm toán Chứng từ </h3>
                 <span className="font-mono text-[11px] text-slate-500">
-                  Mã giao dịch: {inspectReceiptAudit.transactionCode} (Phòng {inspectReceiptAudit.roomCode})
-                </span>
+                  Mã giao dịch: {inspectReceiptAudit.transactionCode} (Phòng {inspectReceiptAudit.roomCode}) </span>
               </div>
               <button
                 onClick={() => setInspectReceiptAudit(null)}
@@ -923,8 +890,7 @@ export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initi
                 onClick={() => setInspectReceiptAudit(null)}
                 className="px-4 py-2 bg-slate-900 text-white rounded-xl font-semibold cursor-pointer"
               >
-                Đóng
-              </button>
+                Đóng </button>
             </div>
           </div>
         </div>
@@ -980,8 +946,7 @@ export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initi
                 onClick={() => setInspectNotice(null)}
                 className="px-4 py-2 bg-slate-900 text-white rounded-xl font-semibold cursor-pointer"
               >
-                Đóng
-              </button>
+                Đóng </button>
             </div>
           </div>
         </div>

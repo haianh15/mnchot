@@ -1,3 +1,4 @@
+import { toUserMessage } from '../../utils/userMessages';
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import {
@@ -164,21 +165,21 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
   const existingCondition = handoverConditions.find(c => c.roomCode === selectedRoomCode);
   const [condScope, setCondScope] = useState<'Tài sản cụ thể' | 'Hiện trạng chung của phòng'>('Hiện trạng chung của phòng');
   const [condAssetName, setCondAssetName] = useState<string>(standardAssets[0]?.name || 'Điều hòa Daikin');
-  const [condDesc, setCondDesc] = useState<string>(existingCondition?.description || 'Phòng sạch sẽ, sơn tường mới, sàn gạch men nguyên vẹn.');
-  const [condPhotos, setCondPhotos] = useState<string[]>(existingCondition?.photos || ['https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=500&auto=format&fit=crop']);
+  const [condDesc, setCondDesc] = useState<string>(existingCondition?.description || '');
+  const [condPhotos, setCondPhotos] = useState<string[]>(existingCondition?.photos || []);
   const [condVideoUrl, setCondVideoUrl] = useState<string>(existingCondition?.videoUrl || '');
   const [condVideoError, setCondVideoError] = useState<string | null>(null);
 
   // Bước 1.03: Chốt chỉ số điện nước thực tế ngoài hệ thống
-  const [meterElecCode, setMeterElecCode] = useState<string>(existingCondition?.meterElectricCode || 'CT-D-' + selectedRoomCode.replace(/\D/g, ''));
-  const [meterElecKwh, setMeterElecKwh] = useState<number>(existingCondition?.initialElectricityKwh || 1250);
-  const [meterWaterCode, setMeterWaterCode] = useState<string>(existingCondition?.meterWaterCode || 'CT-N-' + selectedRoomCode.replace(/\D/g, ''));
-  const [meterWaterM3, setMeterWaterM3] = useState<number>(existingCondition?.initialWaterM3 || 45);
-  const [meterPhotos, setMeterPhotos] = useState<string[]>(existingCondition?.meterPhotos || ['https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=500&auto=format&fit=crop']);
+  const [meterElecCode, setMeterElecCode] = useState<string>(existingCondition?.meterElectricCode || '');
+  const [meterElecKwh, setMeterElecKwh] = useState<number>(existingCondition?.initialElectricityKwh ?? 0);
+  const [meterWaterCode, setMeterWaterCode] = useState<string>(existingCondition?.meterWaterCode || '');
+  const [meterWaterM3, setMeterWaterM3] = useState<number>(existingCondition?.initialWaterM3 ?? 0);
+  const [meterPhotos, setMeterPhotos] = useState<string[]>(existingCondition?.meterPhotos || []);
 
   // Bước 1.04 & 1.05: Khách kiểm tra thực tế
   const [tenantCheckOption, setTenantCheckOption] = useState<'Không cần bổ sung' | 'Có bổ sung'>('Không cần bổ sung');
-  const [tenantCheckNote, setTenantCheckNote] = useState<string>(existingCondition?.tenantCheckNote || 'Khách đã kiểm tra thực tế tại phòng.');
+  const [tenantCheckNote, setTenantCheckNote] = useState<string>(existingCondition?.tenantCheckNote || '');
   const [supplementNote, setSupplementNote] = useState<string>(existingCondition?.supplementNote || '');
 
   // ==================== STATE : LẬP BIÊN BẢN NHẬN PHÒNG ====================
@@ -278,7 +279,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
   const existingInspection = returnInspections.find(i => i.roomCode === selectedRoomCode);
   const [bg09InspectionDate, setBg09InspectionDate] = useState(existingInspection?.inspectionDate || new Date().toISOString().substring(0, 10));
   const [bg09Step304Status, setBg09Step304Status] = useState<'Đã nhận lại' | 'Chưa nhận lại' | 'Chưa có kết quả'>(
-    existingInspection?.step304Status || 'Đã nhận lại'
+    existingInspection?.step304Status || 'Chưa có kết quả'
   );
   const [bg09IncompleteReason, setBg09IncompleteReason] = useState(existingInspection?.incompleteReason || '');
   const [bg09FinalElec, setBg09FinalElec] = useState<number>(existingInspection?.finalElectricityKwh || 1420);
@@ -486,8 +487,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
             <h1 className="text-lg font-bold text-slate-900">Bàn giao và tài sản</h1>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Ghi nhận tài sản, tình trạng bàn giao và biên bản theo đúng phòng và lần thuê.
-          </p>
+            Ghi nhận tài sản, tình trạng bàn giao và biên bản theo đúng phòng và lần thuê. </p>
         </div>
 
         {/* Global Room Selector */}
@@ -501,15 +501,14 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
             <option value="">-- Chọn phòng --</option>
             {rooms.map(r => (
               <option key={r.id} value={r.roomCode}>
-                {r.roomCode} - {r.currentTenantName || 'Trống'} ({r.status})
-              </option>
+                {r.roomCode} - {r.currentTenantName || 'Trống'} ({r.status}) </option>
             ))}
           </select>
         </div>
       </div>
 
       <div className="bg-white border border-slate-200 rounded-xl p-3 sm:p-4 space-y-3">
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Nhóm nghiệp vụ bàn giao">
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Chọn công việc bàn giao">
           {([
             ['inventory_bg01','Nhận phòng'],
             ['init_report_bg08','Trả phòng'],
@@ -521,27 +520,10 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
             return <button key={tab} onClick={()=>setActiveTab(tab)} className={`rounded-lg px-4 py-2 text-sm font-semibold ${activeGroup?'bg-blue-600 text-white':'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>{label}</button>
           })}
         </div>
-        <label className="block text-xs font-semibold text-slate-600">Công việc đang thực hiện
-          <select className="mt-1 block w-full sm:max-w-lg rounded-lg border border-slate-300 p-2.5 text-sm bg-white" value={activeTab} onChange={e=>setActiveTab(e.target.value as typeof activeTab)}>
-            <optgroup label="Nhận phòng">
-              <option value="inventory_bg01">Kiểm kê tài sản</option>
-              <option value="condition_bg02">Ghi nhận hiện trạng</option>
-              <option value="handover_bg03">Lập biên bản nhận phòng</option>
-            </optgroup>
-            <optgroup label="Trả phòng">
-              <option value="init_report_bg08">Khởi tạo biên bản trả phòng</option>
-              <option value="return_room_bg09">Ghi nhận kết quả nhận lại phòng</option>
-              <option value="compare_bg06">Đối chiếu tài sản</option>
-              <option value="result_bg07">Ghi nhận kết quả đối chiếu</option>
-              <option value="deposit_check_bg10">Theo dõi kết quả quyết toán cọc</option>
-              <option value="final_report_bg11">Hoàn thiện biên bản trả phòng</option>
-            </optgroup>
-            <optgroup label="Sự cố tài sản">
-              <option value="incident_search_bg05">Tra cứu sự cố</option>
-              <option value="incident_add_bg04">Ghi nhận sự cố mới</option>
-            </optgroup>
-          </select>
-        </label>
+        <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-900" aria-live="polite">
+          <span className="font-medium">Đang thực hiện: </span>
+          {{inventory_bg01:'Kiểm kê tài sản',condition_bg02:'Ghi nhận hiện trạng',handover_bg03:'Biên bản nhận phòng',init_report_bg08:'Lập biên bản trả phòng',return_room_bg09:'Ghi nhận nhận lại phòng',compare_bg06:'Đối chiếu tài sản',result_bg07:'Kết quả đối chiếu tài sản',deposit_check_bg10:'Theo dõi quyết toán cọc',final_report_bg11:'Hoàn thiện biên bản trả phòng',incident_search_bg05:'Tra cứu sự cố',incident_add_bg04:'Ghi nhận sự cố mới'}[activeTab]}
+        </div>
       </div>
 
       {!selectedRoomCode && <div className="bg-amber-50 border border-amber-200 text-amber-900 text-sm rounded-xl p-4">Vui lòng chọn phòng cụ thể để mở hồ sơ bàn giao, tài sản và biên bản nguồn.</div>}
@@ -559,8 +541,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                 <h2 className="text-sm font-bold text-slate-900">Kiểm kê tài sản chuẩn bị trước khi giao phòng</h2>
               </div>
               <p className="text-slate-500 mt-0.5">
-                Kiểm tra danh mục, số lượng và tình trạng vật lý thực tế. Quản lý 2 trạng thái độc lập: Kiểm kê (Nháp/Hoàn tất) &amp; Liên kết HĐ (Chưa/Đã liên kết).
-              </p>
+                Kiểm tra danh mục, số lượng và tình trạng vật lý thực tế. Quản lý 2 trạng thái độc lập: Kiểm kê (Nháp/Hoàn tất) &amp; Liên kết HĐ (Chưa/Đã liên kết). </p>
             </div>
 
             {/* Quick Actions */}
@@ -617,8 +598,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
           <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-lg text-amber-900 text-[11px] flex items-start gap-2">
             <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
             <div>
-              <strong>Lưu ý: </strong> Bản kiểm kê <em>Đã hoàn tất</em> nhưng <em>Chưa liên kết</em> là hợp lệ để chuẩn bị trước ký HĐ, song <strong>KHÔNG đủ điều kiện</strong> cho  Lưu Đã lập. Trước 1.06 phải có đồng thời <strong>Đã hoàn tất</strong> và <strong>Đã liên kết</strong> đúng hợp đồng/lần thuê.
-            </div>
+              <strong>Lưu ý: </strong> Bản kiểm kê <em>Đã hoàn tất</em> nhưng <em>Chưa liên kết</em> là hợp lệ để chuẩn bị trước ký HĐ, song <strong>KHÔNG đủ điều kiện</strong> cho Lưu Đã lập. Trước 1.06 phải có đồng thời <strong>Đã hoàn tất</strong> và <strong>Đã liên kết</strong> đúng hợp đồng/lần thuê. </div>
           </div>
 
           {/* Table of Assets (Giao diện mục 3) */}
@@ -696,8 +676,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
               }}
               className="px- py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium cursor-pointer"
             >
-              Hủy thay đổi
-            </button>
+              Hủy thay đổi </button>
 
             <div className="flex items-center gap-2">
               {/* : Lưu nháp */}
@@ -721,8 +700,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                 }}
                 className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg font-semibold cursor-pointer"
               >
-                Lưu nháp kiểm kê
-              </button>
+                Lưu nháp kiểm kê </button>
 
               {/* Bước 3: Lưu hoàn tất */}
               <button
@@ -748,15 +726,15 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                     completedBy: currentUser?.fullName || 'Chủ nhà'
                   };
                   saveInventoryBG01(completedRecord);
-                  showToast('success', 'Đã lưu kết quả kiểm kê ĐÃ HOÀN TẤT thành công !');
+                  showToast('success', "Đã lưu kết quả kiểm kê ĐÃ HOÀN TẤT thành công!");
                 }}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold cursor-pointer shadow-xs"
               >
-                Lưu kiểm kê hoàn tất (Bước 3)
-              </button>
+                Lưu kiểm kê hoàn tất </button>
 
               {/* Bước 4: Tiếp tục ghi hiện trạng  */}
               <button
+                disabled={existingInventory?.inventoryStatus !== 'Đã hoàn tất'}
                 onClick={() => setActiveTab('condition_bg02')}
                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold cursor-pointer flex items-center gap-1.5 shadow-xs"
               >
@@ -777,18 +755,17 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
             <div>
               <div className="flex items-center gap-2">
                 
-                <h2 className="text-sm font-bold text-slate-900">Ghi nhận hiện trạng tài sản &amp; Chốt chỉ số điện nước bàn giao</h2>
+                <h2 className="text-sm font-bold text-slate-900">Ghi nhận hiện trạng bàn giao</h2>
               </div>
               <p className="text-slate-500 mt-0.5">
-                Ghi nhận tình trạng phòng bằng mô tả, ảnh, URL video; chốt công tơ điện nước ngoài hệ thống (bước 1.03) và ghi nhận kết quả khách kiểm tra (1.04).
-              </p>
+                Ghi nhận tình trạng phòng bằng mô tả, ảnh, URL video; chốt công tơ điện nước ngoài hệ thống và ghi nhận kết quả khách kiểm tra (1.04). </p>
             </div>
 
             <div className="flex items-center gap-2">
               <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
                 existingInventory?.inventoryStatus === 'Đã hoàn tất' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
               }`}>
-                Kiểm kê BG01: {existingInventory?.inventoryStatus || 'Chưa kiểm kê'}
+                Kiểm kê: {existingInventory?.inventoryStatus || 'Chưa kiểm kê'}
               </span>
             </div>
           </div>
@@ -851,11 +828,9 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
               <div>
                 <div className="flex justify-between items-center mb-1">
                   <label className="font-semibold text-slate-700">
-                    Ảnh minh chứng hiện trạng (Tối đa 5MB/ảnh)
-                  </label>
+                    Ảnh minh chứng hiện trạng (Tối đa 5MB/ảnh) </label>
                   <span className="text-[10px] text-slate-500">
-                    Đã tải {condPhotos.length}/8 ảnh (dành sẵn 2 vị trí cho ảnh công tơ)
-                  </span>
+                    Đã tải {condPhotos.length}/8 ảnh (dành sẵn 2 vị trí cho ảnh công tơ) </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   {condPhotos.map((p, idx) => (
@@ -892,8 +867,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
               {/* Video URL HTTP(S) */}
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">
-                  Đường dẫn video kiểm chứng ngoài (HTTP/HTTPS)
-                </label>
+                  Đường dẫn video kiểm chứng ngoài (HTTP/HTTPS) </label>
                 <input
                   type="url"
                   value={condVideoUrl}
@@ -913,8 +887,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                   <span className="text-[10px] text-red-600 font-semibold block mt-0.5">{condVideoError}</span>
                 ) : (
                   <span className="text-[10px] text-slate-400 block mt-0.5">
-                    * Không upload video trực tiếp. URL đúng cú pháp nhưng chưa kiểm chứng quyền sẽ lưu nhãn "Chưa xác minh".
-                  </span>
+                    * Không upload video trực tiếp. URL đúng cú pháp nhưng chưa kiểm chứng quyền sẽ lưu nhãn "Chưa xác minh". </span>
                 )}
               </div>
             </div>
@@ -926,11 +899,10 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                 <div className="flex items-center justify-between border-b border-blue-200 pb-2">
                   <div className="flex items-center gap-1.5 font-bold text-blue-900">
                     <Zap className="w-4 h-4 text-amber-600" />
-                    <span>2. Chốt chỉ số điện nước bàn giao (Bước 1.03)</span>
+                    <span>2. Chốt chỉ số điện nước bàn giao </span>
                   </div>
                   <span className="text-[10px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded">
-                    Bắt buộc có 02 ảnh công tơ
-                  </span>
+                    Bắt buộc có 02 ảnh công tơ </span>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -985,8 +957,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                         onClick={() => setMeterPhotos(prev => [...prev, 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=500&auto=format&fit=crop'])}
                         className="px-2 py-1 text-[11px] bg-blue-600 text-white rounded font-medium cursor-pointer"
                       >
-                        + Bổ sung ảnh công tơ
-                      </button>
+                        + Bổ sung ảnh công tơ </button>
                     )}
                   </div>
                 </div>
@@ -995,7 +966,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
               {/* Khối Khách kiểm tra (1.04 & 1.05) */}
               <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5">
                 <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-                  <span className="font-bold text-slate-900">3. Kết quả khách kiểm tra thực tế (Bước 1.04 &amp; 1.05)</span>
+                  <span className="font-bold text-slate-900">3. Kết quả khách kiểm tra thực tế </span>
                   <select
                     value={tenantCheckOption}
                     onChange={(e) => setTenantCheckOption(e.target.value as any)}
@@ -1018,7 +989,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
 
                 {tenantCheckOption === 'Có bổ sung' && (
                   <div>
-                    <label className="block text-amber-800 font-semibold mb-1">Nội dung khách yêu cầu bổ sung (Bước 1.05):</label>
+                    <label className="block text-amber-800 font-semibold mb-1">Nội dung khách yêu cầu bổ sung:</label>
                     <textarea
                       rows={2}
                       value={supplementNote}
@@ -1038,8 +1009,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
               onClick={() => setActiveTab('inventory_bg01')}
               className="px- py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium cursor-pointer"
             >
-              &larr; Quay lại kiểm kê BG01
-            </button>
+              &larr; Quay lại kiểm kê </button>
 
             <div className="flex items-center gap-2">
               <button
@@ -1071,12 +1041,11 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                     version: existingCondition ? existingCondition.version + 1 : 1
                   };
                   saveHandoverConditionBG02(cond);
-                  showToast('info', 'Đã lưu nháp hồ sơ hiện trạng bàn giao .');
+                  showToast('info', "Đã lưu nháp hồ sơ hiện trạng bàn giao.");
                 }}
                 className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg font-semibold cursor-pointer"
               >
-                Lưu nháp hiện trạng
-              </button>
+                Lưu nháp hiện trạng </button>
 
               <button
                 onClick={() => {
@@ -1115,14 +1084,14 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                     version: existingCondition ? existingCondition.version + 1 : 1
                   };
                   saveHandoverConditionBG02(cond);
-                  showToast('success', 'Đã lưu hiện trạng bàn giao & chỉ số điện nước thành công !');
+                  showToast('success', "Đã lưu hiện trạng bàn giao & chỉ số điện nước thành công!");
                 }}
                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold cursor-pointer shadow-xs"
               >
-                Lưu hiện trạng bàn giao (Bước 3)
-              </button>
+                Lưu hiện trạng bàn giao </button>
 
               <button
+                disabled={!existingCondition || existingCondition.status !== 'Đã hoàn tất'}
                 onClick={() => setActiveTab('handover_bg03')}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold cursor-pointer flex items-center gap-1.5 shadow-xs"
               >
@@ -1157,8 +1126,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                   <h2 className="text-sm font-bold text-slate-900">Biên bản bàn giao nhận phòng</h2>
                 </div>
                 <p className="text-slate-500 mt-0.5">
-                  Lập biên bản nhận phòng từ kết quả kiểm kê và chốt công tơ thực tế. Hai bên ký giấy ngoài hệ thống. Toàn bộ biên bản chỉ có 3 trạng thái: Nháp / Đã lập / Đã xác nhận.
-                </p>
+                  Lập biên bản nhận phòng từ kết quả kiểm kê và chốt công tơ thực tế. Hai bên ký giấy ngoài hệ thống. Toàn bộ biên bản chỉ có 3 trạng thái: Nháp / Đã lập / Đã xác nhận. </p>
               </div>
 
               {/* Status Badge */}
@@ -1177,15 +1145,14 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
             {/* Khối kiểm tra điều kiện tiên quyết bắt buộc (Thao tác thực hiện) */}
             <div className="p- bg-slate-50 border border-slate-200 rounded-xl space-y-2">
               <span className="font-bold text-slate-800 text-[11px] block uppercase tracking-wider">
-                Khối điều kiện bắt buộc để Lưu Đã lập (1.06) &amp; Bắt đầu bàn giao thực tế:
-              </span>
+                Khối điều kiện bắt buộc để Lưu Đã lập (1.06) &amp; Bắt đầu bàn giao thực tế: </span>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 text-[11px]">
                 <div className={`p-2 rounded border flex items-center justify-between ${cond1ContractValid ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-rose-50 border-rose-200 text-rose-900'}`}>
                   <span>1. HĐ đã ký &amp; hiệu lực</span>
                   <strong>{cond1ContractValid ? 'Đạt' : 'Chưa đạt'}</strong>
                 </div>
                 <div className={`p-2 rounded border flex items-center justify-between ${cond2DepositPaid ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-rose-50 border-rose-200 text-rose-900'}`}>
-                  <span>2. Đã thu cọc 1 tháng (PH-07)</span>
+                  <span>2. Đã thu cọc 1 tháng </span>
                   <strong>{cond2DepositPaid ? 'Đạt' : 'Chưa đạt'}</strong>
                 </div>
                 <div className={`p-2 rounded border flex items-center justify-between ${cond3FirstRentPaid ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-rose-50 border-rose-200 text-rose-900'}`}>
@@ -1193,18 +1160,17 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                   <strong>{cond3FirstRentPaid ? 'Đạt' : 'Chưa đạt'}</strong>
                 </div>
                 <div className={`p-2 rounded border flex items-center justify-between ${cond4InventoryReady ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-rose-50 border-rose-200 text-rose-900'}`}>
-                  <span>4. BG01 Hoàn tất &amp; Liên kết</span>
+                  <span>4. Hoàn tất &amp; Liên kết</span>
                   <strong>{cond4InventoryReady ? 'Đạt' : 'Chưa đạt'}</strong>
                 </div>
                 <div className={`p-2 rounded border flex items-center justify-between ${cond5MetersReady ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-rose-50 border-rose-200 text-rose-900'}`}>
-                  <span>5. BG02 Số đọc/Ảnh công tơ</span>
+                  <span>5. Số đọc/Ảnh công tơ</span>
                   <strong>{cond5MetersReady ? 'Đạt' : 'Chưa đạt'}</strong>
                 </div>
               </div>
               {!canSaveOfficially106 && (
                 <div className="p-2 bg-amber-50 border border-amber-200 rounded text-amber-900 text-[11px]">
-                  ⚠️ <strong>Chưa đủ điều kiện bắt buộc:</strong> Chỉ cho phép <em>Xem trước / Lưu nháp</em> hồ sơ chuẩn bị. Khóa quyền Lưu Đã lập ở bước 1.06 và bàn giao nhận phòng cho đến khi đủ tất cả 5 điều kiện.
-                </div>
+                  ⚠️ <strong>Chưa đủ điều kiện bắt buộc:</strong> Chỉ cho phép <em>Xem trước / Lưu nháp</em> hồ sơ chuẩn bị. Khóa quyền Lưu Đã lập ở và bàn giao nhận phòng cho đến khi đủ tất cả 5 điều kiện. </div>
               )}
             </div>
 
@@ -1239,7 +1205,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
 
               {/* Chỉ số công tơ điện nước chỉ đọc từ 1.03 */}
               <div className="p-3 bg-amber-50/60 border border-amber-200 rounded-xl space-y-1.5 text-[11px]">
-                <span className="font-bold text-slate-900 block">CHỈ SỐ CÔNG TƠ ĐIỆN NƯỚC CHỐT LÚC BÀN GIAO (BƯỚC 1.03 - CHỈ ĐỌC):</span>
+                <span className="font-bold text-slate-900 block">CHỈ SỐ CÔNG TƠ KHI BÀN GIAO (CHỈ XEM):</span>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <div>Mã ĐH Điện: <strong className="font-mono">{meterElecCode}</strong></div>
                   <div>Chỉ số điện: <strong className="font-mono text-amber-800">{meterElecKwh} kWh</strong></div>
@@ -1297,8 +1263,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
               </div>
 
               <div className="p-2 bg-slate-50 border border-slate-200 rounded text-center text-[10px] text-slate-500">
-                * Phần mềm không có nút In, Xuất để in hoặc ký điện tử. User chuẩn bị bản giấy ngoài hệ thống theo đúng mã và phiên bản trên.
-              </div>
+                * Phần mềm không có nút In, Xuất để in hoặc ký điện tử. User chuẩn bị bản giấy ngoài hệ thống theo đúng thông tin đã ghi nhận. </div>
             </div>
 
             {/* Action Buttons for BG03 */}
@@ -1307,8 +1272,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                 onClick={() => setActiveTab('condition_bg02')}
                 className="px- py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium cursor-pointer"
               >
-                &larr; Sửa hiện trạng 
-              </button>
+                &larr; Sửa hiện trạng </button>
 
               <div className="flex items-center gap-2">
                 {/* Lưu nháp biên bản */}
@@ -1336,8 +1300,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                   }}
                   className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg font-semibold cursor-pointer"
                 >
-                  Lưu nháp biên bản
-                </button>
+                  Lưu nháp biên bản </button>
 
                 {/* Bước 5: Lưu Đã lập (1.06) */}
                 <button
@@ -1365,7 +1328,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                       initialWaterM3: meterWaterM3
                     };
                     saveHandoverReportBG03(officialReport);
-                    showToast('success', 'Đã lưu biên bản nhận phòng ở trạng thái ĐÃ LẬP (Bước 1.06)! Sẵn sàng ký giấy ngoài hệ thống.');
+                    showToast('success', "Đã lưu biên bản nhận phòng ở trạng thái ĐÃ LẬP! Sẵn sàng ký giấy ngoài hệ thống.");
                   }}
                   className={`px-4 py-2 rounded-lg font-semibold cursor-pointer shadow-xs ${
                     canSaveOfficially106
@@ -1373,8 +1336,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                       : 'bg-slate-300 text-slate-500 cursor-not-allowed'
                   }`}
                 >
-                  Lưu Đã lập (Bước 1.06)
-                </button>
+                  Lưu Đã lập </button>
 
                 {/* Ghi nhận kết quả ký giấy (Bước 7) */}
                 <button
@@ -1402,8 +1364,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                 <h2 className="text-sm font-bold text-slate-900">Ghi nhận sự cố &amp; Hư hỏng tài sản trong thời gian thuê</h2>
               </div>
               <p className="text-slate-500 mt-0.5">
-                Chỉ ghi nhận thông tin tường thuật diễn biến thực tế do User cung cấp. KHÔNG xử lý thu tiền, không tạo khoản phải thu hay trừ cọc.
-              </p>
+                Chỉ ghi nhận thông tin tường thuật diễn biến thực tế do User cung cấp. KHÔNG xử lý thu tiền, không tạo khoản phải thu hay trừ cọc. </p>
             </div>
 
             <button
@@ -1530,8 +1491,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-amber-900 text-[11px]">Thông tin chi phí tham khảo:</span>
                   <span className="text-[10px] bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded font-mono font-bold">
-                    Do User cung cấp – chưa xác minh độc lập
-                  </span>
+                    Do User cung cấp – chưa xác minh độc lập </span>
                 </div>
                 <div>
                   <label className="block text-slate-700 font-medium mb-1">Chi phí ước tính trao đổi (nếu có, đ):</label>
@@ -1544,8 +1504,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                     className="w-full px-2.5 py-1.5 border border-slate-300 rounded bg-white font-mono font-bold text-blue-700"
                   />
                   <span className="text-[10px] text-slate-400 block mt-0.5">
-                    * Không biến số tiền này thành khoản phải thu hay lệnh khấu trừ cọc.
-                  </span>
+                    * Không biến số tiền này thành khoản phải thu hay lệnh khấu trừ cọc. </span>
                 </div>
                 <div>
                   <label className="block text-slate-700 font-medium mb-1">Ghi chú khách đã thanh toán ngoài (nếu có):</label>
@@ -1602,7 +1561,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                   loggedAt: new Date().toISOString()
                 };
                 recordIncidentBG04(newIncident);
-                showToast('success', 'Đã lưu ghi nhận sự cố tài sản thành công !');
+                showToast('success', "Đã lưu ghi nhận sự cố tài sản thành công!");
                 setIncDesc('');
                 setIncCause('');
                 setIncSolutionPlan('');
@@ -1612,8 +1571,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
               }}
               className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold cursor-pointer shadow-xs"
             >
-              Lưu sự cố tài sản (Bước 4)
-            </button>
+              Lưu sự cố tài sản </button>
           </div>
         </div>
       )}
@@ -1647,8 +1605,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                   <h2 className="text-sm font-bold text-slate-900">Tra cứu lịch sử sự cố tài sản: Phòng {selectedRoomCode}</h2>
                 </div>
                 <p className="text-slate-500 mt-0.5">
-                  Tra cứu các sự cố đã phát sinh trong thời gian thuê để làm căn cứ đối chiếu khi trả phòng. Dữ liệu chỉ đọc.
-                </p>
+                  Tra cứu các sự cố đã phát sinh trong thời gian thuê để làm căn cứ đối chiếu khi trả phòng. Dữ liệu chỉ đọc. </p>
               </div>
 
               <div className="flex items-center gap-2">
@@ -1661,7 +1618,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                   className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg font-semibold flex items-center gap-1 cursor-pointer"
                 >
                   <History className="w- h-" />
-                  <span>Gắn dấu tra cứu BG06/BG07</span>
+                  <span>Gắn dấu tra cứu /</span>
                 </button>
               </div>
             </div>
@@ -1734,8 +1691,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                   }}
                   className="text-blue-600 hover:text-blue-800 font-semibold cursor-pointer"
                 >
-                  Xóa bộ lọc
-                </button>
+                  Xóa bộ lọc </button>
               )}
             </div>
 
@@ -1783,16 +1739,14 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                           onClick={() => setSelectedIncidentDetail(inc)}
                           className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded text-[11px] font-semibold cursor-pointer"
                         >
-                          Xem chi tiết
-                        </button>
+                          Xem chi tiết </button>
                       </td>
                     </tr>
                   ))}
                   {roomIncidents.length === 0 && (
                     <tr>
                       <td colSpan={7} className="py-8 text-center text-slate-400 italic">
-                        Không có sự cố nào phù hợp với bộ lọc trong phòng {selectedRoomCode}.
-                      </td>
+                        Không có sự cố nào phù hợp với bộ lọc trong phòng {selectedRoomCode}. </td>
                     </tr>
                   )}
                 </tbody>
@@ -1847,14 +1801,12 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                       }}
                       className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded font-semibold cursor-pointer"
                     >
-                      &larr; Quay lại đối chiếu 
-                    </button>
+                      &larr; Quay lại đối chiếu </button>
                     <button
                       onClick={() => setSelectedIncidentDetail(null)}
                       className="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded font-medium cursor-pointer"
                     >
-                      Đóng
-                    </button>
+                      Đóng </button>
                   </div>
                 </div>
               </div>
@@ -1883,8 +1835,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                   <h2 className="text-sm font-bold text-slate-900">Đối chiếu tài sản khi trả phòng: {selectedRoomCode}</h2>
                 </div>
                 <p className="text-slate-500 mt-0.5">
-                  So sánh tài sản thực tế lúc khách trả phòng với biên bản nhận phòng BG03 đã ký để phát hiện thiếu hụt, hư hỏng hoặc khác biệt.
-                </p>
+                  So sánh tài sản thực tế lúc khách trả phòng với biên bản nhận phòng đã ký để phát hiện thiếu hụt, hư hỏng hoặc khác biệt. </p>
               </div>
 
               <div className="flex items-center gap-2">
@@ -1905,22 +1856,21 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                 <strong className="font-mono text-slate-900">{selectedRoom.roomCode} ({selectedRoom.currentLeaseId || 'THUE-' + selectedRoom.roomCode})</strong>
               </div>
               <div>
-                <span className="text-slate-500 block text-[11px]">Biên bản nhận phòng BG03:</span>
+                <span className="text-slate-500 block text-[11px]">Biên bản nhận phòng:</span>
                 <span className={`font-semibold ${reportConfirmedBG03 ? 'text-emerald-700' : 'text-amber-700'}`}>
                   {existingReport?.reportNumber || 'Chưa có'} · {reportConfirmedBG03 ? 'Đã xác nhận' : 'Chưa đủ chữ ký'}
                 </span>
               </div>
               <div>
-                <span className="text-slate-500 block text-[11px]">Xác nhận nhận lại  (BG09):</span>
+                <span className="text-slate-500 block text-[11px]">Xác nhận nhận lại:</span>
                 <span className={`font-semibold ${step305Confirmed ? 'text-emerald-700' : 'text-rose-700'}`}>
                   {step305Confirmed ? 'Đã xác nhận nhận lại' : 'Chưa xác nhận '}
                 </span>
               </div>
               <div>
-                <span className="text-slate-500 block text-[11px]">Điện / Nước lúc nhận (BG03):</span>
+                <span className="text-slate-500 block text-[11px]">Điện / Nước lúc nhận:</span>
                 <span className="font-mono font-bold text-slate-800">
-                  {existingReport?.initialElectricityKwh || 1250} kWh · {existingReport?.initialWaterM3 || 45} m³
-                </span>
+                  {existingReport?.initialElectricityKwh || 1250} kWh · {existingReport?.initialWaterM3 || 45} m³ </span>
               </div>
             </div>
 
@@ -1932,11 +1882,9 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                   <span>Điều kiện đối chiếu chính thức chưa đạt:</span>
                 </div>
                 <p>
-                  Theo sơ đồ quy trình, đối chiếu chính thức chỉ được bắt đầu sau khi <strong>Chủ nhà xác nhận Đã nhận lại tại BG09/</strong> và <strong>Biên bản nhận phòng BG03 đã được hai bên ký tay (Đã xác nhận)</strong>.
-                  {!step305Confirmed && ' Hiện tại phòng chưa hoàn tất xác nhận .'}
+                  Chỉ thực hiện đối chiếu tài sản sau khi <strong>Chủ nhà xác nhận Đã nhận lại tại /</strong> và <strong>Biên bản nhận phòng đã được hai bên ký tay (Đã xác nhận)</strong>. {!step305Confirmed && ' Hiện tại phòng chưa hoàn tất xác nhận .'}
                   {!reportConfirmedBG03 && ' Biên bản nhận phòng BG03 chưa có đủ 2 chữ ký tay xác nhận.'}
-                  {' '}Hệ thống chỉ cho phép xem/kiểm tra sơ bộ, <strong>khóa nút Lưu đối chiếu hoàn tất</strong>.
-                </p>
+                  {' '}Hệ thống chỉ cho phép xem/kiểm tra sơ bộ, <strong>khóa nút Lưu đối chiếu hoàn tất</strong>. </p>
               </div>
             )}
 
@@ -1944,8 +1892,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-slate-800 text-[11px] uppercase tracking-wider">
-                  Bảng đối chiếu tình trạng tài sản nhận &amp; trả (Comparison Table):
-                </span>
+                  Bảng đối chiếu tình trạng tài sản nhận &amp; trả (Comparison Table): </span>
                 <button
                   onClick={() => {
                     // Populate comparison items from inventory and return inspection
@@ -1965,7 +1912,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                       };
                     });
                     setComparisonItems(items);
-                    showToast('success', 'Đã tự động lấy dữ liệu và so sánh với biên bản nhận phòng BG03!');
+                    showToast('success', "Đã tự động lấy dữ liệu và so sánh với biên bản nhận phòng!");
                   }}
                   className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg font-semibold flex items-center gap-1 cursor-pointer"
                 >
@@ -2022,8 +1969,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
 
             {/* Hướng dẫn không tự phạt tiền */}
             <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 text-[11px]">
-              * <strong>Hướng dẫn  &amp; 04:</strong> Phát hiện chênh lệch tài sản không tự xác định khách có trách nhiệm hoặc tự tính chi phí bồi thường; đối chiếu tài sản không làm thay đổi trạng thái sử dụng phòng. Việc giải quyết chênh lệch được thực hiện tại .
-            </div>
+              * <strong>Hướng dẫn &amp; 04:</strong> Phát hiện chênh lệch tài sản không tự xác định khách có trách nhiệm hoặc tự tính chi phí bồi thường; đối chiếu tài sản không làm thay đổi trạng thái sử dụng phòng. Việc giải quyết chênh lệch được thực hiện tại. </div>
 
             {/* Footer Buttons (Thao tác thực hiện) */}
             <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100">
@@ -2031,15 +1977,14 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                 onClick={() => setActiveTab('handover_bg03')}
                 className="px- py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium cursor-pointer"
               >
-                &larr; Xem lại biên bản nhận BG03
-              </button>
+                &larr; Xem lại biên bản nhận </button>
 
               <div className="flex items-center gap-2">
                 <button
                   disabled={!canPerformOfficialComparison}
                   onClick={() => {
                     if (!canPerformOfficialComparison) {
-                      showToast('error', 'Chưa đủ điều kiện  và BG03 Đã xác nhận để lưu đối chiếu hoàn tất.');
+                      showToast('error', "Chưa đủ điều kiện và Đã xác nhận để lưu đối chiếu hoàn tất.");
                       return;
                     }
                     const hasDiff = comparisonItems.some((i: { diffResult: string }) => i.diffResult === 'Khác biệt');
@@ -2057,7 +2002,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                       loggedAt: new Date().toISOString()
                     };
                     saveAssetComparisonResultBG07(compResult);
-                    showToast('success', 'Đã lưu kết quả đối chiếu tài sản thành công !');
+                    showToast('success', "Đã lưu kết quả đối chiếu tài sản thành công!");
                   }}
                   className={`px-4 py-2 rounded-lg font-semibold cursor-pointer shadow-xs ${
                     canPerformOfficialComparison
@@ -2065,13 +2010,13 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                       : 'bg-slate-300 text-slate-500 cursor-not-allowed'
                   }`}
                 >
-                  Lưu kết quả đối chiếu (Bước 3)
-                </button>
+                  Lưu kết quả đối chiếu </button>
 
                 <button
+                  disabled={!canPerformOfficialComparison || !comparisonItems.length}
                   onClick={() => {
                     setActiveTab('result_bg07');
-                    showToast('info', 'Chuyển sang : Ghi nhận kết quả đối chiếu tài sản và xử lý chênh lệch.');
+                    showToast('info', "Chuyển sang: Ghi nhận kết quả đối chiếu tài sản và xử lý chênh lệch.");
                   }}
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold cursor-pointer flex items-center gap-1.5 shadow-xs"
                 >
@@ -2105,11 +2050,11 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
         const handleSaveBG07 = () => {
           // Validations ,  & 
           if (!hasBG06Comparison) {
-            showToast('error', ': Chưa có kết quả so sánh tài sản từ . Không ghi kết luận tùy ý.');
+            showToast('error', ": Chưa có kết quả so sánh tài sản từ. Không ghi kết luận tùy ý.");
             return;
           }
           if (hasDiffFromBG06 && bg07HasPendingWork && !bg07PendingWorkNote.trim()) {
-            showToast('error', ': BG06 xác định có chênh lệch thực tế, vui lòng nhập nội dung phát sinh cần xử lý.');
+            showToast('error', ": xác định có chênh lệch thực tế, vui lòng nhập nội dung phát sinh cần xử lý.");
             return;
           }
           if (hasDiffFromBG06 && !bg07HasPendingWork && !bg07PendingWorkNote.trim()) {
@@ -2122,7 +2067,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
           }
           const hasValidBG05 = Boolean(bg05AuditStamp || existingCompResult?.bg05AuditStamp);
           if (!hasValidBG05 && bg07UnanimousStatus === 'Đã thống nhất') {
-            showToast('error', ': Chưa có dấu tra cứu sự cố BG05 hợp lệ cùng phiên bản nguồn. Vui lòng đối soát BG05 trước hoặc chọn lại tình trạng thực tế.');
+            showToast('error', ": Chưa có dấu tra cứu sự cố hợp lệ cùng phiên bản nguồn. Vui lòng đối soát trước hoặc chọn lại tình trạng thực tế.");
             return;
           }
 
@@ -2160,9 +2105,9 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
             saveAssetComparisonResultBG07(result);
             setBg07SaveError(null);
             if (step318Transferred) {
-              showToast('success', 'Đã lưu kết quả đối chiếu tài sản  và ghi nhận chuyển thông tin Thao tác!');
+              showToast('success', "Đã lưu kết quả đối chiếu tài sản và ghi nhận chuyển thông tin Thao tác!");
             } else {
-              showToast('info', 'Đã lưu kết quả đối chiếu tài sản . Nhắc nhở: Hãy thực hiện bàn giao thông tin sang Thao tác ngoài hệ thống.');
+              showToast('info', "Đã lưu kết quả đối chiếu tài sản. Nhắc nhở: Hãy thực hiện bàn giao thông tin sang Thao tác ngoài hệ thống.");
             }
           } catch (err: any) {
             // : Giữ dữ liệu nhập, thông báo lỗi và nút Thử lại
@@ -2181,8 +2126,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                   <h2 className="text-sm font-bold text-slate-900">Ghi nhận kết quả đối chiếu tài sản &amp; Xử lý chênh lệch: {selectedRoomCode}</h2>
                 </div>
                 <p className="text-slate-500 mt-0.5">
-                  Ghi nhận trung thực kết quả xử lý chênh lệch và ý kiến của các bên (kể cả chưa thống nhất). Sau đó chuyển thông tin đối chiếu sang quyết toán cọc tại thao tác ngoài hệ thống.
-                </p>
+                  Ghi nhận trung thực kết quả xử lý chênh lệch và ý kiến của các bên (kể cả chưa thống nhất). Sau đó chuyển thông tin đối chiếu sang quyết toán cọc tại thao tác ngoài hệ thống. </p>
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
@@ -2203,7 +2147,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                       setStep318Transferred(Boolean(compRes.transferredToSettlement318));
                     }
                     setBg07SaveError(null);
-                    showToast('info', ': Đã tải lại dữ liệu đối chiếu mới nhất từ  và  thành công.');
+                    showToast('info', ": Đã tải lại dữ liệu đối chiếu mới nhất từ và thành công.");
                   }}
                   className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium flex items-center gap-1 cursor-pointer"
                   title="Tải lại để đối chiếu thông tin mới"
@@ -2223,7 +2167,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                   className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-semibold flex items-center gap-1 cursor-pointer"
                 >
                   <Scale className="w- h-" />
-                  <span>&larr; Xem đối chiếu BG06</span>
+                  <span>&larr; Xem đối chiếu </span>
                 </button>
                 <button
                   onClick={() => setShowAddContactModal(true)}
@@ -2242,14 +2186,12 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                 <div className="space-y-1">
                   <strong className="block">: Chưa có kết quả so sánh tài sản từ </strong>
                   <p>
-                    Hướng dẫn nghiệp vụ yêu cầu thực hiện đối chiếu tại  trước khi ghi nhận kết quả; không ghi kết luận tùy ý khi chưa có bảng đối chiếu nguồn.
-                  </p>
+                    Hướng dẫn nghiệp vụ yêu cầu thực hiện đối chiếu tại trước khi ghi nhận kết quả; không ghi kết luận tùy ý khi chưa có bảng đối chiếu nguồn. </p>
                   <button
                     onClick={() => setActiveTab('compare_bg06')}
                     className="mt-1 px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded font-semibold cursor-pointer"
                   >
-                    Chuyển sang thực hiện đối chiếu tại 
-                  </button>
+                    Chuyển sang thực hiện đối chiếu tại </button>
                 </div>
               </div>
             )}
@@ -2257,29 +2199,28 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
             {/* Read-Only Source Banner (Giao diện mục 2) */}
             <div className="p- bg-slate-50 border border-slate-200 rounded-xl grid grid-cols-2 md:grid-cols-4 gap-3 text-slate-700">
               <div>
-                <span className="text-slate-500 block text-[11px]">Chênh lệch thực tế (BG06):</span>
+                <span className="text-slate-500 block text-[11px]">Chênh lệch thực tế:</span>
                 <span className={`inline-block px-2 py-0.5 rounded font-bold text-[11px] ${
                   hasDiffFromBG06 ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'
                 }`}>
                   {hasDiffFromBG06 ? 'Có chênh lệch thực tế' : 'Không có chênh lệch'}
                 </span>
-                <span className="text-[10px] text-slate-400 block mt-0.5">* Chỉ đọc từ BG06, không được sửa</span>
+                <span className="text-[10px] text-slate-400 block mt-0.5">* Chỉ đọc từ, không được sửa</span>
               </div>
               <div>
-                <span className="text-slate-500 block text-[11px]">Dấu tra cứu sự cố BG05:</span>
+                <span className="text-slate-500 block text-[11px]">Dấu tra cứu sự cố:</span>
                 <span className="font-mono text-slate-800 font-semibold">
                   {bg05AuditStamp || existingCompResult?.bg05AuditStamp || 'Đã đối soát hợp lệ (BG05-OK)'}
                 </span>
-                <span className="text-[10px] text-slate-400 block mt-0.5">* : kế thừa hoặc kiểm tra nguồn</span>
+                <span className="text-[10px] text-slate-400 block mt-0.5">*: kế thừa hoặc kiểm tra nguồn</span>
               </div>
               <div>
-                <span className="text-slate-500 block text-[11px]">Biên bản nhận BG03:</span>
+                <span className="text-slate-500 block text-[11px]">Biên bản nhận:</span>
                 <span className="font-semibold text-emerald-700">
-                  {existingReport?.reportNumber || 'BB-BG03'} ({existingReport?.status || 'Đã xác nhận'})
-                </span>
+                  {existingReport?.reportNumber || 'BB-BG03'} ({existingReport?.status || 'Đã xác nhận'}) </span>
               </div>
               <div>
-                <span className="text-slate-500 block text-[11px]">Xác nhận nhận lại :</span>
+                <span className="text-slate-500 block text-[11px]">Xác nhận nhận lại:</span>
                 <span className="font-semibold text-emerald-700">
                   {returnInspectionTarget?.step305Confirmed ? 'Đã xác nhận nhận lại (BG09)' : 'Chờ xác nhận'}
                 </span>
@@ -2312,8 +2253,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                       onClick={() => setBg07SaveError(null)}
                       className="px-2.5 py-1.5 bg-white hover:bg-slate-50 border border-rose-300 text-slate-700 rounded-lg font-medium cursor-pointer"
                     >
-                      Đóng
-                    </button>
+                      Đóng </button>
                   </div>
                 </div>
               </div>
@@ -2327,9 +2267,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                   <span> / Thao tác: Kết luận "Không còn nội dung cần xử lý"</span>
                 </div>
                 <p>
-                  Thao tác ghi kết luận <strong>Không còn nội dung cần xử lý</strong>.
-                  Lưu ý: Kết luận này <strong>không đồng nghĩa không cần hoàn trả/đối soát tiền cọc ban đầu tại ASIS-05</strong>. Khoản cọc gốc vẫn phải được chuyển sang Thao tác ngoài hệ thống để thực hiện quyết toán.
-                </p>
+                  Thao tác ghi kết luận <strong>Không còn nội dung cần xử lý</strong>. Lưu ý: Kết luận này <strong>không đồng nghĩa không cần hoàn trả/đối soát tiền cọc ban đầu tại </strong>. Khoản cọc gốc vẫn phải được chuyển sang Thao tác ngoài hệ thống để thực hiện quyết toán. </p>
               </div>
             )}
 
@@ -2341,8 +2279,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                   <span>: Hai bên chưa thống nhất về trách nhiệm, số lượng hoặc phương án xử lý</span>
                 </div>
                 <p>
-                  Hệ thống <strong>lưu nguyên văn ý kiến của từng bên và tình trạng đang chờ</strong>, không tự gán đã chấp thuận hay đã thanh toán. Hồ sơ chuyển sang Thao tác nhưng vẫn giữ cờ Chưa thống nhất.
-                </p>
+                  Hệ thống <strong>lưu nguyên văn ý kiến của từng bên và tình trạng đang chờ</strong>, không tự gán đã chấp thuận hay đã thanh toán. Hồ sơ chuyển sang Thao tác nhưng vẫn giữ cờ Chưa thống nhất. </p>
               </div>
             )}
 
@@ -2355,7 +2292,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                     <label className="font-semibold text-slate-700">
                       Còn nội dung cần xử lý? <span className="text-red-500">*</span>
                     </label>
-                    <span className="text-[10px] text-slate-400">(Trạng thái nghiệp vụ tại BG07 - )</span>
+                    <span className="text-[10px] text-slate-400">(Trạng thái nghiệp vụ tại - )</span>
                   </div>
                   <select
                     value={bg07HasPendingWork ? 'Có' : 'Không'}
@@ -2363,7 +2300,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                       const val = e.target.value === 'Có';
                       setBg07HasPendingWork(val);
                       if (!val && hasDiffFromBG06 && !bg07PendingWorkNote.trim()) {
-                        showToast('info', 'Hướng dẫn : Khi BG06 có chênh lệch nhưng chọn Không còn xử lý, User bắt buộc phải ghi căn cứ đã xử lý.');
+                        showToast('info', "Hướng dẫn: Khi có chênh lệch nhưng chọn Không còn xử lý, User bắt buộc phải ghi căn cứ đã xử lý.");
                       }
                     }}
                     className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white font-semibold"
@@ -2386,8 +2323,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                   />
                   {hasDiffFromBG06 && !bg07HasPendingWork && (
                     <span className="text-[10px] text-amber-700 font-semibold block mt-0.5">
-                      * Căn cứ giải trình lý do không cần xử lý khi BG06 ghi nhận có chênh lệch.
-                    </span>
+                      * Căn cứ giải trình lý do không cần xử lý khi ghi nhận có chênh lệch. </span>
                   )}
                 </div>
 
@@ -2407,8 +2343,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-amber-900 text-[11px]">Chi phí bồi thường ước tính trao đổi (đ):</span>
                     <span className="text-[10px] bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded font-mono font-bold">
-                      Tham khảo – Chưa xác minh
-                    </span>
+                      Tham khảo – Chưa xác minh </span>
                   </div>
                   <input
                     type="number"
@@ -2419,8 +2354,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                     className="w-full px-2.5 py-1.5 border border-slate-300 rounded bg-white font-mono font-bold text-blue-700"
                   />
                   <span className="text-[10px] text-slate-500 block">
-                    * <strong> &amp; 10:</strong> Chi phí bồi thường này chỉ là thông tin User ghi nhận, <strong>KHÔNG mặc nhiên là khoản phải thu hay khoản khấu trừ cọc</strong>. Việc cấn trừ tiền cọc do Quyết toán cọc xử lý độc lập; BG07 không tạo giao dịch tiền.
-                  </span>
+                    * <strong> &amp; 10:</strong> Chi phí bồi thường này chỉ là thông tin User ghi nhận, <strong>KHÔNG mặc nhiên là khoản phải thu hay khoản khấu trừ cọc</strong>. Việc cấn trừ tiền cọc do Quyết toán cọc xử lý độc lập; không tạo giao dịch tiền. </span>
                 </div>
               </div>
 
@@ -2452,14 +2386,13 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                 <div className="grid grid-cols-2 gap-3 p-3 bg-white border border-slate-200 rounded-lg">
                   <div>
                     <label className="block font-bold text-slate-800 text-[11px] mb-1">
-                      1. Phản hồi của khách
-                    </label>
+                      1. Phản hồi của khách </label>
                     <select
                       value={bg07TenantFeedbackStatus}
                       onChange={(e) => {
                         const val = e.target.value as any;
                         if (val === 'Không liên hệ được' && !canMarkUnreachable) {
-                          showToast('error', ' / : Để chọn "Không liên hệ được", phải có ít nhất 2 lượt liên hệ không thành công và đã qua tối thiểu 48 giờ từ lượt đầu.');
+                          showToast('error', " /: Để chọn \"Không liên hệ được\", phải có ít nhất 2 lượt liên hệ không thành công và đã qua tối thiểu 48 giờ từ lượt đầu.");
                           return;
                         }
                         setBg07TenantFeedbackStatus(val);
@@ -2477,8 +2410,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
 
                   <div>
                     <label className="block font-bold text-slate-800 text-[11px] mb-1">
-                      2. Mức độ thống nhất
-                    </label>
+                      2. Mức độ thống nhất </label>
                     <select
                       value={bg07UnanimousStatus}
                       onChange={(e) => {
@@ -2502,8 +2434,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-slate-700 text-[11px]">
-                      Lịch sử liên hệ thực tế ({bg07ContactLogs.length} lượt):
-                    </span>
+                      Lịch sử liên hệ thực tế ({bg07ContactLogs.length} lượt): </span>
                     <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
                       canMarkUnreachable ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'
                     }`}>
@@ -2533,13 +2464,10 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                   <span>Thao tác: Chuyển thông tin sang Quyết toán cọc – Quyết toán cọc ngoài hệ thống:</span>
                 </div>
                 <span className="text-[10px] font-mono bg-indigo-200/70 text-indigo-900 px-2 py-0.5 rounded font-bold">
-                  Bàn giao nghiệp vụ ngoài phần mềm
-                </span>
+                  Bàn giao nghiệp vụ ngoài phần mềm </span>
               </div>
               <p className="text-[11px] text-indigo-900">
-                Thông tin chuyển tại thao tác gồm: mã phòng <strong>{selectedRoomCode}</strong>, hợp đồng <strong>{targetContract?.id || 'HD-' + selectedRoomCode}</strong>, lần thuê <strong>{targetContract?.leaseId || selectedRoom.currentLeaseId}</strong>, kết quả đối chiếu, sự cố liên quan và phiên bản hồ sơ.
-                Sau đó, hồ sơ quyết toán cọc sử dụng dữ liệu này để đối chiếu, <strong>không tự khởi tạo từ BG07</strong>.
-              </p>
+                Thông tin chuyển tại thao tác gồm: mã phòng <strong>{selectedRoomCode}</strong>, hợp đồng <strong>{targetContract?.id || 'HD-' + selectedRoomCode}</strong>, lần thuê <strong>{targetContract?.leaseId || selectedRoom.currentLeaseId}</strong>, kết quả đối chiếu, sự cố liên quan và phiên bản hồ sơ. Sau đó, hồ sơ quyết toán cọc sử dụng dữ liệu này để đối chiếu, <strong>không tự khởi tạo từ </strong>. </p>
               
               <div className="p-2.5 bg-white border border-indigo-200 rounded-lg flex items-center justify-between">
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -2551,8 +2479,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                   />
                   <div>
                     <span className="font-bold text-slate-800 block text-[11px]">
-                      Chủ nhà đã hoàn tất bàn giao thông tin sang Thao tác ngoài hệ thống
-                    </span>
+                      Chủ nhà đã hoàn tất bàn giao thông tin sang Thao tác ngoài hệ thống </span>
                     <span className="text-[10px] text-slate-500">
                       {step318Transferred ? `Đã xác nhận bàn giao thông tin nghiệp vụ.` : `Chưa hoàn tất thao tác ngoài hệ thống.`}
                     </span>
@@ -2567,8 +2494,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
 
               {!step318Transferred && (
                 <div className="text-[10px] text-amber-800 bg-amber-50 p-2 rounded border border-amber-200">
-                  * <strong>:</strong> Kết quả đã lưu vẫn được giữ nguyên. Hồ sơ ghi chú chưa hoàn tất việc chuyển thông tin để Chủ nhà tiếp tục xử lý; BG07 không tự mở hoặc tự tạo hồ sơ quyết toán cọc. Việc chờ quyết toán không thay đổi kết quả nhận lại phòng đã được xác nhận ở thao tác.
-                </div>
+                  * <strong>:</strong> Kết quả đã lưu vẫn được giữ nguyên. Hồ sơ ghi chú chưa hoàn tất việc chuyển thông tin để Chủ nhà tiếp tục xử lý; không tự mở hoặc tự tạo hồ sơ quyết toán cọc. Việc chờ quyết toán không thay đổi kết quả nhận lại phòng đã được xác nhận ở thao tác. </div>
               )}
             </div>
 
@@ -2578,8 +2504,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                 onClick={() => setActiveTab('compare_bg06')}
                 className="px- py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium cursor-pointer"
               >
-                &larr; Quay lại đối chiếu BG06
-              </button>
+                &larr; Quay lại đối chiếu </button>
 
               <div className="flex flex-wrap items-center gap-2">
                 <label className="hidden flex items-center gap-1.5 text-[11px] text-slate-500 bg-slate-50 border border-slate-200 px-2 py-1.5 rounded-lg cursor-pointer hover:bg-slate-100" title="Chỉ dùng trong môi trường kiểm thử">
@@ -2599,17 +2524,16 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                     hasBG06Comparison ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-slate-300 text-slate-500 cursor-not-allowed'
                   }`}
                 >
-                  Lưu kết quả đối chiếu (Bước 4)
-                </button>
+                  Lưu kết quả đối chiếu </button>
 
                 <button
                   onClick={() => {
                     setActiveTab('init_report_bg08');
-                    showToast('info', 'Mở : Khởi tạo biên bản trả phòng.');
+                    showToast('info', "Mở: Khởi tạo biên bản trả phòng.");
                   }}
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold cursor-pointer flex items-center gap-1.5 shadow-xs"
                 >
-                  <span>Tạo biên bản trả phòng (BG08)</span>
+                  <span>Tạo biên bản trả phòng </span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
@@ -2647,8 +2571,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                   <h2 className="text-sm font-bold text-slate-900">Khởi tạo biên bản trả phòng (Thao tác): {selectedRoomCode}</h2>
                 </div>
                 <p className="text-slate-500 mt-0.5">
-                  Khởi tạo biên bản trả phòng sau sự kiện khách tiến hành bàn giao (). Hồ sơ ban đầu lưu ở trạng thái <strong>NHÁP</strong>, chưa phải bản ký chính thức.
-                </p>
+                  Khởi tạo biên bản trả phòng sau sự kiện khách tiến hành bàn giao. Hồ sơ ban đầu lưu ở trạng thái <strong>NHÁP</strong>, chưa phải bản ký chính thức. </p>
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
@@ -2659,13 +2582,12 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                     ? 'bg-amber-50 text-amber-800 border-amber-300'
                     : 'bg-rose-50 text-rose-800 border-rose-300'
                 }`}>
-                  Trạng thái nguồn BG03: {sourceReportStatus}
+                  Trạng thái nguồn: {sourceReportStatus}
                 </span>
 
                 {existingReturnReport && (
                   <span className="font-mono bg-blue-50 text-blue-800 font-bold px-2.5 py-1 rounded border border-blue-200">
-                    Mã hiện hành: {existingReturnReport.reportNumber} ({existingReturnReport.status})
-                  </span>
+                    Mã hiện hành: {existingReturnReport.reportNumber} ({existingReturnReport.status}) </span>
                 )}
               </div>
             </div>
@@ -2676,12 +2598,12 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5 font-bold">
                     <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                    <span>Cảnh báo thiếu hồ sơ biên bản nhận phòng BG03 ( &amp;  &amp; 05):</span>
+                    <span>Chưa có biên bản nhận phòng hợp lệ:</span>
                   </div>
                   <button
                     onClick={() => {
                       setActiveTab('handover_bg03');
-                      showToast('info', 'Chuyển sang xem hồ sơ nhận phòng BG03.');
+                      showToast('info', "Chuyển sang xem hồ sơ nhận phòng.");
                     }}
                     className="px-2.5 py-1 bg-amber-200 hover:bg-amber-300 text-amber-900 rounded font-semibold flex items-center gap-1 cursor-pointer"
                   >
@@ -2690,8 +2612,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                   </button>
                 </div>
                 <p>
-                  Chưa tìm thấy hoặc biên bản nhận phòng BG03 chưa có đủ 2 chữ ký tay xác nhận. Hệ thống vẫn cho phép khởi tạo biên bản trả phòng ở trạng thái <strong>Nháp</strong> để ghi nhận thực tế, nhưng sẽ <strong>gắn cờ Thiếu biên bản nhận</strong> và khóa đối chiếu hoàn tất/xác nhận biên bản cuối cùng (BG06/BG11) cho đến khi hồ sơ gốc hợp lệ.
-                </p>
+                  Chưa tìm thấy hoặc biên bản nhận phòng chưa có đủ 2 chữ ký tay xác nhận. Hệ thống vẫn cho phép khởi tạo biên bản trả phòng ở trạng thái <strong>Nháp</strong> để ghi nhận thực tế, nhưng sẽ <strong>gắn cờ Thiếu biên bản nhận</strong> và khóa đối chiếu hoàn tất/xác nhận biên bản cuối cùng cho đến khi hồ sơ gốc hợp lệ. </p>
               </div>
             )}
 
@@ -2703,8 +2624,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                   <span>: Chọn hợp đồng lịch sử trong khi phòng đã có lần thuê mới</span>
                 </div>
                 <p>
-                  Hướng dẫn  &amp; 08: Không cho phép lưu biên bản trả chính thức sai nguồn hoặc ghi đè hồ sơ hiện hành của người thuê mới. Với hồ sơ cũ, chỉ cho phép tra cứu/chuẩn bị thông tin có kiểm soát trên lịch sử đúng lần thuê.
-                </p>
+                  Lưu ý: Không cho phép lưu biên bản trả chính thức sai nguồn hoặc ghi đè hồ sơ hiện hành của người thuê mới. Với hồ sơ cũ, chỉ cho phép tra cứu/chuẩn bị thông tin có kiểm soát trên lịch sử đúng lần thuê. </p>
               </div>
             )}
 
@@ -2725,8 +2645,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                 <div>
                   <strong className="block text-blue-950">: Đã tồn tại biên bản trả phòng hiện hành cho lần thuê này</strong>
                   <p className="text-blue-800">
-                    Số biên bản: <strong>{existingReturnReport.reportNumber}</strong> · Trạng thái: <strong>{existingReturnReport.status}</strong> · Ngày lập: {existingReturnReport.date}. Một lần thuê chỉ có 1 biên bản trả phòng hiện hành.
-                  </p>
+                    Số biên bản: <strong>{existingReturnReport.reportNumber}</strong> · Trạng thái: <strong>{existingReturnReport.status}</strong> · Ngày lập: {existingReturnReport.date}. Một lần thuê chỉ có 1 biên bản trả phòng hiện hành. </p>
                 </div>
                 <button
                   onClick={() => {
@@ -2735,8 +2654,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                   }}
                   className="px- py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shrink-0 cursor-pointer"
                 >
-                  Mở biên bản hiện có
-                </button>
+                  Mở biên bản hiện có </button>
               </div>
             )}
 
@@ -2745,8 +2663,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
               <div className="space-y-3 p-4 bg-slate-50 border border-slate-200 rounded-xl">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">
-                    Hợp đồng thuê cần trả phòng <span className="text-red-500">*</span> (Lọc đúng lần thuê)
-                  </label>
+                    Hợp đồng thuê cần trả phòng <span className="text-red-500">*</span> (Lọc đúng lần thuê) </label>
                   <select
                     value={bg08SelectedContractId || targetContract?.id || ''}
                     onChange={(e) => {
@@ -2761,16 +2678,14 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                   >
                     {contracts.filter(c => c.roomCode === selectedRoomCode).map(c => (
                       <option key={c.id} value={c.id}>
-                        {c.id} · {c.tenantName} ({c.status}) [Lần thuê: {c.leaseId}]
-                      </option>
+                        {c.id} · {c.tenantName} ({c.status}) [Lần thuê: {c.leaseId}] </option>
                     ))}
                     {contracts.filter(c => c.roomCode === selectedRoomCode).length === 0 && (
                       <option value="">Không có hợp đồng nào thuộc phòng {selectedRoomCode}</option>
                     )}
                   </select>
                   <span className="text-[10px] text-slate-400 block mt-0.5">
-                    * Mã phòng: <strong>{selectedRoom.roomCode}</strong> (Tầng {selectedRoom.floor}, {selectedRoom.area} m²)
-                  </span>
+                    * Mã phòng: <strong>{selectedRoom.roomCode}</strong> (Tầng {selectedRoom.floor}, {selectedRoom.area} m²) </span>
                 </div>
 
                 <div>
@@ -2833,15 +2748,14 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
             {/* Reference Asset Table */}
             <div className="space-y-1.5">
               <span className="font-bold text-slate-800 text-[11px] uppercase tracking-wider block">
-                Danh sách tài sản tham chiếu từ đầu kỳ (Chỉ xem, nguồn đối chứng - ):
-              </span>
+                Danh sách tài sản tham chiếu từ đầu kỳ (Chỉ xem, nguồn đối chứng - ): </span>
               <div className="overflow-x-auto border border-slate-200 rounded-xl max-h-48">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-semibold uppercase text-[10px]">
                       <th className="py-2 px-3">Tài sản</th>
                       <th className="py-2 px-3 text-center">SL Danh mục</th>
-                      <th className="py-2 px-3 text-center">SL Lúc nhận (BG03)</th>
+                      <th className="py-2 px-3 text-center">SL Lúc nhận </th>
                       <th className="py-2 px-3">Tình trạng lúc nhận</th>
                     </tr>
                   </thead>
@@ -2868,8 +2782,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                 }}
                 className="px- py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium cursor-pointer"
               >
-                Hủy
-              </button>
+                Hủy </button>
 
               <div className="flex items-center gap-2">
                 {/* : Mở biên bản Nháp hiện có nếu đã tồn tại */}
@@ -2881,8 +2794,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                     }}
                     className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg font-semibold cursor-pointer"
                   >
-                    Mở biên bản Nháp hiện có
-                  </button>
+                    Mở biên bản Nháp hiện có </button>
                 ) : (
                   <button
                     disabled={isHistoricContractConflict}
@@ -2918,7 +2830,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
 
                       const res = initHandoverReturnReportDraftBG08(newRep);
                       if (res.success) {
-                        showToast('success', res.message);
+                        showToast('success', toUserMessage(res.message));
                       }
                     }}
                     className={`px-4 py-2 rounded-lg font-semibold cursor-pointer shadow-xs ${
@@ -2927,18 +2839,18 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                         : 'bg-slate-300 text-slate-500 cursor-not-allowed'
                     }`}
                   >
-                    Khởi tạo biên bản Nháp (Bước 3)
-                  </button>
+                    Khởi tạo biên bản Nháp </button>
                 )}
 
                 <button
+                  disabled={!existingReturnReport}
                   onClick={() => {
                     setActiveTab('return_room_bg09');
-                    showToast('info', 'Mở : Ghi nhận kết quả nhận lại phòng thực tế ( & ).');
+                    showToast('info', "Mở kết quả nhận lại phòng.");
                   }}
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold cursor-pointer flex items-center gap-1.5 shadow-xs"
                 >
-                  <span>Kiểm tra tài sản khi trả (Bước 4 &rarr; BG09)</span>
+                  <span>Ghi nhận kết quả nhận lại phòng</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
@@ -2970,8 +2882,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                   <h2 className="text-sm font-bold text-slate-900">Ghi nhận kết quả nhận lại phòng: {selectedRoomCode}</h2>
                 </div>
                 <p className="text-slate-500 mt-0.5">
-                  Kiểm tra thực tế và ghi nhận kết quả. Khi đã nhận lại và đủ chứng cứ, xác nhận làm căn cứ để chuyển phòng sang trạng thái Trống.
-                </p>
+                  Kiểm tra thực tế và ghi nhận kết quả. Khi đã nhận lại và đủ chứng cứ, xác nhận làm căn cứ để chuyển phòng sang trạng thái Trống. </p>
               </div>
 
               {is305Confirmed && (
@@ -2994,14 +2905,12 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                 <div className="space-y-1">
                   <strong className="block font-bold">: Chưa tìm thấy biên bản trả phòng đang xử lý </strong>
                   <p>
-                    Quy trình yêu cầu khởi tạo biên bản trả phòng tại  trước khi ghi nhận kết quả nhận lại thực tế.
-                  </p>
+                    Cần lập biên bản trả phòng trước khi ghi nhận kết quả nhận lại thực tế. </p>
                   <button
                     onClick={() => setActiveTab('init_report_bg08')}
                     className="mt-1 px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded font-semibold cursor-pointer"
                   >
-                    Chuyển sang Khởi tạo biên bản trả phòng 
-                  </button>
+                    Chuyển sang Khởi tạo biên bản trả phòng </button>
                 </div>
               </div>
             )}
@@ -3009,7 +2918,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
             {/* Status overview */}
             <div className="p- bg-slate-50 border border-slate-200 rounded-xl grid grid-cols-2 md:grid-cols-4 gap-3 text-slate-700">
               <div>
-                <span className="text-slate-500 block text-[11px]">Trạng thái kiểm tra :</span>
+                <span className="text-slate-500 block text-[11px]">Trạng thái kiểm tra:</span>
                 <span className={`inline-block px-2 py-0.5 rounded font-bold text-[11px] ${
                   is303Complete ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
                 }`}>
@@ -3017,7 +2926,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                 </span>
               </div>
               <div>
-                <span className="text-slate-500 block text-[11px]">Kết quả nhận lại ():</span>
+                <span className="text-slate-500 block text-[11px]">Kết quả nhận lại:</span>
                 <span className={`inline-block px-2 py-0.5 rounded font-bold text-[11px] ${
                   bg09Step304Status === 'Đã nhận lại' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
                 }`}>
@@ -3025,7 +2934,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                 </span>
               </div>
               <div>
-                <span className="text-slate-500 block text-[11px]">Xác nhận độc lập :</span>
+                <span className="text-slate-500 block text-[11px]">Xác nhận độc lập:</span>
                 <span className={`inline-block px-2 py-0.5 rounded font-bold text-[11px] ${
                   is305Confirmed ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
                 }`}>
@@ -3044,11 +2953,9 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-slate-800 text-[11px] uppercase tracking-wider">
-                  Bảng kiểm tra tài sản thực tế tại phòng (Thao tác):
-                </span>
+                  Bảng kiểm tra tài sản thực tế tại phòng (Thao tác): </span>
                 <span className="text-[10px] text-slate-500">
-                  Dòng chưa kiểm tra phải ghi rõ lý do ( / )
-                </span>
+                  Dòng chưa kiểm tra phải ghi rõ lý do </span>
               </div>
 
               <div className="overflow-x-auto border border-slate-200 rounded-xl">
@@ -3135,8 +3042,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
               <div className="flex items-center justify-between border-b border-blue-200 pb-1.5">
                 <span className="font-bold text-blue-900">Chốt chỉ số điện nước cuối kỳ (Mốc dừng tính tiền dịch vụ - BR09-THU):</span>
                 <span className="text-[10px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded">
-                  Không sinh tiền thuê kỳ sau ngày nhận lại
-                </span>
+                  Không sinh tiền thuê kỳ sau ngày nhận lại </span>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -3166,8 +3072,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
             <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
               <div className="flex items-center justify-between">
                 <label className="font-bold text-slate-800 text-xs">
-                  Kết quả nhận lại phòng tại Thao tác <span className="text-red-500">*</span>:
-                </label>
+                  Kết quả nhận lại phòng tại Thao tác <span className="text-red-500">*</span>: </label>
                 <select
                   value={bg09Step304Status}
                   onChange={(e) => setBg09Step304Status(e.target.value as any)}
@@ -3221,8 +3126,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
               {/* Notice  validation */}
               {bg09Step304Status === 'Đã nhận lại' && !canSaveOfficially304 && (
                 <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 text-[11px]">
-                  <strong>:</strong> Để lưu chính thức kết quả <strong>Đã nhận lại</strong> tại , bảng kiểm tra  phải <strong>Đã kiểm tra đầy đủ 100%</strong> và có mô tả bằng chứng. Nếu chưa đủ, chỉ cho phép <em>Lưu nháp - chờ bổ sung</em> và chưa kích hoạt xác nhận .
-                </div>
+                  <strong>:</strong> Để lưu chính thức kết quả <strong>Đã nhận lại</strong> tại, bảng kiểm tra phải <strong>Đã kiểm tra đầy đủ 100%</strong> và có mô tả bằng chứng. Nếu chưa đủ, chỉ cho phép <em>Lưu nháp - chờ bổ sung</em> và chưa kích hoạt xác nhận. </div>
               )}
             </div>
 
@@ -3256,14 +3160,13 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                   }}
                   className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg font-semibold cursor-pointer"
                 >
-                  Lưu nháp kiểm tra
-                </button>
+                  Lưu nháp kiểm tra </button>
 
                 {/* Lưu kết quả  */}
                 <button
                   onClick={() => {
                     if (bg09Step304Status === 'Đã nhận lại' && !canSaveOfficially304) {
-                      showToast('error', ': Bảng  chưa kiểm tra đầy đủ hoặc thiếu mô tả chứng cứ nhận lại. Vui lòng kiểm tra lại hoặc chọn Lưu nháp.');
+                      showToast('error', ": Bảng chưa kiểm tra đầy đủ hoặc thiếu mô tả chứng cứ nhận lại. Vui lòng kiểm tra lại hoặc chọn Lưu nháp.");
                       return;
                     }
 
@@ -3292,15 +3195,14 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                     recordReturnInspectionBG09(inspRecord);
 
                     if (bg09Step304Status === 'Chưa nhận lại') {
-                      showToast('info', 'Đã lưu kết quả  = CHƯA NHẬN LẠI &rarr; Chuyển  chờ khách bàn giao lại.');
+                      showToast('info', "Đã lưu kết quả = CHƯA NHẬN LẠI &rarr; Chuyển chờ khách bàn giao lại.");
                     } else {
-                      showToast('success', 'Đã lưu kết quả  = ĐÃ NHẬN LẠI thành công! Sẵn sàng để Chủ nhà xác nhận độc lập ở Thao tác.');
+                      showToast('success', "Đã lưu kết quả = ĐÃ NHẬN LẠI thành công! Sẵn sàng để Chủ nhà xác nhận độc lập ở Thao tác.");
                     }
                   }}
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold cursor-pointer shadow-xs"
                 >
-                  Lưu kết quả nhận lại (Thao tác)
-                </button>
+                  Lưu kết quả nhận lại (Thao tác) </button>
               </div>
 
               {/* Thao tác: Chủ nhà xác nhận độc lập */}
@@ -3309,11 +3211,11 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                   disabled={is305Confirmed || bg09Step304Status !== 'Đã nhận lại' || !canSaveOfficially304}
                   onClick={() => {
                     if (is305Confirmed) {
-                      showToast('info', 'Chủ nhà đã xác nhận độc lập tại  trước đó.');
+                      showToast('info', "Chủ nhà đã xác nhận độc lập tại trước đó.");
                       return;
                     }
                     if (bg09Step304Status !== 'Đã nhận lại' || !canSaveOfficially304) {
-                      showToast('error', ': Chưa có kết quả  = Đã nhận lại hợp lệ để thực hiện xác nhận .');
+                      showToast('error', ": Chưa có kết quả = Đã nhận lại hợp lệ để thực hiện xác nhận.");
                       return;
                     }
                     confirmReturnInspectionStep305(
@@ -3340,11 +3242,11 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                 <button
                   onClick={() => {
                     setActiveTab('deposit_check_bg10');
-                    showToast('info', 'Mở : Theo dõi đối soát cọc từ Quyết toán cọc.');
+                    showToast('info', "Mở: Theo dõi đối soát cọc từ Quyết toán cọc.");
                   }}
                   className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold cursor-pointer flex items-center gap-1.5 shadow-xs"
                 >
-                  <span>Đối soát cọc (BG10)</span>
+                  <span>Đối soát cọc </span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
@@ -3394,8 +3296,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                   <h2 className="text-sm font-bold text-slate-900">Theo dõi kết quả đối soát cọc từ Quyết toán cọc: {selectedRoomCode}</h2>
                 </div>
                 <p className="text-slate-500 mt-0.5">
-                  BG10 chỉ theo dõi trạng thái kết quả của quyết toán cọc; không tự tính hoặc ghi giao dịch cọc mới. Chỉ ghi vào biên bản khi có kết quả kết quả quyết toán hợp lệ.
-                </p>
+                   chỉ theo dõi trạng thái kết quả của quyết toán cọc; không tự tính hoặc ghi giao dịch cọc mới. Chỉ ghi vào biên bản khi có kết quả kết quả quyết toán hợp lệ. </p>
               </div>
 
               <div className="flex items-center gap-2">
@@ -3416,7 +3317,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
               <div>
                 <span className="text-slate-500 block text-[11px]">Cọc gốc ban đầu (Hợp đồng chuỗi thuê):</span>
                 <strong className="font-mono text-blue-700 text-sm">{initialDeposit.toLocaleString('vi-VN')} đ</strong>
-                <span className="text-[10px] text-slate-400 block mt-0.5">* : lấy từ hợp đồng đầu tiên</span>
+                <span className="text-[10px] text-slate-400 block mt-0.5">*: lấy từ hợp đồng đầu tiên</span>
               </div>
               <div>
                 <span className="text-slate-500 block text-[11px]">Tổng khấu trừ từ quyết toán cọc:</span>
@@ -3437,8 +3338,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
             {slip && (
               <div className="space-y-2">
                 <span className="font-bold text-slate-800 text-[11px] uppercase tracking-wider block">
-                  Chi tiết các khoản đối trừ từ hồ sơ quyết toán cọc {slip.id}:
-                </span>
+                  Chi tiết các khoản đối trừ từ hồ sơ quyết toán cọc {slip.id}: </span>
                 <div className="overflow-x-auto border border-slate-200 rounded-xl">
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
@@ -3454,8 +3354,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                           <td className="py-2 px-3 font-semibold text-slate-800">{d.category}</td>
                           <td className="py-2 px-3 text-slate-600">{d.description}</td>
                           <td className="py-2 px-3 text-right font-mono font-bold text-rose-700">
-                            {d.amount.toLocaleString('vi-VN')} đ
-                          </td>
+                            {d.amount.toLocaleString('vi-VN')} đ </td>
                         </tr>
                       ))}
                     </tbody>
@@ -3475,11 +3374,10 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
               <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-[11px] space-y-2">
                 <div className="flex items-center gap-1.5 font-bold">
                   <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                  <span>Chưa có kết quả quyết toán cọc hợp lệ được hai bên thống nhất ( &amp;  &amp; ):</span>
+                  <span>Chưa có kết quả quyết toán cọc hợp lệ được hai bên thống nhất ( &amp; &amp; ):</span>
                 </div>
                 <p>
-                  Hệ thống chỉ cho phép ghi kết quả vào biên bản khi quyết toán cọc có kết quả kết quả quyết toán hợp lệ và hai bên đã thống nhất. Hiện tại hồ sơ đang ở trạng thái theo dõi <em>Chờ kết quả</em>. Biên bản trả phòng giữ trạng thái <strong>Nháp</strong> (không tạo trạng thái biên bản thứ tư).
-                </p>
+                  Hệ thống chỉ cho phép ghi kết quả vào biên bản khi quyết toán cọc có kết quả kết quả quyết toán hợp lệ và hai bên đã thống nhất. Hiện tại hồ sơ đang ở trạng thái theo dõi <em>Chờ kết quả</em>. Biên bản trả phòng giữ trạng thái <strong>Nháp</strong> (không tạo trạng thái biên bản thứ tư). </p>
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Ghi lý do chờ quyết toán (Thao tác):</label>
                   <input
@@ -3499,8 +3397,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                 onClick={() => setActiveTab('return_room_bg09')}
                 className="px- py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium cursor-pointer"
               >
-                &larr; Xem kết quả nhận lại (BG09)
-              </button>
+                &larr; Xem kết quả nhận lại </button>
 
               <div className="flex items-center gap-2">
                 {/* : Lưu biên bản để chờ */}
@@ -3513,12 +3410,11 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                           waitingReason: bg10WaitingReason || 'Chờ kết quả đối soát cọc từ quyết toán cọc kết quả quyết toán'
                         });
                       }
-                      showToast('info', 'Đã lưu biên bản để chờ kết quả quyết toán cọc (Thao tác / ). Biên bản giữ trạng thái Nháp.');
+                      showToast('info', "Đã lưu biên bản để chờ kết quả quyết toán cọc (Thao tác). Biên bản giữ trạng thái Nháp.");
                     }}
                     className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg font-semibold cursor-pointer"
                   >
-                    Lưu biên bản để chờ ()
-                  </button>
+                    Lưu biên bản để chờ </button>
                 )}
 
                 {/* Thao tác: Ghi kết quả vào biên bản trả phòng */}
@@ -3548,17 +3444,16 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                       : 'bg-slate-300 text-slate-500 cursor-not-allowed'
                   }`}
                 >
-                  Ghi kết quả vào biên bản (Thao tác)
-                </button>
+                  Ghi kết quả vào biên bản (Thao tác) </button>
 
                 <button
                   onClick={() => {
                     setActiveTab('final_report_bg11');
-                    showToast('info', 'Mở : Hoàn thiện biên bản trả phòng.');
+                    showToast('info', "Mở: Hoàn thiện biên bản trả phòng.");
                   }}
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold cursor-pointer flex items-center gap-1.5 shadow-xs"
                 >
-                  <span>Hoàn thiện biên bản (BG11)</span>
+                  <span>Hoàn thiện biên bản </span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
@@ -3604,8 +3499,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                   <h2 className="text-sm font-bold text-slate-900">Hoàn thiện biên bản trả phòng: {selectedRoomCode}</h2>
                 </div>
                 <p className="text-slate-500 mt-0.5">
-                  Biên bản được chuẩn bị và ký tay trên giấy ngoài hệ thống. Hệ thống không có chức năng In hay ký điện tử.
-                </p>
+                  Biên bản được chuẩn bị và ký tay trên giấy ngoài hệ thống. Hệ thống không có chức năng In hay ký điện tử. </p>
               </div>
 
               {existingReturnReport && (
@@ -3626,8 +3520,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
             {/* 3 Distinct Thresholds Panel */}
             <div className="p- bg-slate-50 border border-slate-200 rounded-xl space-y-2">
               <span className="font-bold text-slate-800 text-[11px] uppercase tracking-wider block">
-                Phân biệt 3 ngưỡng điều kiện nghiệp vụ:
-              </span>
+                Phân biệt 3 ngưỡng điều kiện nghiệp vụ: </span>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="p-2.5 bg-white border border-slate-200 rounded-lg">
                   <span className="font-bold text-slate-800 block text-[11px]">Ngưỡng A: Mở / Lưu nháp</span>
@@ -3636,26 +3529,22 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                 </div>
 
                 <div className={`p-2.5 border rounded-lg ${canSaveOfficially1102 ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}>
-                  <span className="font-bold text-slate-800 block text-[11px]">Ngưỡng B: Lưu ĐÃ LẬP (Bước 2)</span>
+                  <span className="font-bold text-slate-800 block text-[11px]">Ngưỡng B: Lưu ĐÃ LẬP </span>
                   <ul className="text-[10px] space-y-0.5 mt-0.5">
                     <li className={is305Confirmed ? 'text-emerald-700 font-medium' : 'text-amber-700'}>
-                      {is305Confirmed ? '✓' : '✗'} 1. Nhận lại  đã xác nhận
-                    </li>
+                      {is305Confirmed ? '✓' : '✗'} 1. Nhận lại đã xác nhận </li>
                     <li className={isDeposit58Synced ? 'text-emerald-700 font-medium' : 'text-amber-700'}>
-                      {isDeposit58Synced ? '✓' : '✗'} 2. Quyết toán cọc 5.8 hợp lệ
-                    </li>
+                      {isDeposit58Synced ? '✓' : '✗'} 2. Quyết toán cọc 5.8 hợp lệ </li>
                   </ul>
                 </div>
 
                 <div className={`p-2.5 border rounded-lg ${canConfirmFinal324 ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-100 border-slate-200'}`}>
-                  <span className="font-bold text-slate-800 block text-[11px]">Ngưỡng C: ĐÃ XÁC NHẬN (Bước 4)</span>
+                  <span className="font-bold text-slate-800 block text-[11px]">Ngưỡng C: ĐÃ XÁC NHẬN </span>
                   <ul className="text-[10px] space-y-0.5 mt-0.5">
                     <li className={isEstablishedReport ? 'text-emerald-700 font-medium' : 'text-slate-500'}>
-                      {isEstablishedReport ? '✓' : '✗'} 1. Biên bản ở trạng thái ĐÃ LẬP
-                    </li>
+                      {isEstablishedReport ? '✓' : '✗'} 1. Biên bản ở trạng thái ĐÃ LẬP </li>
                     <li className={clientSignRecorded && ownerSignedOnPaper ? 'text-emerald-700 font-medium' : 'text-slate-500'}>
-                      {clientSignRecorded && ownerSignedOnPaper ? '✓' : '✗'} 2. Hai bên ký giấy / ghi nhận không ký
-                    </li>
+                      {clientSignRecorded && ownerSignedOnPaper ? '✓' : '✗'} 2. Hai bên ký giấy / ghi nhận không ký </li>
                   </ul>
                 </div>
               </div>
@@ -3679,8 +3568,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                   <strong>Bên nhận (Chủ nhà/Quản lý):</strong> {existingReturnReport?.receiverName || bg08Receiver}
                 </div>
                 <div>
-                  <strong>Căn hộ / Phòng:</strong> {selectedRoomCode} (HĐ: {targetContract?.id || 'HD-' + selectedRoomCode})
-                </div>
+                  <strong>Căn hộ / Phòng:</strong> {selectedRoomCode} (HĐ: {targetContract?.id || 'HD-' + selectedRoomCode}) </div>
                 <div>
                   <strong>Chỉ số cuối kỳ:</strong> Điện: <strong>{bg09FinalElec} kWh</strong> · Nước: <strong>{bg09FinalWater} m³</strong>
                 </div>
@@ -3704,16 +3592,14 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
             <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
               <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                 <span className="font-bold text-slate-900 text-xs">
-                  Ghi nhận kết quả ký tay trên bản giấy thực tế ngoài hệ thống:
-                </span>
+                  Ghi nhận kết quả ký tay trên bản giấy thực tế ngoài hệ thống: </span>
                 <span className="text-[10px] text-slate-500">* Không có nút In hay ký điện tử</span>
               </div>
 
               {/* Khách ký hoặc không ký */}
               <div className="space-y-2">
                 <label className="font-semibold text-slate-800 block text-[11px]">
-                  1. Tình trạng chữ ký của Khách thuê trên bản in giấy:
-                </label>
+                  1. Tình trạng chữ ký của Khách thuê trên bản in giấy: </label>
                 <div className="flex items-center gap-4">
                   <label className="flex items-center gap-1.5 cursor-pointer font-medium">
                     <input
@@ -3723,7 +3609,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                       checked={bg11TenantSigned === 'Khách đã ký'}
                       onChange={() => setBg11TenantSigned('Khách đã ký')}
                     />
-                    <span>Khách đã ký giấy (Thao tác / )</span>
+                    <span>Khách đã ký giấy (Thao tác)</span>
                   </label>
                   <label className="flex items-center gap-1.5 cursor-pointer font-medium text-rose-700">
                     <input
@@ -3733,7 +3619,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                       checked={bg11TenantSigned === 'Khách không ký'}
                       onChange={() => setBg11TenantSigned('Khách không ký')}
                     />
-                    <span>Khách không ký (Thao tác / )</span>
+                    <span>Khách không ký (Thao tác)</span>
                   </label>
                 </div>
 
@@ -3765,8 +3651,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                       </div>
                     </div>
                     <span className="text-[10px] text-rose-800 block">
-                      * <strong>:</strong> Chủ nhà vẫn được ký giấy và xác nhận  nếu đủ nguồn; Đã xác nhận lúc này chỉ biểu thị Chủ nhà đã xác nhận hồ sơ, KHÔNG có nghĩa khách đã ký/đồng ý tiền cọc.
-                    </span>
+                      * <strong>:</strong> Chủ nhà vẫn được ký giấy và xác nhận nếu đủ nguồn; Đã xác nhận lúc này chỉ biểu thị Chủ nhà đã xác nhận hồ sơ, KHÔNG có nghĩa khách đã ký/đồng ý tiền cọc. </span>
                   </div>
                 )}
               </div>
@@ -3774,8 +3659,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
               {/* Chủ nhà ký giấy */}
               <div className="space-y-2 pt-2 border-t border-slate-200">
                 <label className="font-semibold text-slate-800 block text-[11px]">
-                  2. Xác nhận chữ ký tay của Chủ nhà trên bản in giấy:
-                </label>
+                  2. Xác nhận chữ ký tay của Chủ nhà trên bản in giấy: </label>
                 <label className="flex items-center gap-2 p-2 bg-white border border-slate-200 rounded-lg cursor-pointer">
                   <input
                     type="checkbox"
@@ -3785,8 +3669,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                   />
                   <div>
                     <span className="font-bold text-slate-800 block text-xs">
-                      Chủ nhà / Quản lý đã ký tay thực tế trên bản in giấy đúng mã và phiên bản
-                    </span>
+                      Chủ nhà / Quản lý đã ký tay thực tế trên bản in giấy đúng mã và phiên bản </span>
                     <span className="text-[10px] text-slate-500">
                       Tài khoản thực hiện: {currentUser?.fullName || 'Nguyễn Văn An'}
                     </span>
@@ -3825,8 +3708,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                 onClick={() => setActiveTab('deposit_check_bg10')}
                 className="px- py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium cursor-pointer"
               >
-                &larr; Xem đối soát cọc BG10
-              </button>
+                &larr; Xem đối soát cọc </button>
 
               <div className="flex items-center gap-2">
                 {/* Lưu nháp */}
@@ -3857,15 +3739,14 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                   }}
                   className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg font-semibold cursor-pointer"
                 >
-                  Lưu nháp biên bản
-                </button>
+                  Lưu nháp biên bản </button>
 
                 {/* Lưu Đã lập (Bước 2) */}
                 <button
                   disabled={!canSaveOfficially1102}
                   onClick={() => {
                     if (!canSaveOfficially1102) {
-                      showToast('error', 'Chưa đủ điều kiện Ngưỡng B (nhận lại  và quyết toán cọc 5.8) để Lưu Đã lập.');
+                      showToast('error', "Chưa đủ điều kiện Ngưỡng B (nhận lại và quyết toán cọc 5.8) để Lưu Đã lập.");
                       return;
                     }
 
@@ -3895,7 +3776,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                     };
 
                     saveHandoverReturnReportBG11(establishedRep);
-                    showToast('success', 'Đã lưu biên bản ở trạng thái ĐÃ LẬP (Bước 2)! Bản giấy sẵn sàng để in và ký ngoài hệ thống.');
+                    showToast('success', "Đã lưu biên bản ở trạng thái ĐÃ LẬP! Bản giấy sẵn sàng để in và ký ngoài hệ thống.");
                   }}
                   className={`px-4 py-2 rounded-lg font-semibold cursor-pointer shadow-xs ${
                     canSaveOfficially1102
@@ -3903,15 +3784,14 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                       : 'bg-slate-300 text-slate-500 cursor-not-allowed'
                   }`}
                 >
-                  Lưu Đã lập (Bước 2)
-                </button>
+                  Lưu Đã lập </button>
 
                 {/* Xác nhận hoàn tất (Bước 4 / ) */}
                 <button
                   disabled={!canConfirmFinal324}
                   onClick={() => {
                     if (!canConfirmFinal324) {
-                      showToast('error', ': Chưa đủ điều kiện xác nhận  (cần trạng thái Đã lập, ghi nhận ký giấy thực tế và Chủ nhà ký).');
+                      showToast('error', ": Chưa đủ điều kiện xác nhận (cần trạng thái Đã lập, ghi nhận ký giấy thực tế và Chủ nhà ký).");
                       return;
                     }
                     const repId = existingReturnReport?.id || 'BB-TRA-' + selectedRoomCode.replace(/\D/g, '') + '-2026';
@@ -3924,7 +3804,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                       bg11ScanUrl
                     );
                     if (res.success) {
-                      showToast('success', res.message);
+                      showToast('success', toUserMessage(res.message));
                     }
                   }}
                   className={`px-4 py-2 rounded-lg font-semibold cursor-pointer shadow-xs flex items-center gap-1.5 ${
@@ -4025,8 +3905,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                 onClick={() => setShowAddContactModal(false)}
                 className="px- py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium cursor-pointer"
               >
-                Hủy
-              </button>
+                Hủy </button>
               <button
                 onClick={() => {
                   if (!newContactResult.trim()) {
@@ -4049,8 +3928,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                 }}
                 className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold cursor-pointer"
               >
-                Lưu lượt liên hệ
-              </button>
+                Lưu lượt liên hệ </button>
             </div>
           </div>
         </div>
@@ -4067,7 +3945,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                 <Search className="w-5 h-5 text-indigo-600" />
                 <div>
                   <h3 className="font-bold text-slate-900 text-sm">Tra cứu hồ sơ quyết toán cọc đã tồn tại</h3>
-                  <span className="text-[11px] text-slate-500">Đối chiếu thông tin BG07 với Quyết toán cọc – Phòng {selectedRoomCode}</span>
+                  <span className="text-[11px] text-slate-500">Đối chiếu thông tin với Quyết toán cọc – Phòng {selectedRoomCode}</span>
                 </div>
               </div>
               <button
@@ -4124,7 +4002,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                   </div>
 
                   <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
-                    <span className="font-bold text-slate-800 text-xs block">Dữ liệu đối chiếu tài sản  đã lưu:</span>
+                    <span className="font-bold text-slate-800 text-xs block">Dữ liệu đối chiếu tài sản đã lưu:</span>
                     <div className="grid grid-cols-2 gap-2 text-[11px]">
                       <div>
                         <span className="text-slate-500 block">Mã đối chiếu:</span>
@@ -4139,8 +4017,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                       <div>
                         <span className="text-slate-500 block">Chi phí bồi thường ghi nhận:</span>
                         <span className="font-mono font-bold text-amber-700">
-                          {(existingCompResult?.compensationAmount || 0).toLocaleString()} đ
-                        </span>
+                          {(existingCompResult?.compensationAmount || 0).toLocaleString()} đ </span>
                       </div>
                       <div>
                         <span className="text-slate-500 block">Mức độ thống nhất:</span>
@@ -4150,11 +4027,9 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                   </div>
 
                   <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 text-[10px] space-y-1">
-                    <strong>* Hướng dẫn  &amp; :</strong>
+                    <strong>* Hướng dẫn &amp;:</strong>
                     <p>
-                      Hệ thống hiển thị dữ liệu BG07 đã lưu để đối chiếu thông tin với hồ sơ quyết toán cọc hiện có. 
-                      <strong>Hệ thống KHÔNG tự tạo thêm hồ sơ hoặc giao dịch quyết toán cọc từ BG07</strong>.
-                    </p>
+                      Hệ thống hiển thị dữ liệu đã lưu để đối chiếu thông tin với hồ sơ quyết toán cọc hiện có. <strong>Hệ thống KHÔNG tự tạo thêm hồ sơ hoặc giao dịch quyết toán cọc từ </strong>. </p>
                   </div>
                 </div>
               ) : (
@@ -4162,8 +4037,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                   <FileSpreadsheet className="w-8 h-8 text-slate-400 mx-auto" />
                   <strong className="block text-slate-700 text-xs">Chưa có hồ sơ quyết toán cọc cho hợp đồng/lần thuê này</strong>
                   <p className="text-slate-500 text-[11px] max-w-sm mx-auto">
-                    Theo hướng dẫn : Nếu chưa có hồ sơ quyết toán cọc, Chủ nhà tiếp tục bước chuyển thông tin ngoài hệ thống tại thao tác. BG07 không tự mở hoặc tự tạo hồ sơ quyết toán cọc.
-                  </p>
+                    Nếu chưa có hồ sơ quyết toán cọc, Chủ nhà tiếp tục bước chuyển thông tin ngoài hệ thống tại thao tác. không tự mở hoặc tự tạo hồ sơ quyết toán cọc. </p>
                 </div>
               )}
             </div>
@@ -4175,8 +4049,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                   onClick={() => setShowAF03SettlementModal(false)}
                   className="px- py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium cursor-pointer"
                 >
-                  Đóng
-                </button>
+                  Đóng </button>
                 {matchingSettlementSlip && (
                   <button
                     onClick={() => {
@@ -4185,7 +4058,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                     }}
                     className="px- py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold cursor-pointer flex items-center gap-1"
                   >
-                    <span>Xem chi tiết tại BG10</span>
+                    <span>Xem chi tiết tại </span>
                     <ArrowRight className="w- h-" />
                   </button>
                 )}
@@ -4215,8 +4088,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
             </div>
 
             <p className="text-slate-600">
-              Hướng dẫn : Không sửa/xóa lặng lẽ. Đính chính phải tạo phiên bản mới trạng thái <em>Đính chính chờ xác nhận</em>, ghi rõ lý do và chứng cứ để kiểm tra sai lệch.
-            </p>
+              Hướng dẫn: Không sửa/xóa lặng lẽ. Đính chính phải tạo phiên bản mới trạng thái <em>Đính chính chờ xác nhận</em>, ghi rõ lý do và chứng cứ để kiểm tra sai lệch. </p>
 
             <div className="space-y-3">
               <div>
@@ -4259,8 +4131,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                 onClick={() => setShowCorrectionModal(false)}
                 className="px- py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium cursor-pointer"
               >
-                Hủy
-              </button>
+                Hủy </button>
               <button
                 onClick={() => {
                   if (!correctionReason.trim() || !correctionEvidence.trim()) {
@@ -4274,13 +4145,12 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                     correctionReason,
                     correctionEvidence
                   );
-                  showToast('success', 'Đã ghi nhận phiên bản đính chính  mới có lịch sử và phát thông báo sai lệch cần xử lý!');
+                  showToast('success', "Đã ghi nhận phiên bản đính chính mới có lịch sử và phát thông báo sai lệch cần xử lý!");
                   setShowCorrectionModal(false);
                 }}
                 className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-semibold cursor-pointer"
               >
-                Xác nhận đính chính
-              </button>
+                Xác nhận đính chính </button>
             </div>
           </div>
         </div>
@@ -4372,8 +4242,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                 onClick={() => setShowAddAssetModal(false)}
                 className="px- py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium cursor-pointer"
               >
-                Hủy
-              </button>
+                Hủy </button>
               <button
                 onClick={() => {
                   if (!newAssetName.trim()) {
@@ -4399,8 +4268,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                 }}
                 className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold cursor-pointer"
               >
-                Thêm vào danh sách
-              </button>
+                Thêm vào danh sách </button>
             </div>
           </div>
         </div>
@@ -4426,8 +4294,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
             </div>
 
             <p className="text-slate-600">
-              Chọn hợp đồng thuê tương ứng của phòng <strong>{selectedRoomCode}</strong> để chuyển trạng thái từ <em>Chưa liên kết</em> sang <em>Đã liên kết</em>.
-            </p>
+              Chọn hợp đồng thuê tương ứng của phòng <strong>{selectedRoomCode}</strong> để chuyển trạng thái từ <em>Chưa liên kết</em> sang <em>Đã liên kết</em>. </p>
 
             <div>
               <label className="block font-semibold text-slate-700 mb-1">Hợp đồng thuê phòng {selectedRoomCode}</label>
@@ -4438,8 +4305,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
               >
                 {contracts.filter(c => c.roomCode === selectedRoomCode).map(c => (
                   <option key={c.id} value={c.id}>
-                    {c.id} - {c.tenantName} ({c.status})
-                  </option>
+                    {c.id} - {c.tenantName} ({c.status}) </option>
                 ))}
                 {contracts.filter(c => c.roomCode === selectedRoomCode).length === 0 && (
                   <option value="">Không có hợp đồng nào thuộc phòng {selectedRoomCode}</option>
@@ -4452,8 +4318,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                 onClick={() => setShowLinkContractModal(false)}
                 className="px- py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium cursor-pointer"
               >
-                Hủy
-              </button>
+                Hủy </button>
               <button
                 onClick={() => {
                   const target = contracts.find(c => c.id === linkContractId);
@@ -4480,8 +4345,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                 }}
                 className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold cursor-pointer"
               >
-                Xác nhận liên kết
-              </button>
+                Xác nhận liên kết </button>
             </div>
           </div>
         </div>
@@ -4496,7 +4360,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <FileSignature className="w-5 h-5 text-emerald-600" />
-                <h3 className="font-bold text-slate-900 text-sm">Ghi nhận kết quả ký giấy hai bên (Bước 1.07 &amp; 1.08)</h3>
+                <h3 className="font-bold text-slate-900 text-sm">Ghi nhận kết quả ký giấy hai bên </h3>
               </div>
               <button
                 onClick={() => setShowSignPaperModal(false)}
@@ -4507,13 +4371,12 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
             </div>
 
             <p className="text-slate-600">
-              Ghi nhận kết quả ký tay ngoài hệ thống của Khách thuê và Chủ nhà trên bản giấy <strong>{existingReport.reportNumber} (v{existingReport.version})</strong>.
-            </p>
+              Ghi nhận kết quả ký tay ngoài hệ thống của Khách thuê và Chủ nhà trên bản giấy <strong>{existingReport.reportNumber} (v{existingReport.version})</strong>. </p>
 
             <div className="space-y-3 bg-slate-50 p- rounded-xl border border-slate-200">
               <label className="flex items-center justify-between p-2 bg-white rounded-lg border border-slate-200 cursor-pointer">
                 <div>
-                  <span className="font-bold text-slate-800 block">1. Khách thuê đã ký tay (Bước 1.07):</span>
+                  <span className="font-bold text-slate-800 block">1. Khách thuê đã ký tay:</span>
                   <span className="text-[11px] text-slate-500">{existingReport.receiverName}</span>
                 </div>
                 <input
@@ -4526,7 +4389,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
 
               <label className="flex items-center justify-between p-2 bg-white rounded-lg border border-slate-200 cursor-pointer">
                 <div>
-                  <span className="font-bold text-slate-800 block">2. Chủ nhà/Quản lý đã ký tay (Bước 1.08):</span>
+                  <span className="font-bold text-slate-800 block">2. Chủ nhà/Quản lý đã ký tay:</span>
                   <span className="text-[11px] text-slate-500">{existingReport.giverName}</span>
                 </div>
                 <input
@@ -4566,8 +4429,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                 onClick={() => setShowSignPaperModal(false)}
                 className="px- py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium cursor-pointer"
               >
-                Hủy
-              </button>
+                Hủy </button>
               <button
                 onClick={() => {
                   confirmHandoverSignaturesBG03(existingReport.id, signPaperTenant, signPaperOwner, paperLocation);
@@ -4580,8 +4442,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string}> = ({initia
                 }}
                 className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold cursor-pointer"
               >
-                Lưu kết quả ký giấy
-              </button>
+                Lưu kết quả ký giấy </button>
             </div>
           </div>
         </div>

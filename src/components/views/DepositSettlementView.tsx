@@ -1,3 +1,4 @@
+import { toUserMessage } from '../../utils/userMessages';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { DepositSettlementSlip, DeductionItem, SettlementContactLog } from '../../types';
@@ -146,7 +147,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
     setCreateCustomDeductions([]);
 
     if (eligibleRooms.length === 0) {
-      alert('Hiện tại không có phòng nào đủ điều kiện lập quyết toán cọc!\n\nĐiều kiện: Phòng phải được nhận lại thực tế và xác nhận tại /xác nhận của chủ nhà và chưa có phiếu quyết toán hiệu lực.');
+      alert("Hiện tại không có phòng nào đủ điều kiện lập quyết toán cọc! Điều kiện: Phòng phải được nhận lại thực tế và xác nhận tại /xác nhận của chủ nhà và chưa có phiếu quyết toán hiệu lực.");
       return;
     }
 
@@ -293,7 +294,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
 
     // Không xác định được mã cọc gốc
     if (!roomCandidateData.depositAmount || roomCandidateData.depositAmount <= 0) {
-      alert('Lỗi: Không xác định được mã cọc gốc hoặc số tiền cọc gốc hợp lệ. Yêu cầu kiểm tra hợp đồng đầu tiên / PH-07.');
+      alert("Lỗi: Không xác định được mã cọc gốc hoặc số tiền cọc gốc hợp lệ. Yêu cầu kiểm tra hợp đồng đầu tiên /.");
       return;
     }
 
@@ -354,7 +355,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
     if (res.success) {
       setSelectedSlipId(newSlip.id);
       setShowCreateModal(false);
-      alert(res.message);
+      alert(toUserMessage(res.message));
     } else {
       alert('Lỗi: ' + res.message);
     }
@@ -396,7 +397,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
 
     if (res.success) {
       setShowFeedbackModal(false);
-      alert(res.message);
+      alert(toUserMessage(res.message));
     } else {
       setFeedbackError(res.message);
     }
@@ -448,7 +449,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
 
     if (res.success) {
       setShowAdjustModal(false);
-      alert(res.message);
+      alert(toUserMessage(res.message));
     } else {
       setAdjustError(res.message);
     }
@@ -472,9 +473,9 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
     });
     if (res.success) {
       setShowDisputeModal(false);
-      alert(res.message);
+      alert(toUserMessage(res.message));
     } else {
-      alert(res.message);
+      alert(toUserMessage(res.message));
     }
   };
 
@@ -491,9 +492,9 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
     });
     if (res.success) {
       setShowReopenModal(false);
-      alert(res.message);
+      alert(toUserMessage(res.message));
     } else {
-      alert(res.message);
+      alert(toUserMessage(res.message));
     }
   };
 
@@ -510,9 +511,9 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
     });
     if (res.success) {
       setShowCancelModal(false);
-      alert(res.message);
+      alert(toUserMessage(res.message));
     } else {
-      alert(res.message);
+      alert(toUserMessage(res.message));
     }
   };
 
@@ -603,7 +604,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
     setShowQTC03Modal(false);
 
     if (res.success) {
-      alert(res.message);
+      alert(toUserMessage(res.message));
     } else {
       alert('Lỗi: ' + res.message);
     }
@@ -619,13 +620,10 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
           <div className="flex items-center gap-2">
             
             <h1 className="text-lg font-bold text-slate-900">
-              Quyết toán cọc
-            </h1>
+              Quyết toán cọc </h1>
           </div>
           <p className="text-xs text-slate-500 mt-1 max-w-4xl">
-            Lập phiếu quyết toán cọc lấy từ hợp đồng đầu tiên trong chuỗi thuê liên tục (QTC-01), ghi nhận phản hồi & điều chỉnh (QTC-02),
-            hoàn tất bằng một chứng từ chuyển khoản duy nhất và phát hành kết quả quyết toán cọc đồng bộ sang biên bản trả phòng (QTC-03).
-          </p>
+            Lập phiếu quyết toán cọc lấy từ hợp đồng đầu tiên trong chuỗi thuê liên tục (QTC-01), ghi nhận phản hồi & điều chỉnh (QTC-02), hoàn tất bằng một chứng từ chuyển khoản duy nhất và phát hành kết quả quyết toán cọc đồng bộ sang biên bản trả phòng (QTC-03). </p>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
@@ -634,8 +632,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-2 shadow-sm cursor-pointer transition-all"
           >
             <Plus className="w-4 h-4" />
-            Lập quyết toán cọc (QTC-01)
-          </button>
+            Lập quyết toán cọc (QTC-01) </button>
         </div>
       </div>
 
@@ -689,7 +686,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
           onClick={() => setStatusFilter('published')}
           className={`p-3 rounded-xl border cursor-pointer transition-all text-xs space-y-1 ${statusFilter === 'published' ? 'border-indigo-500 bg-indigo-50/40 shadow-sm': 'border-slate-200 bg-white hover:border-slate-300'}`}
         >
-          <div className="text-indigo-800 font-medium">Đã có quyết toán cọc (Chờ BG11)</div>
+          <div className="text-indigo-800 font-medium">Đã có quyết toán cọc (Chờ )</div>
           <div className="text-xl font-bold font-mono text-indigo-700">
             {settlementSlips.filter(s => ['Đã có kết quả – chờ ký biên bản', 'Hoàn tất'].includes(s.status)).length}
           </div>
@@ -705,8 +702,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
         <div className="lg:col-span-4 bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3">
           <div className="flex items-center justify-between pb-2 border-b border-slate-100">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
-              Danh sách phiếu ({filteredSlips.length})
-            </span>
+              Danh sách phiếu ({filteredSlips.length}) </span>
             <span className="text-[11px] text-slate-400 font-mono">QTC-01 / 02</span>
           </div>
 
@@ -771,8 +767,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
 
                     <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
                       <span className="text-slate-500">
-                        Phương án (v{slip.version}):
-                      </span>
+                        Phương án (v{slip.version}): </span>
                       <strong className={`font-mono font-bold ${isRefund ? 'text-emerald-700': isDebt ? 'text-red-700': 'text-slate-700'}`}>
                         {isRefund
                           ? `Hoàn: +${slip.calculatedResult.toLocaleString('vi-VN')} đ`: isDebt
@@ -783,8 +778,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                     {slip.reviewRequired && (
                       <div className="p-1.5 bg-amber-50 border border-amber-200 rounded text-[11px] text-amber-800 font-semibold flex items-center gap-1">
                         <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                        Cần rà soát phiên bản
-                      </div>
+                        Cần rà soát phiên bản </div>
                     )}
                   </div>
                 );
@@ -843,9 +837,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                   <div className="space-y-0.5 text-xs">
                     <div className="font-bold">Đã phát hành kết quả quyết toán cọc – Phiếu đã khóa</div>
                     <p className="text-[11px] text-indigo-700">
-                      Mã kết quả: <strong>{selectedSlip.step58ResultCode || 'KQ58-' + selectedSlip.roomCode}</strong>.
-                      Đã đồng bộ sang biên bản bàn giao trả phòng và hoàn tất một chứng từ chuyển khoản duy nhất. Chế độ chỉ xem.
-                    </p>
+                      Mã kết quả: <strong>{selectedSlip.step58ResultCode || 'KQ58-' + selectedSlip.roomCode}</strong>. Đã đồng bộ sang biên bản bàn giao trả phòng và hoàn tất một chứng từ chuyển khoản duy nhất. Chế độ chỉ xem. </p>
                   </div>
                 </div>
               )}
@@ -871,8 +863,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                     className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-semibold shrink-0 cursor-pointer flex items-center gap-1"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
-                    Mở lại phiếu
-                  </button>
+                    Mở lại phiếu </button>
                 </div>
               )}
 
@@ -882,8 +873,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                   <div className="space-y-0.5 text-xs">
                     <div className="font-bold">Cần rà soát lại phương án</div>
                     <p className="text-[11px] text-amber-700">
-                      Bảng tính kỳ cuối TT-03 hoặc công nợ nguồn đã thay đổi. Nút Ghi nhận kết quả (QTC-03) bị khóa cho đến khi User tính lại và khách đồng ý lại đúng phiên bản mới.
-                    </p>
+                      Bảng tính kỳ cuối hoặc công nợ nguồn đã thay đổi. Nút Ghi nhận kết quả (QTC-03) bị khóa cho đến khi User tính lại và khách đồng ý lại đúng phiên bản mới. </p>
                   </div>
                 </div>
               )}
@@ -893,18 +883,16 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-slate-800 uppercase tracking-wider text-xs flex items-center gap-1.5">
                     <ShieldCheck className="w-4 h-4 text-blue-600" />
-                    1. Xác định khoản cọc gốc trong chuỗi thuê liên tục
-                  </span>
+                    1. Xác định khoản cọc gốc trong chuỗi thuê liên tục </span>
                   <span className="font-mono text-xs font-bold text-blue-700">
-                    {selectedSlip.initialDepositAmount.toLocaleString('vi-VN')} đ
-                  </span>
+                    {selectedSlip.initialDepositAmount.toLocaleString('vi-VN')} đ </span>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-[11px]">
                   <div className="bg-white p-2.5 rounded-lg border border-slate-200">
                     <div className="text-slate-500">Hợp đồng đầu tiên:</div>
                     <div className="font-mono font-bold text-slate-800">{selectedSlip.initialContractId}</div>
-                    <div className="text-[10px] text-slate-400">Xác lập khoản cọc gốc tại PH-07</div>
+                    <div className="text-[10px] text-slate-400">Xác lập khoản cọc gốc tại </div>
                   </div>
 
                   <div className="bg-white p-2.5 rounded-lg border border-slate-200">
@@ -918,8 +906,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                   <div className="bg-white p-2.5 rounded-lg border border-slate-200">
                     <div className="text-slate-500">Tiền thuê đã trả trước (đối chiếu):</div>
                     <div className="font-mono font-bold text-slate-800">
-                      {(selectedSlip.prepaidRentAmount || selectedSlip.initialDepositAmount).toLocaleString('vi-VN')} đ
-                    </div>
+                      {(selectedSlip.prepaidRentAmount || selectedSlip.initialDepositAmount).toLocaleString('vi-VN')} đ </div>
                     <div className="text-[10px] text-amber-700 font-semibold">Không hoàn tiền ngày chưa ở</div>
                   </div>
                 </div>
@@ -928,8 +915,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                 <div className="p-2.5 bg-blue-50/70 border border-blue-200 rounded-lg text-[11px] text-blue-900 flex items-start gap-2">
                   <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
                   <div>
-                    <strong>Lưu ý:</strong> Khách trả phòng giữa kỳ đã trả tiền thuê trước: không hoàn tiền thuê cho phần ngày chưa ở và không đưa phần này vào quyết toán cọc. Hệ thống không tự tạo tiền thuê tháng tiếp theo.
-                  </div>
+                    <strong>Lưu ý:</strong> Khách trả phòng giữa kỳ đã trả tiền thuê trước: không hoàn tiền thuê cho phần ngày chưa ở và không đưa phần này vào quyết toán cọc. Hệ thống không tự tạo tiền thuê tháng tiếp theo. </div>
                 </div>
               </div>
 
@@ -937,17 +923,14 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
               <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-slate-800 uppercase tracking-wider text-xs">
-                    2. Tổng hợp các khoản khấu trừ có căn cứ (Phiên bản v{selectedSlip.version})
-                  </span>
+                    2. Tổng hợp các khoản khấu trừ có căn cứ (Phiên bản v{selectedSlip.version}) </span>
                   <span className="font-mono text-xs font-bold text-red-600">
-                    - {selectedSlip.deductions.reduce((s, d) => s + d.amount, 0).toLocaleString('vi-VN')} đ
-                  </span>
+                    - {selectedSlip.deductions.reduce((s, d) => s + d.amount, 0).toLocaleString('vi-VN')} đ </span>
                 </div>
 
                 {selectedSlip.deductions.length === 0 ? (
                   <div className="p-4 bg-slate-50 rounded-lg border border-dashed border-slate-300 text-center text-slate-500 text-xs">
-                    Không phát sinh khoản khấu trừ nào. Kết quả dự kiến hoàn toàn bộ cọc gốc.
-                  </div>
+                    Không phát sinh khoản khấu trừ nào. Kết quả dự kiến hoàn toàn bộ cọc gốc. </div>
                 ): (
                   <div className="border border-slate-200 rounded-lg overflow-hidden">
                     <table className="w-full text-left text-xs">
@@ -979,8 +962,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                               {d.reason || d.evidence || '—'}
                             </td>
                             <td className="p-2.5 text-right font-mono font-bold text-red-600">
-                              -{d.amount.toLocaleString('vi-VN')} đ
-                            </td>
+                              -{d.amount.toLocaleString('vi-VN')} đ </td>
                           </tr>
                         ))}
                       </tbody>
@@ -988,8 +970,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                         <tr>
                           <td colSpan={3} className="p-2.5 text-slate-700 text-right">Tổng khấu trừ:</td>
                           <td className="p-2.5 text-right font-mono text-red-700">
-                            -{selectedSlip.deductions.reduce((s, d) => s + d.amount, 0).toLocaleString('vi-VN')} đ
-                          </td>
+                            -{selectedSlip.deductions.reduce((s, d) => s + d.amount, 0).toLocaleString('vi-VN')} đ </td>
                         </tr>
                       </tfoot>
                     </table>
@@ -1000,11 +981,9 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                 <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
                   <div>
                     <div className="font-bold text-slate-900 text-sm">
-                      Kết quả quyết toán cọc:
-                    </div>
+                      Kết quả quyết toán cọc: </div>
                     <div className="text-[11px] text-slate-500 font-mono">
-                      Cọc gốc ({selectedSlip.initialDepositAmount.toLocaleString('vi-VN')} đ) − Tổng khấu trừ ({selectedSlip.deductions.reduce((s, d) => s + d.amount, 0).toLocaleString('vi-VN')} đ)
-                    </div>
+                      Cọc gốc ({selectedSlip.initialDepositAmount.toLocaleString('vi-VN')} đ) − Tổng khấu trừ ({selectedSlip.deductions.reduce((s, d) => s + d.amount, 0).toLocaleString('vi-VN')} đ) </div>
                   </div>
 
                   <div className="text-right">
@@ -1031,8 +1010,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-slate-800 uppercase tracking-wider text-xs flex items-center gap-1.5">
                     <MessageSquare className="w-4 h-4 text-blue-600" />
-                    3. Phản hồi khách & Lịch sử liên hệ 
-                  </span>
+                    3. Phản hồi khách & Lịch sử liên hệ </span>
 
                   {selectedSlip.status !== 'Đã có kết quả – chờ ký biên bản' && selectedSlip.status !== 'Hoàn tất' && selectedSlip.status !== 'Đã hủy' && (
                     <div className="flex items-center gap-2">
@@ -1041,8 +1019,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                         className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold cursor-pointer transition-all flex items-center gap-1"
                       >
                         <Scale className="w-3.5 h-3.5 text-blue-600" />
-                        Điều chỉnh khoản trừ (Bước 4)
-                      </button>
+                        Điều chỉnh khoản trừ </button>
 
                       <button
                         onClick={() => {
@@ -1055,8 +1032,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                         className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold cursor-pointer transition-all flex items-center gap-1 shadow-sm"
                       >
                         <MessageSquare className="w-3.5 h-3.5" />
-                        Ghi nhận phản hồi (Bước 3 & 5)
-                      </button>
+                        Ghi nhận phản hồi </button>
                     </div>
                   )}
                 </div>
@@ -1067,11 +1043,9 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                     <div className="flex items-center justify-between font-bold text-xs">
                       <span className="flex items-center gap-1.5">
                         <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                        Bằng chứng khách đồng ý hợp lệ (Phiên bản v{selectedSlip.tenantAgreementEvidence.schemeVersion})
-                      </span>
+                        Bằng chứng khách đồng ý hợp lệ (Phiên bản v{selectedSlip.tenantAgreementEvidence.schemeVersion}) </span>
                       <span className="font-mono text-emerald-700 font-bold">
-                        Số tiền: {selectedSlip.tenantAgreementEvidence.agreedAmount.toLocaleString('vi-VN')} đ
-                      </span>
+                        Số tiền: {selectedSlip.tenantAgreementEvidence.agreedAmount.toLocaleString('vi-VN')} đ </span>
                     </div>
                     <div className="text-[11px] text-emerald-800">
                       File: <strong className="font-mono">{selectedSlip.tenantAgreementEvidence.evidenceFile}</strong> • Ghi chú: {selectedSlip.tenantAgreementEvidence.evidenceNote}
@@ -1081,8 +1055,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                   <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-[11px] text-amber-800 flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
                     <span>
-                      Chưa có bằng chứng khách đồng ý cho phiên bản hiện tại v{selectedSlip.version}.
-                      {selectedSlip.status === 'Không liên hệ được' && ' (Trạng thái: Không liên hệ được - Khóa xác nhận quyết toán cọc theo ).'}
+                      Chưa có bằng chứng khách đồng ý cho phiên bản hiện tại v{selectedSlip.version}. {selectedSlip.status === 'Không liên hệ được' && ' (Trạng thái: Không liên hệ được - Khóa xác nhận quyết toán cọc theo ).'}
                     </span>
                   </div>
                 )}
@@ -1116,8 +1089,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                               ? 'bg-emerald-100 text-emerald-800': log.result === 'Không đồng ý'
                               ? 'bg-rose-100 text-rose-800': 'bg-slate-100 text-slate-700'
                           }`}>
-                            {log.result} (v{log.schemeVersion})
-                          </span>
+                            {log.result} (v{log.schemeVersion}) </span>
                         </div>
                       ))}
                     </div>
@@ -1126,8 +1098,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
 
                 {/* BG07 opinion notice */}
                 <div className="p-2 bg-slate-100 rounded-lg text-[10px] text-slate-500 italic">
-                  * Ghi chú Lưu ý: Ý kiến về hiện trạng tài sản từ BG07 chỉ để tra cứu, không suy ra khách đã đồng ý số tiền quyết toán cọc.
-                </div>
+                  * Ghi chú Lưu ý: Ý kiến về hiện trạng tài sản từ chỉ để tra cứu, không suy ra khách đã đồng ý số tiền quyết toán cọc. </div>
               </div>
 
               {/* SECTION 4: Kết quả quyết toán cọc & Chứng từ chuyển khoản duy nhất  */}
@@ -1135,18 +1106,15 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-blue-900 uppercase tracking-wider text-xs flex items-center gap-1.5">
                     <Landmark className="w-4 h-4 text-blue-600" />
-                    4. Ghi nhận kết quả quyết toán & Chứng từ chuyển khoản 
-                  </span>
+                    4. Ghi nhận kết quả quyết toán & Chứng từ chuyển khoản </span>
 
                   {selectedSlip.step58Published ? (
                     <span className="px-2.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center gap-1">
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      Đã phát hành kết quả quyết toán cọc
-                    </span>
+                      Đã phát hành kết quả quyết toán cọc </span>
                   ): (
                     <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-bold text-xs">
-                      Chưa phát hành quyết toán cọc
-                    </span>
+                      Chưa phát hành quyết toán cọc </span>
                   )}
                 </div>
 
@@ -1155,8 +1123,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                     <div className="font-bold text-slate-900 flex items-center justify-between">
                       <span>MỘT chứng từ chuyển khoản duy nhất:</span>
                       <span className="font-mono text-blue-700 text-sm font-bold">
-                        {selectedSlip.transferReceipt.amount.toLocaleString('vi-VN')} đ
-                      </span>
+                        {selectedSlip.transferReceipt.amount.toLocaleString('vi-VN')} đ </span>
                     </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] text-slate-700">
@@ -1172,19 +1139,14 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                   </div>
                 ): selectedSlip.calculatedResult === 0 && selectedSlip.step58Published ? (
                   <div className="p-3 bg-white rounded-lg border border-blue-200 text-xs text-slate-700">
-                    Đối trừ vừa hết (0 đ) theo quy định,. Khoản nợ được bù đủ bằng cọc gốc, không phát sinh chuyển khoản.
-                  </div>
+                    Đối trừ vừa hết (0 đ) theo quy định,. Khoản nợ được bù đủ bằng cọc gốc, không phát sinh chuyển khoản. </div>
                 ): (
                   <div className="text-[11px] text-slate-600 space-y-1">
                     <p>
-                      Việc hoàn cọc hoặc thu thêm phải hoàn tất trong <strong>MỘT lần chuyển khoản duy nhất</strong> bằng đúng số tiền
-                      <strong className="font-mono text-blue-700"> {Math.abs(selectedSlip.calculatedResult).toLocaleString('vi-VN')} đ</strong>.
-                      Không cho phép chia nhiều lần, không thu/hoàn một phần.
-                    </p>
+                      Việc hoàn cọc hoặc thu thêm phải hoàn tất trong <strong>MỘT lần chuyển khoản duy nhất</strong> bằng đúng số tiền <strong className="font-mono text-blue-700"> {Math.abs(selectedSlip.calculatedResult).toLocaleString('vi-VN')} đ</strong>. Không cho phép chia nhiều lần, không thu/hoàn một phần. </p>
                     {selectedSlip.calculatedResult > 0 && (
                       <p className="text-amber-800 font-medium">
-                        * Khoản hoàn cọc bắt buộc chuyển vào tài khoản ngân hàng của KHÁCH thuê được xác minh, không chuyển tài khoản chủ nhà.
-                      </p>
+                        * Khoản hoàn cọc bắt buộc chuyển vào tài khoản ngân hàng của KHÁCH thuê được xác minh, không chuyển tài khoản chủ nhà. </p>
                     )}
                   </div>
                 )}
@@ -1195,8 +1157,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                 <div className="border-t border-slate-200 pt-3 space-y-1.5">
                   <div className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
                     <History className="w-3.5 h-3.5 text-slate-400" />
-                    Nhật ký kiểm toán hồ sơ quyết toán:
-                  </div>
+                    Nhật ký kiểm toán hồ sơ quyết toán: </div>
                   <div className="space-y-1 max-h-36 overflow-y-auto">
                     {selectedSlip.auditHistory.map((h, idx) => (
                       <div key={idx} className="text-[10px] text-slate-500 flex items-start gap-2">
@@ -1221,8 +1182,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                       className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer transition-all flex items-center gap-1"
                     >
                       <Ban className="w-3.5 h-3.5 text-slate-500" />
-                      Hủy phiếu
-                    </button>
+                      Hủy phiếu </button>
                   )}
 
                   {/* Lock dispute button */}
@@ -1237,8 +1197,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                       className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-lg text-xs font-semibold cursor-pointer transition-all flex items-center gap-1"
                     >
                       <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
-                      Chưa thống nhất / Tranh chấp
-                    </button>
+                      Chưa thống nhất / Tranh chấp </button>
                   )}
                 </div>
 
@@ -1250,8 +1209,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                       className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold cursor-pointer transition-all shadow-sm flex items-center gap-1.5"
                     >
                       <CheckCircle2 className="w-4 h-4" />
-                      Ghi nhận kết quả quyết toán
-                    </button>
+                      Ghi nhận kết quả quyết toán </button>
                   )}
                 </div>
               </div>
@@ -1276,8 +1234,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
               <div>
                 <h3 className="font-bold text-slate-900 text-base">Lập phiếu quyết toán cọc</h3>
                 <p className="text-slate-500 text-[11px]">
-                  Lấy cọc gốc từ hợp đồng đầu tiên trong chuỗi thuê liên tục, tổng hợp khấu trừ từ TT-03 & BG07.
-                </p>
+                  Lấy cọc gốc từ hợp đồng đầu tiên trong chuỗi thuê liên tục, tổng hợp khấu trừ từ &. </p>
               </div>
               <button onClick={() => setShowCreateModal(false)} className="text-slate-400 hover:text-slate-600 p-1">
                 <X className="w-5 h-5" />
@@ -1287,8 +1244,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
             {/* Step 1: Select Eligible Room */}
             <div className="space-y-1.5">
               <label className="block font-bold text-slate-800">
-                1. Chọn phòng đủ điều kiện (Đã nhận lại thực tế tại /xác nhận của chủ nhà):
-              </label>
+                1. Chọn phòng đủ điều kiện (Đã nhận lại thực tế tại /xác nhận của chủ nhà): </label>
               <select
                 value={createSelectedRoom}
                 onChange={(e) => setCreateSelectedRoom(e.target.value)}
@@ -1296,8 +1252,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
               >
                 {eligibleRooms.map(r => (
                   <option key={r.id} value={r.roomCode}>
-                    Phòng {r.roomCode} (Nhận lại ngày: {r.inspectionDate} - {r.step305Confirmed ? 'Đã xác nhận xác nhận của chủ nhà': ''})
-                  </option>
+                    Phòng {r.roomCode} (Nhận lại ngày: {r.inspectionDate} - {r.step305Confirmed ? 'Đã xác nhận xác nhận của chủ nhà': ''}) </option>
                 ))}
               </select>
             </div>
@@ -1309,19 +1264,17 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                   <div className="flex justify-between items-center font-bold text-slate-900">
                     <span>Chuỗi hợp đồng thuê & Khoản cọc gốc:</span>
                     <span className="font-mono text-blue-700 text-xs">
-                      {roomCandidateData.depositAmount.toLocaleString('vi-VN')} đ
-                    </span>
+                      {roomCandidateData.depositAmount.toLocaleString('vi-VN')} đ </span>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-slate-600">
                     <div>Mã lần thuê: <strong className="font-mono text-slate-800">{roomCandidateData.leaseId}</strong></div>
                     <div>Hợp đồng đầu: <strong className="font-mono text-slate-800">{roomCandidateData.firstContract?.id}</strong></div>
-                    <div>Mã cọc gốc PH-07: <strong className="font-mono text-blue-700">{roomCandidateData.depositCode}</strong></div>
+                    <div>Mã cọc gốc: <strong className="font-mono text-blue-700">{roomCandidateData.depositCode}</strong></div>
                     <div>Ngày nhận lại phòng: <strong className="font-mono text-slate-800">{roomCandidateData.actualReturnDate}</strong></div>
                   </div>
                   {roomCandidateData.chainContracts.length > 1 && (
                     <div className="p-2 bg-emerald-50 rounded border border-emerald-200 text-emerald-800">
-                      <strong>Lưu ý:</strong> Chuỗi có {roomCandidateData.chainContracts.length} hợp đồng gia hạn ({roomCandidateData.chainContracts.map(c => c.id).join(' → ')}). Hệ thống lấy đúng 1 khoản cọc gốc ban đầu, không cộng dồn cọc của hợp đồng gia hạn.
-                    </div>
+                      <strong>Lưu ý:</strong> Chuỗi có {roomCandidateData.chainContracts.length} hợp đồng gia hạn ({roomCandidateData.chainContracts.map(c => c.id).join(' → ')}). Hệ thống lấy đúng 1 khoản cọc gốc ban đầu, không cộng dồn cọc của hợp đồng gia hạn. </div>
                   )}
                 </div>
 
@@ -1337,8 +1290,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                       ): (
                         <AlertTriangle className="w-4 h-4 text-amber-600" />
                       )}
-                      Kiểm tra bảng tính tiền kỳ cuối (TT-03):
-                    </span>
+                      Kiểm tra bảng tính tiền kỳ cuối: </span>
                     <span className="font-mono">
                       {roomCandidateData.finalBill ? roomCandidateData.finalBill.periodCode: 'Chưa lập kỳ cuối'}
                     </span>
@@ -1346,12 +1298,10 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
 
                   {roomCandidateData.isFinalBillConfirmed ? (
                     <p className="text-emerald-800">
-                      Đã có bảng tính kỳ cuối Đã xác nhận từ TT-03. Điện nước đến ngày nhận lại: {(roomCandidateData.finalBill?.electricityAmount || 0) + (roomCandidateData.finalBill?.waterAmount || 0)} đ, phí dịch vụ cố định thu đủ cả kỳ: {roomCandidateData.finalBill?.serviceFees?.reduce((s, f) => s + f.amount, 0) || 0} đ.
-                    </p>
+                      Đã có bảng tính kỳ cuối Đã xác nhận từ. Điện nước đến ngày nhận lại: {(roomCandidateData.finalBill?.electricityAmount || 0) + (roomCandidateData.finalBill?.waterAmount || 0)} đ, phí dịch vụ cố định thu đủ cả kỳ: {roomCandidateData.finalBill?.serviceFees?.reduce((s, f) => s + f.amount, 0) || 0} đ. </p>
                   ): (
                     <p className="text-amber-800 font-medium">
-                      Cảnh báo: Chưa có bảng tính kỳ cuối Đã xác nhận từ TT-03! Nếu lập phiếu lúc này, hệ thống sẽ giữ phiếu ở trạng thái Đang lập, chưa kết luận số tiền hoàn cho đến khi TT-03 được xác nhận.
-                    </p>
+                      Cảnh báo: Chưa có bảng tính kỳ cuối Đã xác nhận từ! Nếu lập phiếu lúc này, hệ thống sẽ giữ phiếu ở trạng thái Đang lập, chưa kết luận số tiền hoàn cho đến khi được xác nhận. </p>
                   )}
                 </div>
 
@@ -1401,8 +1351,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                   <div className="flex justify-between items-center font-bold text-xs text-slate-900">
                     <span>Tổng khấu trừ tổng hợp được ({calculatedCreateItems.deductions.length} khoản):</span>
                     <span className="font-mono text-red-600 font-bold">
-                      - {calculatedCreateItems.totalDeductions.toLocaleString('vi-VN')} đ
-                    </span>
+                      - {calculatedCreateItems.totalDeductions.toLocaleString('vi-VN')} đ </span>
                   </div>
 
                   <div className="divide-y divide-slate-200 text-[11px]">
@@ -1430,8 +1379,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
 
                 {/* Warning note for prepaid rent */}
                 <div className="text-[11px] text-slate-500 italic">
-                  * Hệ thống không tự tạo tiền thuê tháng tiếp theo, không hoàn tiền thuê còn lại của kỳ đã trả trước nếu khách trả giữa tháng.
-                </div>
+                  * Hệ thống không tự tạo tiền thuê tháng tiếp theo, không hoàn tiền thuê còn lại của kỳ đã trả trước nếu khách trả giữa tháng. </div>
               </div>
             )}
 
@@ -1441,15 +1389,13 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                 onClick={() => setShowCreateModal(false)}
                 className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer"
               >
-                Đóng
-              </button>
+                Đóng </button>
               <button
                 type="button"
                 onClick={handleSaveNewSlipQTC01}
                 className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-sm cursor-pointer"
               >
-                Lưu phiếu quyết toán (Đang lập)
-              </button>
+                Lưu phiếu quyết toán (Đang lập) </button>
             </div>
           </div>
         </div>
@@ -1535,8 +1481,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
             {feedbackResult === 'Đồng ý' && (
               <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2">
                 <div className="font-bold text-emerald-900 text-xs">
-                  Bằng chứng khách đồng ý:
-                </div>
+                  Bằng chứng khách đồng ý: </div>
                 <div>
                   <label className="block text-[11px] text-emerald-800 font-medium mb-0.5">Tên file ảnh / Chứng từ:</label>
                   <input
@@ -1564,8 +1509,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
               <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl text-purple-900 text-xs space-y-1">
                 <div className="font-bold">Lưu ý kiểm tra </div>
                 <p className="text-[11px] text-purple-800">
-                  Không đồng nghĩa khách đồng ý; không có sự thống nhất với khách thì không được phát hành kết quả quyết toán cọc. Hệ thống sẽ khóa xác nhận quyết toán cọc theo.
-                </p>
+                  Không đồng nghĩa khách đồng ý; không có sự thống nhất với khách thì không được phát hành kết quả quyết toán cọc. Hệ thống sẽ khóa xác nhận quyết toán cọc theo. </p>
               </div>
             )}
 
@@ -1575,14 +1519,12 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                 onClick={() => setShowFeedbackModal(false)}
                 className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer"
               >
-                Hủy
-              </button>
+                Hủy </button>
               <button
                 type="submit"
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-sm cursor-pointer"
               >
-                Lưu phản hồi & Lịch sử
-              </button>
+                Lưu phản hồi & Lịch sử </button>
             </div>
           </form>
         </div>
@@ -1598,8 +1540,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
               <div>
                 <h3 className="font-bold text-slate-900 text-base">Sửa phiếu quyết toán</h3>
                 <p className="text-slate-500 text-[11px]">
-                  Phiếu {selectedSlip.id} • Sau khi tính lại sẽ nâng lên phiên bản <strong>v{(selectedSlip.version || 1) + 1}</strong>.
-                </p>
+                  Phiếu {selectedSlip.id} • Sau khi tính lại sẽ nâng lên phiên bản <strong>v{(selectedSlip.version || 1) + 1}</strong>. </p>
               </div>
               <button type="button" onClick={() => setShowAdjustModal(false)} className="text-slate-400 hover:text-slate-600 p-1">
                 <X className="w-5 h-5" />
@@ -1615,8 +1556,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
 
             <div>
               <label className="block font-bold text-slate-700 mb-1">
-                Lý do tổng thể điều chỉnh phương án (Bắt buộc theo ):
-              </label>
+                Lý do tổng thể điều chỉnh phương án (Bắt buộc theo ): </label>
               <input
                 type="text"
                 placeholder="Ví dụ: Hai bên trao đổi, chủ nhà đồng ý hỗ trợ giảm 50% tiền hư hỏng tủ gỗ..."
@@ -1629,8 +1569,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
             {/* Deductions Adjustment Table */}
             <div className="space-y-2">
               <label className="block font-bold text-slate-700">
-                Danh sách khoản trừ và đề xuất điều chỉnh:
-              </label>
+                Danh sách khoản trừ và đề xuất điều chỉnh: </label>
               <div className="border border-slate-200 rounded-lg overflow-hidden">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-50 text-slate-600 border-b border-slate-200 font-semibold">
@@ -1649,8 +1588,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                           {item.description}
                         </td>
                         <td className="p-2 font-mono text-slate-500">
-                          {(item.originalAmount || item.amount).toLocaleString('vi-VN')} đ
-                        </td>
+                          {(item.originalAmount || item.amount).toLocaleString('vi-VN')} đ </td>
                         <td className="p-2">
                           <select
                             value={item.adjustmentProposal || 'giữ nguyên'}
@@ -1708,19 +1646,16 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                 <span>Cọc gốc: {selectedSlip.initialDepositAmount.toLocaleString('vi-VN')} đ</span>
                 <span className="text-slate-400 mx-2">−</span>
                 <span className="text-red-600">
-                  Tổng khấu trừ mới: {tempAdjustDeductions.reduce((s, d) => s + d.amount, 0).toLocaleString('vi-VN')} đ
-                </span>
+                  Tổng khấu trừ mới: {tempAdjustDeductions.reduce((s, d) => s + d.amount, 0).toLocaleString('vi-VN')} đ </span>
               </div>
               <div className="text-right">
                 <span className="text-blue-700">
-                  Kết quả mới: {(selectedSlip.initialDepositAmount - tempAdjustDeductions.reduce((s, d) => s + d.amount, 0)).toLocaleString('vi-VN')} đ
-                </span>
+                  Kết quả mới: {(selectedSlip.initialDepositAmount - tempAdjustDeductions.reduce((s, d) => s + d.amount, 0)).toLocaleString('vi-VN')} đ </span>
               </div>
             </div>
 
             <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-[11px] text-amber-800">
-              <strong>Lưu ý </strong> Bằng chứng khách đồng ý cũ sẽ tự động bị hủy vì đã thay đổi số tiền. Sau khi lưu, bạn cần liên hệ lại khách để xác nhận phiên bản phương án mới v{(selectedSlip.version || 1) + 1}.
-            </div>
+              <strong>Lưu ý </strong> Bằng chứng khách đồng ý cũ sẽ tự động bị hủy vì đã thay đổi số tiền. Sau khi lưu, bạn cần liên hệ lại khách để xác nhận phiên bản phương án mới v{(selectedSlip.version || 1) + 1}. </div>
 
             <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
               <button
@@ -1728,8 +1663,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                 onClick={() => setShowAdjustModal(false)}
                 className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer"
               >
-                Hủy
-              </button>
+                Hủy </button>
               <button
                 type="submit"
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-sm cursor-pointer"
@@ -1758,9 +1692,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
             </div>
 
             <p className="text-slate-600 text-[11px]">
-              Hai bên chưa thể thống nhất phương án quyết toán cọc. Hệ thống sẽ chuyển phiếu sang trạng thái
-              <strong> Tranh chấp</strong> và khóa sửa trực tiếp.
-            </p>
+              Hai bên chưa thể thống nhất phương án quyết toán cọc. Hệ thống sẽ chuyển phiếu sang trạng thái <strong> Tranh chấp</strong> và khóa sửa trực tiếp. </p>
 
             <div>
               <label className="block font-bold text-slate-700 mb-1">Lý do tranh chấp (Bắt buộc):</label>
@@ -1790,7 +1722,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                 type="text"
                 value={disputeBasisInput}
                 onChange={(e) => setDisputeBasisInput(e.target.value)}
-                placeholder="Biên bản bàn giao nhận phòng BG03..."
+                placeholder="Biên bản bàn giao nhận phòng..."
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs"
               />
             </div>
@@ -1801,14 +1733,12 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                 onClick={() => setShowDisputeModal(false)}
                 className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer"
               >
-                Hủy
-              </button>
+                Hủy </button>
               <button
                 type="submit"
                 className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold shadow-sm cursor-pointer"
               >
-                Xác nhận khóa Tranh chấp
-              </button>
+                Xác nhận khóa Tranh chấp </button>
             </div>
           </form>
         </div>
@@ -1828,8 +1758,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
             </div>
 
             <p className="text-slate-600 text-[11px]">
-              Khi mở lại thành công, phiếu sẽ chuyển từ <strong>Tranh chấp</strong> về <strong>Không đồng ý</strong> để tiếp tục điều chỉnh khoản trừ và tính lại phương án mới.
-            </p>
+              Khi mở lại thành công, phiếu sẽ chuyển từ <strong>Tranh chấp</strong> về <strong>Không đồng ý</strong> để tiếp tục điều chỉnh khoản trừ và tính lại phương án mới. </p>
 
             <div>
               <label className="block font-bold text-slate-700 mb-1">Lý do mở lại (Bắt buộc theo ):</label>
@@ -1848,14 +1777,12 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                 onClick={() => setShowReopenModal(false)}
                 className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer"
               >
-                Hủy
-              </button>
+                Hủy </button>
               <button
                 type="submit"
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-sm cursor-pointer"
               >
-                Mở lại phiếu
-              </button>
+                Mở lại phiếu </button>
             </div>
           </form>
         </div>
@@ -1875,8 +1802,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
             </div>
 
             <p className="text-slate-600 text-[11px]">
-              Chỉ được hủy khi phiếu chưa có giao dịch tiền thu/hoàn và chưa phát hành kết quả quyết toán cọc.
-            </p>
+              Chỉ được hủy khi phiếu chưa có giao dịch tiền thu/hoàn và chưa phát hành kết quả quyết toán cọc. </p>
 
             <div>
               <label className="block font-bold text-slate-700 mb-1">Lý do hủy phiếu (Bắt buộc):</label>
@@ -1895,14 +1821,12 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                 onClick={() => setShowCancelModal(false)}
                 className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer"
               >
-                Đóng
-              </button>
+                Đóng </button>
               <button
                 type="submit"
                 className="px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white rounded-lg text-xs font-bold shadow-sm cursor-pointer"
               >
-                Xác nhận hủy phiếu
-              </button>
+                Xác nhận hủy phiếu </button>
             </div>
           </form>
         </div>
@@ -1917,8 +1841,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
             <div className="flex items-center justify-between pb-3 border-b border-slate-200">
               <div>
                 <h3 className="font-bold text-slate-900 text-base">
-                  Ghi nhận kết quả quyết toán cọc 
-                </h3>
+                  Ghi nhận kết quả quyết toán cọc </h3>
                 <p className="text-slate-500 text-[11px]">
                   Phiếu {selectedSlip.id} • Phương án thống nhất v{selectedSlip.version}
                 </p>
@@ -1947,11 +1870,9 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
               </div>
               <div className="pt-1.5 border-t border-slate-200 flex justify-between font-bold text-xs">
                 <span className="text-slate-900">
-                  Số tiền phải {selectedSlip.calculatedResult > 0 ? 'hoàn cọc cho khách': selectedSlip.calculatedResult < 0 ? 'thu thêm từ khách': 'đối trừ'}:
-                </span>
+                  Số tiền phải {selectedSlip.calculatedResult > 0 ? 'hoàn cọc cho khách': selectedSlip.calculatedResult < 0 ? 'thu thêm từ khách': 'đối trừ'}: </span>
                 <span className={`font-mono text-sm ${selectedSlip.calculatedResult >= 0 ? 'text-emerald-700': 'text-red-700'}`}>
-                  {Math.abs(selectedSlip.calculatedResult).toLocaleString('vi-VN')} đ
-                </span>
+                  {Math.abs(selectedSlip.calculatedResult).toLocaleString('vi-VN')} đ </span>
               </div>
             </div>
 
@@ -1966,8 +1887,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block font-semibold text-slate-700 mb-1">
-                      Số tiền chuyển khoản (Điền sẵn, không sửa):
-                    </label>
+                      Số tiền chuyển khoản (Điền sẵn, không sửa): </label>
                     <input
                       type="text"
                       disabled
@@ -2049,8 +1969,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
               </div>
             ): (
               <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-900 text-xs">
-                Khoản nợ được bù vừa đủ bằng cọc (kết quả = 0 đ). Không có giao dịch tiền phát sinh, bỏ qua kiểm tra chứng từ chuyển khoản.
-              </div>
+                Khoản nợ được bù vừa đủ bằng cọc (kết quả = 0 đ). Không có giao dịch tiền phát sinh, bỏ qua kiểm tra chứng từ chuyển khoản. </div>
             )}
 
             <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
@@ -2059,14 +1978,12 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                 onClick={() => setShowQTC03Modal(false)}
                 className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer"
               >
-                Hủy
-              </button>
+                Hủy </button>
               <button
                 type="submit"
                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm cursor-pointer"
               >
-                Tiếp tục xác nhận hoàn tất
-              </button>
+                Tiếp tục xác nhận hoàn tất </button>
             </div>
           </form>
         </div>
@@ -2084,8 +2001,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
             </div>
 
             <p className="text-slate-600 text-xs">
-              Bạn có chắc chắn muốn xác nhận hoàn tất quyết toán cọc cho phòng <strong>{selectedSlip.roomCode}</strong>?
-            </p>
+              Bạn có chắc chắn muốn xác nhận hoàn tất quyết toán cọc cho phòng <strong>{selectedSlip.roomCode}</strong>? </p>
 
             <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5 text-[11px]">
               <div>Phiếu quyết toán: <strong className="font-mono">{selectedSlip.id}</strong> (v{selectedSlip.version})</div>
@@ -2099,7 +2015,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
               <div><strong>Xử lý trong một lần:</strong></div>
               <div>• Cập nhật công nợ (Đã xử lý bằng cọc / Đã thu).</div>
               <div>• Chuyển trạng thái phiếu sang "Đã có kết quả – chờ ký biên bản".</div>
-              <div>• Đồng bộ kết quả quyết toán cọc sang Biên bản trả phòng BG10/BG11.</div>
+              <div>• Đồng bộ kết quả quyết toán cọc sang Biên bản trả phòng /.</div>
               <div>• Phòng giữ nguyên trạng thái Trống từ lúc nhận lại.</div>
             </div>
 
@@ -2109,15 +2025,13 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                 onClick={() => setShowConfirmQTC03Popup(false)}
                 className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer"
               >
-                Quay lại
-              </button>
+                Quay lại </button>
               <button
                 type="button"
                 onClick={handleFinalConfirmQTC03}
                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm cursor-pointer"
               >
-                Xác nhận phát hành kết quả quyết toán cọc
-              </button>
+                Xác nhận phát hành kết quả quyết toán cọc </button>
             </div>
           </div>
         </div>

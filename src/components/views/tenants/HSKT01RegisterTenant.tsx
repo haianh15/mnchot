@@ -244,9 +244,7 @@ export const HSKT01RegisterTenant: React.FC<HSKT01Props> = ({ onNavigateToTab, o
               <h2 className="text-base font-bold text-blue-950">Ghi nhận hồ sơ khách thuê</h2>
             </div>
             <p className="text-xs text-blue-800 mt-1">
-              Lưu ý: Bắt buộc tra cứu khách trước khi tạo mới. Tách biệt Tình trạng cung cấp giấy tờ và Kết quả xác minh.
-              Kiểm tra hồ sơ sơ bộ, không tự tạo mã lần thuê và không thay thế đối chiếu giấy tờ trước khi khách ký.
-            </p>
+              Lưu ý: Bắt buộc tra cứu khách trước khi tạo mới. Tách biệt Tình trạng cung cấp giấy tờ và Kết quả xác minh. Kiểm tra hồ sơ sơ bộ, không tự tạo mã lần thuê và không thay thế đối chiếu giấy tờ trước khi khách ký. </p>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -254,15 +252,13 @@ export const HSKT01RegisterTenant: React.FC<HSKT01Props> = ({ onNavigateToTab, o
               className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
             >
               <UserPlus className="w-4 h-4" />
-              Tạo hồ sơ mới
-            </button>
+              Tạo hồ sơ mới </button>
             <button
               onClick={() => setShowAddDocModal(true)}
               className="px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <FileText className="w-4 h-4 text-amber-600" />
-              Tiếp nhận giấy tờ chờ
-            </button>
+              Tiếp nhận giấy tờ chờ </button>
           </div>
         </div>
       </div>
@@ -272,7 +268,7 @@ export const HSKT01RegisterTenant: React.FC<HSKT01Props> = ({ onNavigateToTab, o
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Search className="w-4 h-4 text-blue-600" />
-            <h3 className="text-sm font-bold text-slate-800">Bước 1 & 2: Tra cứu & Đối chiếu hồ sơ khách</h3>
+            <h3 className="text-sm font-bold text-slate-800"> Tra cứu & Đối chiếu hồ sơ khách</h3>
           </div>
           <span className="text-[11px] text-slate-500">Tra cứu theo CCCD, Số điện thoại hoặc Họ tên</span>
         </div>
@@ -294,15 +290,13 @@ export const HSKT01RegisterTenant: React.FC<HSKT01Props> = ({ onNavigateToTab, o
             className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer shrink-0"
           >
             <Search className="w-3.5 h-3.5" />
-            Tra cứu
-          </button>
+            Tra cứu </button>
           {searchDone && (
             <button
               onClick={() => { setSearchQuery(''); setSearchDone(false); setSearchedResults({ exactMatches: [], suspectMatches: [] }); }}
               className="px-3 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 text-xs rounded-lg cursor-pointer"
             >
-              Đặt lại
-            </button>
+              Đặt lại </button>
           )}
         </div>
 
@@ -314,11 +308,9 @@ export const HSKT01RegisterTenant: React.FC<HSKT01Props> = ({ onNavigateToTab, o
               <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
                 <div className="flex items-center gap-2 text-red-800 font-bold text-xs mb-2">
                   <ShieldAlert className="w-4 h-4 text-red-600" />
-                  Phát hiện khách đã tồn tại (Khớp số định danh CCCD - / )
-                </div>
+                  Phát hiện khách đã tồn tại (Khớp số định danh CCCD -) </div>
                 <p className="text-[11px] text-red-700 mb-2">
-                  Lưu ý: Không tạo lại hồ sơ cho khách cũ. Sử dụng hồ sơ hiện có và chỉ cập nhật thông tin khi cần.
-                </p>
+                  Lưu ý: Không tạo lại hồ sơ cho khách cũ. Sử dụng hồ sơ hiện có và chỉ cập nhật thông tin khi cần. </p>
                 {searchedResults.exactMatches.map(t => (
                   <div key={t.id} className="p-2.5 bg-white border border-red-200 rounded flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div className="text-xs">
@@ -335,8 +327,7 @@ export const HSKT01RegisterTenant: React.FC<HSKT01Props> = ({ onNavigateToTab, o
                         }}
                         className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white text-[11px] font-semibold rounded cursor-pointer"
                       >
-                        Mở hồ sơ cũ
-                      </button>
+                        Mở hồ sơ cũ </button>
                     </div>
                   </div>
                 ))}
@@ -348,11 +339,9 @@ export const HSKT01RegisterTenant: React.FC<HSKT01Props> = ({ onNavigateToTab, o
               <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
                 <div className="flex items-center gap-2 text-amber-900 font-bold text-xs mb-2">
                   <AlertCircle className="w-4 h-4 text-amber-600" />
-                  Danh sách nghi trùng (Trùng Họ tên hoặc Số điện thoại - )
-                </div>
+                  Danh sách nghi trùng (Trùng Họ tên hoặc Số điện thoại - ) </div>
                 <p className="text-[11px] text-amber-800 mb-2">
-                  Lưu ý: Trùng tên hoặc SĐT chỉ là nghi trùng, không tự kết luận cùng người. Nếu xác định khác người, cần nhập căn cứ phân biệt để tạo mới.
-                </p>
+                  Lưu ý: Trùng tên hoặc SĐT chỉ là nghi trùng, không tự kết luận cùng người. Nếu xác định khác người, cần nhập căn cứ phân biệt để tạo mới. </p>
                 <div className="space-y-2">
                   {searchedResults.suspectMatches.map(t => (
                     <div key={t.id} className="p-2.5 bg-white border border-amber-200 rounded flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -370,14 +359,12 @@ export const HSKT01RegisterTenant: React.FC<HSKT01Props> = ({ onNavigateToTab, o
                           }}
                           className="px-2 py-1 bg-slate-700 hover:bg-slate-800 text-white text-[11px] font-medium rounded cursor-pointer"
                         >
-                          Mở hồ sơ cũ
-                        </button>
+                          Mở hồ sơ cũ </button>
                         <button
                           onClick={() => handleOpenCreateForm(`Khác người với ${t.fullName} (${t.id}) do khác nơi cư trú và số CCCD`)}
                           className="px-2 py-1 bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-medium rounded cursor-pointer"
                         >
-                          Xác nhận khác người
-                        </button>
+                          Xác nhận khác người </button>
                       </div>
                     </div>
                   ))}
@@ -390,14 +377,12 @@ export const HSKT01RegisterTenant: React.FC<HSKT01Props> = ({ onNavigateToTab, o
               <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div className="flex items-center gap-2 text-emerald-900 text-xs font-semibold">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  Không tìm thấy hồ sơ trùng khớp. Bạn có thể tiến hành tạo hồ sơ khách thuê mới (Bước 3).
-                </div>
+                  Không tìm thấy hồ sơ trùng khớp. Bạn có thể tiến hành tạo hồ sơ khách thuê mới. </div>
                 <button
                   onClick={() => handleOpenCreateForm()}
                   className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded cursor-pointer shrink-0"
                 >
-                  Tiếp tục tạo mới
-                </button>
+                  Tiếp tục tạo mới </button>
               </div>
             )}
           </div>
@@ -437,8 +422,7 @@ export const HSKT01RegisterTenant: React.FC<HSKT01Props> = ({ onNavigateToTab, o
                         <div>{t.fullName}</div>
                         {t.isPreliminary && (
                           <span className="inline-block mt-0.5 px-1.5 py-0.2 bg-amber-100 text-amber-800 text-[10px] rounded font-medium">
-                            Hồ sơ sơ bộ
-                          </span>
+                            Hồ sơ sơ bộ </span>
                         )}
                       </td>
                       <td className="py-2.5 px-3 text-slate-600">
@@ -474,8 +458,7 @@ export const HSKT01RegisterTenant: React.FC<HSKT01Props> = ({ onNavigateToTab, o
                             onClick={() => onSelectTenant?.(t.id)}
                             className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-[11px] font-medium"
                           >
-                            Xem chi tiết
-                          </button>
+                            Xem chi tiết </button>
                           <button
                             onClick={() => {
                               onSelectTenantForUpdate?.(t.id);
@@ -484,8 +467,7 @@ export const HSKT01RegisterTenant: React.FC<HSKT01Props> = ({ onNavigateToTab, o
                             className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[11px] font-medium transition-colors cursor-pointer"
                             title="Cập nhật hồ sơ"
                           >
-                            Cập nhật
-                          </button>
+                            Cập nhật </button>
                         </div>
                       </td>
                     </tr>
@@ -514,8 +496,7 @@ export const HSKT01RegisterTenant: React.FC<HSKT01Props> = ({ onNavigateToTab, o
               </button>
             </div>
             <p className="text-[11px] text-slate-500">
-              Lưu giấy tờ khách mới/cũ ở trạng thái "Chờ nhận phòng" để đối chiếu ở 3.10b; không tự xác nhận khách đã nhận phòng.
-            </p>
+              Lưu giấy tờ khách mới/cũ ở trạng thái "Chờ nhận phòng" để đối chiếu ở 3.10b; không tự xác nhận khách đã nhận phòng. </p>
             <div className="space-y-2 max-h-56 overflow-y-auto">
               {pendingDocs.map(d => (
                 <div key={d.id} className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-1">
@@ -537,8 +518,7 @@ export const HSKT01RegisterTenant: React.FC<HSKT01Props> = ({ onNavigateToTab, o
                       onClick={() => updatePendingReceptionDocStatus(d.id, 'Đã đối chiếu tại 3.10b')}
                       className="mt-1 text-[10px] text-blue-600 hover:underline cursor-pointer font-medium"
                     >
-                      Đối chiếu tại 3.10b
-                    </button>
+                      Đối chiếu tại 3.10b </button>
                   )}
                 </div>
               ))}
@@ -555,8 +535,7 @@ export const HSKT01RegisterTenant: React.FC<HSKT01Props> = ({ onNavigateToTab, o
               <span className="text-[10px] bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-bold"></span>
             </div>
             <p className="text-[11px] text-slate-500">
-              Mã yêu cầu do bước tiếp nhận cấp trước; hệ thống liên kết với đúng hồ sơ đã xác minh.
-            </p>
+              Mã yêu cầu do bước tiếp nhận cấp trước; hệ thống liên kết với đúng hồ sơ đã xác minh. </p>
             <div className="space-y-2 max-h-56 overflow-y-auto">
               {receptionRequests.map(r => (
                 <div key={r.requestCode} className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-1">
@@ -604,8 +583,7 @@ export const HSKT01RegisterTenant: React.FC<HSKT01Props> = ({ onNavigateToTab, o
               <div>
                 <h3 className="text-sm font-bold flex items-center gap-2">
                   <UserPlus className="w-4 h-4 text-blue-400" />
-                  Biểu mẫu ghi nhận hồ sơ khách mới
-                </h3>
+                  Biểu mẫu ghi nhận hồ sơ khách mới </h3>
                 <span className="text-[11px] text-slate-300">Tách biệt Tình trạng cung cấp & Kết quả xác minh giấy tờ</span>
               </div>
               <button
@@ -661,8 +639,7 @@ export const HSKT01RegisterTenant: React.FC<HSKT01Props> = ({ onNavigateToTab, o
 
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">
-                    Số định danh CCCD/CMND (nếu có)
-                  </label>
+                    Số định danh CCCD/CMND (nếu có) </label>
                   <input
                     type="text"
                     value={idNumber}
@@ -674,8 +651,7 @@ export const HSKT01RegisterTenant: React.FC<HSKT01Props> = ({ onNavigateToTab, o
 
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">
-                    Quê quán / Địa chỉ thường trú
-                  </label>
+                    Quê quán / Địa chỉ thường trú </label>
                   <input
                     type="text"
                     value={address}
@@ -691,8 +667,7 @@ export const HSKT01RegisterTenant: React.FC<HSKT01Props> = ({ onNavigateToTab, o
                 <div className="font-bold text-slate-900 text-xs flex items-center justify-between">
                   <span>Quy định xác thực giấy tờ</span>
                   <span className="text-[10px] text-blue-700 font-semibold bg-blue-50 px-2 py-0.5 rounded">
-                    Không coi đã nhập số là đã xác minh
-                  </span>
+                    Không coi đã nhập số là đã xác minh </span>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -735,20 +710,17 @@ export const HSKT01RegisterTenant: React.FC<HSKT01Props> = ({ onNavigateToTab, o
 
                 {paperStatus === 'Chưa cung cấp' && (
                   <div className="p-2 bg-amber-50 border border-amber-200 rounded text-[11px] text-amber-800">
-                    <strong></strong> Khách chưa cung cấp giấy tờ. Hệ thống ghi "Chưa xác minh" và tuyệt đối không tạo số giả.
-                  </div>
+                    <strong></strong> Khách chưa cung cấp giấy tờ. Hệ thống ghi "Chưa xác minh" và tuyệt đối không tạo số giả. </div>
                 )}
 
                 {paperStatus === 'Đã cung cấp' && verificationStatus === 'Không hợp lệ' && (
                   <div className="p-2 bg-red-50 border border-red-200 rounded text-[11px] text-red-800">
-                    <strong>CẢNH BÁO </strong> Giấy tờ đối chiếu Không hợp lệ. Chỉ cho phép lưu Hồ sơ sơ bộ nếu Họ tên và SĐT hợp lệ. KHÔNG được dùng giấy tờ này để xác minh/ký hợp đồng!
-                  </div>
+                    <strong>CẢNH BÁO </strong> Giấy tờ đối chiếu Không hợp lệ. Chỉ cho phép lưu Hồ sơ sơ bộ nếu Họ tên và SĐT hợp lệ. KHÔNG được dùng giấy tờ này để xác minh/ký hợp đồng! </div>
                 )}
 
                 <div>
                   <label className="block font-medium text-slate-700 mb-1">
-                    Mô tả tài liệu đối chiếu / chứng cứ đã tiếp nhận
-                  </label>
+                    Mô tả tài liệu đối chiếu / chứng cứ đã tiếp nhận </label>
                   <input
                     type="text"
                     value={evidencePaperDescription}
@@ -763,8 +735,7 @@ export const HSKT01RegisterTenant: React.FC<HSKT01Props> = ({ onNavigateToTab, o
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">
-                    Căn cứ phân biệt nghi trùng
-                  </label>
+                    Căn cứ phân biệt nghi trùng </label>
                   <input
                     type="text"
                     value={verificationReason}
@@ -776,8 +747,7 @@ export const HSKT01RegisterTenant: React.FC<HSKT01Props> = ({ onNavigateToTab, o
 
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">
-                    Gắn mã yêu cầu tiếp nhận 
-                  </label>
+                    Gắn mã yêu cầu tiếp nhận </label>
                   <select
                     value={selectedRequestCode}
                     onChange={(e) => setSelectedRequestCode(e.target.value)}
@@ -786,8 +756,7 @@ export const HSKT01RegisterTenant: React.FC<HSKT01Props> = ({ onNavigateToTab, o
                     <option value="">-- Không gắn mã yêu cầu --</option>
                     {receptionRequests.filter(r => r.status === 'Chờ gắn hồ sơ').map(r => (
                       <option key={r.requestCode} value={r.requestCode}>
-                        {r.requestCode} ({r.prospectiveTenantName} - {r.roomCode})
-                      </option>
+                        {r.requestCode} ({r.prospectiveTenantName} - {r.roomCode}) </option>
                     ))}
                   </select>
                 </div>
@@ -813,8 +782,7 @@ export const HSKT01RegisterTenant: React.FC<HSKT01Props> = ({ onNavigateToTab, o
                 }`}>
                   <div className="font-bold flex items-center gap-1.5">
                     {!checkResult.valid ? <AlertCircle className="w-4 h-4 text-red-600" />: <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
-                    Kết quả kiểm tra dữ liệu sơ bộ (Bước 5):
-                  </div>
+                    Kết quả kiểm tra dữ liệu sơ bộ: </div>
                   {checkResult.messages.map((m, idx) => (
                     <div key={idx} className="text-[11px] font-medium text-red-700">• {m}</div>
                   ))}
@@ -831,30 +799,26 @@ export const HSKT01RegisterTenant: React.FC<HSKT01Props> = ({ onNavigateToTab, o
             {/* Footer Buttons */}
             <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
               <span className="text-[11px] text-slate-500">
-                Nút "Kiểm tra" chỉ rà soát định dạng & trùng lặp, không lưu dữ liệu.
-              </span>
+                Nút "Kiểm tra" chỉ rà soát định dạng & trùng lặp, không lưu dữ liệu. </span>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
                   className="px-3 py-2 border border-slate-300 text-slate-700 hover:bg-slate-100 rounded-lg text-xs font-semibold cursor-pointer"
                 >
-                  Hủy
-                </button>
+                  Hủy </button>
                 <button
                   type="button"
                   onClick={handleCheckPreliminaryData}
                   className="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold cursor-pointer"
                 >
-                  Kiểm tra sơ bộ (Bước 5)
-                </button>
+                  Kiểm tra sơ bộ </button>
                 <button
                   type="button"
                   onClick={handleConfirmCreate}
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-sm cursor-pointer"
                 >
-                  Xác nhận tạo hồ sơ (Bước 6)
-                </button>
+                  Xác nhận tạo hồ sơ </button>
               </div>
             </div>
           </div>
@@ -868,8 +832,7 @@ export const HSKT01RegisterTenant: React.FC<HSKT01Props> = ({ onNavigateToTab, o
             <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
               <h3 className="text-sm font-bold flex items-center gap-2">
                 <FileText className="w-4 h-4 text-amber-400" />
-                Tiếp nhận giấy tờ chờ nhận phòng (giấy tờ nhận phòng / )
-              </h3>
+                Tiếp nhận giấy tờ chờ nhận phòng (giấy tờ nhận phòng) </h3>
               <button onClick={() => setShowAddDocModal(false)} className="text-slate-400 hover:text-white cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
@@ -938,14 +901,12 @@ export const HSKT01RegisterTenant: React.FC<HSKT01Props> = ({ onNavigateToTab, o
                   onClick={() => setShowAddDocModal(false)}
                   className="px-3 py-1.5 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-100"
                 >
-                  Đóng
-                </button>
+                  Đóng </button>
                 <button
                   type="submit"
                   className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg"
                 >
-                  Lưu giấy tờ chờ
-                </button>
+                  Lưu giấy tờ chờ </button>
               </div>
             </form>
           </div>

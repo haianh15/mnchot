@@ -1,3 +1,4 @@
+import { toUserMessage } from '../../../utils/userMessages';
 import React, { useState } from 'react';
 import { useApp } from '../../../context/AppContext';
 import { Contract } from '../../../types';
@@ -73,7 +74,7 @@ export const HDT06RenewalContract: React.FC<HDT06Props> = ({
     });
 
     if (res.success) {
-      alert(res.message);
+      alert(toUserMessage(res.message));
       if (res.contractId && onSelectContractForActivation) {
         onSelectContractForActivation(res.contractId);
       }
@@ -90,12 +91,10 @@ export const HDT06RenewalContract: React.FC<HDT06Props> = ({
               
             </span>
             <h2 className="text-sm font-bold text-slate-900">
-              Lập hợp đồng nối tiếp / Gia hạn thuê
-            </h2>
+              Lập hợp đồng nối tiếp / Gia hạn thuê </h2>
           </div>
           <p className="text-xs text-slate-600 mt-1 max-w-2xl leading-relaxed">
-            Áp dụng cho khách thuê tiếp tục thuê cùng một phòng khi hết kỳ hợp đồng. <strong>Nguyên tắc cốt lõi:</strong> Hợp đồng nối tiếp giữ nguyên chuỗi lần thuê (<code>leaseId</code>), kế thừa khoản tiền cọc gốc ban đầu (<code>initialDepositCode</code>), tuyệt đối không thu tiền cọc mới.
-          </p>
+            Áp dụng cho khách thuê tiếp tục thuê cùng một phòng khi hết kỳ hợp đồng. <strong>Nguyên tắc cốt lõi:</strong> Hợp đồng nối tiếp giữ nguyên chuỗi lần thuê (<code>leaseId</code>), kế thừa khoản tiền cọc gốc ban đầu (<code>initialDepositCode</code>), tuyệt đối không thu tiền cọc mới. </p>
         </div>
 
         <div className="text-xs font-semibold bg-white px-3 py-1.5 rounded-lg border border-indigo-200 text-indigo-800 shadow-2xs">
@@ -109,11 +108,9 @@ export const HDT06RenewalContract: React.FC<HDT06Props> = ({
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <h3 className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
               <RotateCcw className="w-4 h-4 text-indigo-600" />
-              Thiết lập hợp đồng gia hạn nối tiếp
-            </h3>
+              Thiết lập hợp đồng gia hạn nối tiếp </h3>
             <span className="text-[11px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-semibold">
-              Kế thừa cọc gốc
-            </span>
+              Kế thừa cọc gốc </span>
           </div>
 
           <form onSubmit={handleCreateRenewal} className="space-y-4 text-xs">
@@ -141,12 +138,10 @@ export const HDT06RenewalContract: React.FC<HDT06Props> = ({
             {selectedOldContract && (
               <div className="p-3.5 bg-indigo-50/70 rounded-xl border border-indigo-200 space-y-2 text-xs">
                 <span className="font-bold text-indigo-950 block text-[11px] uppercase tracking-wide">
-                  Thông tin kế thừa từ hợp đồng tiền nhiệm:
-                </span>
+                  Thông tin kế thừa từ hợp đồng tiền nhiệm: </span>
                 <div className="grid grid-cols-2 gap-2 text-indigo-900">
                   <div>
-                    Mã lần thuê: <strong className="font-mono">{selectedOldContract.leaseId}</strong> (Giữ nguyên)
-                  </div>
+                    Mã lần thuê: <strong className="font-mono">{selectedOldContract.leaseId}</strong> (Giữ nguyên) </div>
                   <div>
                     Phòng: <strong className="font-mono">{selectedOldContract.roomCode}</strong>
                   </div>
@@ -196,19 +191,16 @@ export const HDT06RenewalContract: React.FC<HDT06Props> = ({
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg font-mono font-bold text-xs"
                 />
                 <span className="text-[10px] text-slate-400 mt-0.5 block">
-                  Giá cũ: {selectedOldContract?.monthlyRent.toLocaleString('vi-VN')} đ/tháng
-                </span>
+                  Giá cũ: {selectedOldContract?.monthlyRent.toLocaleString('vi-VN')} đ/tháng </span>
               </div>
 
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">
-                  Tiền cọc yêu cầu nộp thêm
-                </label>
+                  Tiền cọc yêu cầu nộp thêm </label>
                 <div className="px-3 py-2 border border-slate-200 bg-slate-100 rounded-lg font-mono font-bold text-emerald-700 flex justify-between items-center">
                   <span>0 đ (Kế thừa cọc gốc)</span>
                   <span className="text-[10px] text-emerald-800 font-sans font-bold bg-emerald-100 px-1.5 py-0.2 rounded">
-                    Không thu lại cọc
-                  </span>
+                    Không thu lại cọc </span>
                 </div>
               </div>
             </div>
@@ -216,8 +208,7 @@ export const HDT06RenewalContract: React.FC<HDT06Props> = ({
             {/* Terms */}
             <div>
               <label className="block font-semibold text-slate-700 mb-1">
-                Điều khoản hợp đồng gia hạn
-              </label>
+                Điều khoản hợp đồng gia hạn </label>
               <textarea
                 rows={3}
                 value={renewalTerms}
@@ -233,8 +224,7 @@ export const HDT06RenewalContract: React.FC<HDT06Props> = ({
                 className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold flex items-center gap-1.5 cursor-pointer shadow-sm text-xs"
               >
                 <RotateCcw className="w-4 h-4" />
-                Lập hợp đồng nối tiếp (Nháp)
-              </button>
+                Lập hợp đồng nối tiếp (Nháp) </button>
             </div>
           </form>
         </div>
@@ -245,8 +235,7 @@ export const HDT06RenewalContract: React.FC<HDT06Props> = ({
             <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center justify-between text-indigo-700">
               <span>Hợp đồng nối tiếp đã lập</span>
               <span className="text-slate-500 font-mono text-[11px] font-normal">
-                ({renewalContracts.length})
-              </span>
+                ({renewalContracts.length}) </span>
             </h4>
 
             <div className="space-y-3">
@@ -300,8 +289,7 @@ export const HDT06RenewalContract: React.FC<HDT06Props> = ({
                         }}
                         className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[11px] font-semibold flex items-center gap-1 cursor-pointer"
                       >
-                        Kích hoạt hiệu lực
-                        <ArrowRight className="w-3 h-3" />
+                        Kích hoạt hiệu lực <ArrowRight className="w-3 h-3" />
                       </button>
                     </div>
                   )}
@@ -310,8 +298,7 @@ export const HDT06RenewalContract: React.FC<HDT06Props> = ({
 
               {renewalContracts.length === 0 && (
                 <div className="p-6 text-center text-slate-400 text-xs">
-                  Chưa có hợp đồng nối tiếp nào được tạo.
-                </div>
+                  Chưa có hợp đồng nối tiếp nào được tạo. </div>
               )}
             </div>
           </div>

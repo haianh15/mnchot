@@ -1,3 +1,4 @@
+import { toUserMessage } from '../../utils/userMessages';
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { PaymentNotice, DebtHistoryReminder, DebtPromise, Contract, Room } from '../../types';
@@ -224,13 +225,13 @@ export const DebtsView: React.FC = () => {
     });
 
     if (res.success) {
-      showToast('success', res.message);
+      showToast('success', toUserMessage(res.message));
       setShowReminderModal(false);
       setRemResult('');
       setRemNotes('');
       setRemProofFile('');
     } else {
-      showToast('error', res.message);
+      showToast('error', toUserMessage(res.message));
     }
   };
 
@@ -264,7 +265,7 @@ export const DebtsView: React.FC = () => {
       setPromProofFile('');
       setPromCustomerReportedPaid(false);
     } else {
-      showToast('error', res.message);
+      showToast('error', toUserMessage(res.message));
     }
   };
 
@@ -302,8 +303,7 @@ export const DebtsView: React.FC = () => {
             <h1 className="text-lg font-bold text-slate-900">Quản lý Công nợ Quá hạn</h1>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Theo dõi số dư nợ quá hạn, ghi lịch sử nhắc nợ thủ công (sau hạn), ghi nhận phản hồi/hẹn thanh toán và tra cứu căn cứ nợ kéo dài.
-          </p>
+            Theo dõi số dư nợ quá hạn, ghi lịch sử nhắc nợ thủ công (sau hạn), ghi nhận phản hồi/hẹn thanh toán và tra cứu căn cứ nợ kéo dài. </p>
         </div>
 
         {/* Global Controls */}
@@ -313,15 +313,13 @@ export const DebtsView: React.FC = () => {
             className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
           >
             <Layers className="w-3.5 h-3.5" />
-            Tra cứu tất cả khoản (Hiệu lực / Tất toán)
-          </button>
+            Tra cứu tất cả khoản (Hiệu lực / Tất toán) </button>
         </div>
       </div>
 
       <div className="rounded-xl bg-white border border-slate-200 p-3 flex flex-wrap items-center gap-3">
         <button onClick={()=>setActiveTab('overdue_list')} className={`rounded-lg px-3 py-2 text-sm font-semibold ${activeTab==='overdue_list'?'bg-blue-600 text-white':'border border-slate-200 hover:bg-slate-50'}`}>Danh sách nợ quá hạn ({totalOverdueCount})</button>
-        <label className="text-xs font-semibold text-slate-600">Tra cứu hoặc ghi nhận theo khoản nợ
-          <select value={activeTab} onChange={e=>setActiveTab(e.target.value as typeof activeTab)} className="block mt-1 border border-slate-300 rounded-lg px-3 py-2 bg-white text-sm min-w-48">
+        <label className="text-xs font-semibold text-slate-600">Tra cứu hoặc ghi nhận theo khoản nợ <select value={activeTab} onChange={e=>setActiveTab(e.target.value as typeof activeTab)} className="block mt-1 border border-slate-300 rounded-lg px-3 py-2 bg-white text-sm min-w-48">
             <option value="overdue_list">Danh sách nợ quá hạn</option>
             <option value="reminders">Lịch sử nhắc nợ</option>
             <option value="promises">Phản hồi và hẹn trả</option>
@@ -342,9 +340,7 @@ export const DebtsView: React.FC = () => {
               <div>
                 <strong>Nguyên tắc phân định công nợ:</strong>
                 <p className="mt-0.5 text-slate-700">
-                  Danh sách chỉ hiển thị các khoản hiện <strong>Chưa thu</strong>, số dư lớn hơn 0 và đã qua ngày hạn thanh toán.
-                  Các khoản Chưa thu nhưng <strong>còn trong hạn thanh toán ({pendingNotOverdueCount} khoản)</strong> được theo dõi tại màn hình Theo dõi thanh toán, không đưa vào danh sách nợ quá hạn.
-                </p>
+                  Danh sách chỉ hiển thị các khoản hiện <strong>Chưa thu</strong>, số dư lớn hơn 0 và đã qua ngày hạn thanh toán. Các khoản Chưa thu nhưng <strong>còn trong hạn thanh toán ({pendingNotOverdueCount} khoản)</strong> được theo dõi tại màn hình Theo dõi thanh toán, không đưa vào danh sách nợ quá hạn. </p>
               </div>
             </div>
 
@@ -381,8 +377,7 @@ export const DebtsView: React.FC = () => {
             </div>
 
             <span className="text-[11px] text-slate-500 italic">
-              * Tuyệt đối không tự động gán Đã thu khi có lỗi nguồn
-            </span>
+              * Tuyệt đối không tự động gán Đã thu khi có lỗi nguồn </span>
           </div>
 
           {/* Exception Notice */}
@@ -391,14 +386,12 @@ export const DebtsView: React.FC = () => {
               <AlertOctagon className="w-8 h-8 text-red-600 mx-auto" />
               <strong className="text-red-900 block text-sm">Ngoại lệ Không thể tải dữ liệu nghĩa vụ/thu tiền từ nguồn</strong>
               <p className="text-red-700 max-w-md mx-auto">
-                Hệ thống bảo vệ tính toàn vẹn: Không tự gán trạng thái Đã thu hay suy đoán số dư khi thiếu dữ liệu nguồn.
-              </p>
+                Hệ thống bảo vệ tính toàn vẹn: Không tự gán trạng thái Đã thu hay suy đoán số dư khi thiếu dữ liệu nguồn. </p>
               <button
                 onClick={() => setSimulateEF01(false)}
                 className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold cursor-pointer shadow-xs"
               >
-                Thử lại tải dữ liệu nguồn
-              </button>
+                Thử lại tải dữ liệu nguồn </button>
             </div>
           )}
 
@@ -407,38 +400,29 @@ export const DebtsView: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
               <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs">
                 <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                  Số khoản nợ quá hạn
-                </span>
+                  Số khoản nợ quá hạn </span>
                 <span className="text-2xl font-bold font-mono text-red-700 mt-1 block">
-                  {totalOverdueCount} khoản
-                </span>
+                  {totalOverdueCount} khoản </span>
                 <span className="text-[10px] text-slate-400">
-                  Đã quá hạn thanh toán đã lưu ở UC07.2
-                </span>
+                  Đã quá hạn thanh toán đã lưu ở UC07.2 </span>
               </div>
 
               <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs">
                 <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                  Tổng dư nợ quá hạn chưa thu
-                </span>
+                  Tổng dư nợ quá hạn chưa thu </span>
                 <span className="text-2xl font-bold font-mono text-red-700 mt-1 block">
-                  {totalOverdueAmount.toLocaleString('vi-VN')} đ
-                </span>
+                  {totalOverdueAmount.toLocaleString('vi-VN')} đ </span>
                 <span className="text-[10px] text-red-600 font-medium">
-                  Đã khấu trừ các khoản bù cọc (nếu có)
-                </span>
+                  Đã khấu trừ các khoản bù cọc (nếu có) </span>
               </div>
 
               <div className="p-4 bg-slate-900 rounded-xl border border-slate-800 text-white shadow-xs">
                 <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider block">
-                  Đã xử lý bù bằng cọc
-                </span>
+                  Đã xử lý bù bằng cọc </span>
                 <span className="text-2xl font-bold font-mono text-indigo-400 mt-1 block">
-                  {totalHandledDeposit.toLocaleString('vi-VN')} đ
-                </span>
+                  {totalHandledDeposit.toLocaleString('vi-VN')} đ </span>
                 <span className="text-[10px] text-slate-400">
-                  Theo dõi riêng, không tính là thực thu ngân hàng
-                </span>
+                  Theo dõi riêng, không tính là thực thu ngân hàng </span>
               </div>
             </div>
           )}
@@ -481,8 +465,7 @@ export const DebtsView: React.FC = () => {
               </div>
 
               <div className="text-[11px] text-slate-500">
-                Hiển thị <strong>{overdueDebtList.length}</strong> khoản quá hạn
-              </div>
+                Hiển thị <strong>{overdueDebtList.length}</strong> khoản quá hạn </div>
             </div>
           )}
 
@@ -513,8 +496,7 @@ export const DebtsView: React.FC = () => {
                           <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-1.5 opacity-80" />
                           <p className="font-semibold text-slate-700">Không có khoản nợ quá hạn nào trong danh sách!</p>
                           <span className="text-[11px] text-slate-400">
-                            Các khoản chưa thu còn trong hạn được theo dõi tại màn hình Theo dõi thanh toán.
-                          </span>
+                            Các khoản chưa thu còn trong hạn được theo dõi tại màn hình Theo dõi thanh toán. </span>
                         </td>
                       </tr>
                     ): (
@@ -529,8 +511,7 @@ export const DebtsView: React.FC = () => {
                             <span className="font-mono font-bold text-blue-700 block">{n.roomCode}</span>
                             {n.isRoomVacant && (
                               <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-100 text-amber-800">
-                                Đã trả phòng
-                              </span>
+                                Đã trả phòng </span>
                             )}
                           </td>
                           <td className="py-2.5 px-3 font-medium text-slate-900">
@@ -551,24 +532,20 @@ export const DebtsView: React.FC = () => {
                           </td>
                           <td className="py-2.5 px-3 text-center">
                             <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-red-100 text-red-800 font-mono">
-                              +{n.overdueDays} ngày
-                            </span>
+                              +{n.overdueDays} ngày </span>
                           </td>
                           <td className="py-2.5 px-3 text-right font-mono text-slate-800 font-semibold">
-                            {n.totalAmount.toLocaleString('vi-VN')} đ
-                          </td>
+                            {n.totalAmount.toLocaleString('vi-VN')} đ </td>
                           <td className="py-2.5 px-3 text-right font-mono text-indigo-700">
                             {n.handledByDeposit > 0 ? (
                               <span title="Đã xử lý bằng cọc theo quyết toán hoàn tất">
-                                -{n.handledByDeposit.toLocaleString('vi-VN')} đ
-                              </span>
+                                -{n.handledByDeposit.toLocaleString('vi-VN')} đ </span>
                             ): (
                               '—'
                             )}
                           </td>
                           <td className="py-2.5 px-3 text-right font-mono font-bold text-red-700 text-sm">
-                            {n.uncollectedBalance.toLocaleString('vi-VN')} đ
-                          </td>
+                            {n.uncollectedBalance.toLocaleString('vi-VN')} đ </td>
                           <td className="py-2.5 px-3 text-right space-x-1 whitespace-nowrap">
                             <button
                               type="button"
@@ -579,8 +556,7 @@ export const DebtsView: React.FC = () => {
                               className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded text-[11px] font-semibold cursor-pointer"
                               title="Ghi nhật ký liên hệ nhắc nợ qua Zalo/Điện thoại/Trực tiếp"
                             >
-                              Nhắc nợ (CN-02)
-                            </button>
+                              Nhắc nợ </button>
 
                             <button
                               type="button"
@@ -591,8 +567,7 @@ export const DebtsView: React.FC = () => {
                               className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 rounded text-[11px] font-semibold cursor-pointer"
                               title="Ghi nhận phản hồi và ngày hẹn thanh toán của khách"
                             >
-                              Hẹn trả (CN-03)
-                            </button>
+                              Hẹn trả </button>
 
                             <button
                               type="button"
@@ -603,8 +578,7 @@ export const DebtsView: React.FC = () => {
                               className="px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 rounded text-[11px] font-semibold cursor-pointer"
                               title="Tra cứu căn cứ hợp đồng và lịch sử nợ kéo dài"
                             >
-                              Căn cứ (CN-04)
-                            </button>
+                              Căn cứ </button>
                           </td>
                         </tr>
                       ))
@@ -627,12 +601,10 @@ export const DebtsView: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Phone className="w-5 h-5 text-amber-600" />
                 <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-                  Ghi nhận Lịch sử Nhắc thanh toán
-                </h2>
+                  Ghi nhận Lịch sử Nhắc thanh toán </h2>
               </div>
               <p className="text-slate-500 mt-0.5">
-                Chủ nhà tự liên hệ đại diện khách thuê qua Zalo, điện thoại hoặc gặp trực tiếp sau ngày hạn thanh toán. Hệ thống không tự gửi tin nhắn.
-              </p>
+                Chủ nhà tự liên hệ đại diện khách thuê qua Zalo, điện thoại hoặc gặp trực tiếp sau ngày hạn thanh toán. Hệ thống không tự gửi tin nhắn. </p>
             </div>
 
             {activeSelectedNotice && (
@@ -642,8 +614,7 @@ export const DebtsView: React.FC = () => {
                 className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs"
               >
                 <Plus className="w-4 h-4" />
-                Ghi lần nhắc mới (Phòng {activeSelectedNotice.roomCode})
-              </button>
+                Ghi lần nhắc mới (Phòng {activeSelectedNotice.roomCode}) </button>
             )}
           </div>
 
@@ -658,8 +629,7 @@ export const DebtsView: React.FC = () => {
               >
                 {overdueDebtList.map(n => (
                   <option key={n.id} value={n.id}>
-                    {n.roomCode} · {n.noticeCode} ({n.tenantName} - {n.uncollectedBalance.toLocaleString('vi-VN')} đ)
-                  </option>
+                    {n.roomCode} · {n.noticeCode} ({n.tenantName} - {n.uncollectedBalance.toLocaleString('vi-VN')} đ) </option>
                 ))}
               </select>
             </div>
@@ -676,16 +646,14 @@ export const DebtsView: React.FC = () => {
           {/* List of Reminders */}
           <div className="space-y-3">
             <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">
-              Nhật ký các lần đôn đốc nhắc nợ đã ghi nhận ({activeNoticeReminders.length} lần):
-            </h3>
+              Nhật ký các lần đôn đốc nhắc nợ đã ghi nhận ({activeNoticeReminders.length} lần): </h3>
 
             {activeNoticeReminders.length === 0 ? (
               <div className="p-8 text-center bg-slate-50 border border-dashed border-slate-300 rounded-xl text-slate-400">
                 <Phone className="w-8 h-8 text-slate-300 mx-auto mb-1.5" />
                 <p className="font-semibold text-slate-600">Chưa có lịch sử nhắc nợ nào được ghi nhận cho khoản này.</p>
                 <span className="text-[11px] text-slate-400">
-                  Bấm "Ghi lần nhắc mới" sau khi Chủ nhà đã thực sự liên hệ trao đổi với khách thuê.
-                </span>
+                  Bấm "Ghi lần nhắc mới" sau khi Chủ nhà đã thực sự liên hệ trao đổi với khách thuê. </span>
               </div>
             ): (
               <div className="space-y-2.5">
@@ -702,8 +670,7 @@ export const DebtsView: React.FC = () => {
                         <strong className="text-slate-900 font-mono text-xs">Phòng {r.roomCode}</strong>
                         {r.isRetrospective && (
                           <span className="px-1.5 py-0.2 rounded text-[10px] bg-slate-200 text-slate-700">
-                            Ghi hồi cứu
-                          </span>
+                            Ghi hồi cứu </span>
                         )}
                       </div>
                       <div className="flex items-center gap-3 text-[11px] text-slate-500 font-mono">
@@ -750,12 +717,10 @@ export const DebtsView: React.FC = () => {
               <div className="flex items-center gap-2">
                 <MessageCircle className="w-5 h-5 text-blue-600" />
                 <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-                  Ghi nhận Phản hồi & Ngày hẹn Thanh toán
-                </h2>
+                  Ghi nhận Phản hồi & Ngày hẹn Thanh toán </h2>
               </div>
               <p className="text-slate-500 mt-0.5">
-                Ghi nhận cam kết ngày trả tiền của khách. <strong>Hạn thanh toán gốc và số dư nợ không bị thay đổi</strong>.
-              </p>
+                Ghi nhận cam kết ngày trả tiền của khách. <strong>Hạn thanh toán gốc và số dư nợ không bị thay đổi</strong>. </p>
             </div>
 
             {activeSelectedNotice && (
@@ -765,8 +730,7 @@ export const DebtsView: React.FC = () => {
                 className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs"
               >
                 <Plus className="w-4 h-4" />
-                Ghi nhận phản hồi mới (Phòng {activeSelectedNotice.roomCode})
-              </button>
+                Ghi nhận phản hồi mới (Phòng {activeSelectedNotice.roomCode}) </button>
             )}
           </div>
 
@@ -781,8 +745,7 @@ export const DebtsView: React.FC = () => {
               >
                 {overdueDebtList.map(n => (
                   <option key={n.id} value={n.id}>
-                    {n.roomCode} · {n.noticeCode} ({n.tenantName} - {n.uncollectedBalance.toLocaleString('vi-VN')} đ)
-                  </option>
+                    {n.roomCode} · {n.noticeCode} ({n.tenantName} - {n.uncollectedBalance.toLocaleString('vi-VN')} đ) </option>
                 ))}
               </select>
             </div>
@@ -798,16 +761,14 @@ export const DebtsView: React.FC = () => {
           {/* List of Promises */}
           <div className="space-y-3">
             <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">
-              Lịch sử các phản hồi & cam kết thanh toán ({activeNoticePromises.length} lần):
-            </h3>
+              Lịch sử các phản hồi & cam kết thanh toán ({activeNoticePromises.length} lần): </h3>
 
             {activeNoticePromises.length === 0 ? (
               <div className="p-8 text-center bg-slate-50 border border-dashed border-slate-300 rounded-xl text-slate-400">
                 <MessageCircle className="w-8 h-8 text-slate-300 mx-auto mb-1.5" />
                 <p className="font-semibold text-slate-600">Chưa có phản hồi hoặc lịch hẹn nào từ khách cho khoản này.</p>
                 <span className="text-[11px] text-slate-400">
-                  Khi khách nêu lý do khó khăn hoặc hứa ngày trả tiền, nhấn "Ghi nhận phản hồi mới".
-                </span>
+                  Khi khách nêu lý do khó khăn hoặc hứa ngày trả tiền, nhấn "Ghi nhận phản hồi mới". </span>
               </div>
             ): (
               <div className="space-y-2.5">
@@ -829,8 +790,7 @@ export const DebtsView: React.FC = () => {
                         )}
                         {p.needsVerificationASIS08 && (
                           <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900">
-                            Chờ xác minh 
-                          </span>
+                            Chờ xác minh </span>
                         )}
                       </div>
                       <span className="text-[11px] text-slate-500 font-mono">
@@ -845,8 +805,7 @@ export const DebtsView: React.FC = () => {
                     {p.needsVerificationASIS08 && (
                       <div className="p-2.5 bg-amber-50 rounded-lg border border-amber-200 text-[11px] text-amber-950 flex items-center justify-between">
                         <span>
-                          * Khách báo đã chuyển khoản. Cần tra soát tại chức năng <strong>Thu tiền</strong>. Số dư nợ chưa được tự động giảm.
-                        </span>
+                          * Khách báo đã chuyển khoản. Cần tra soát tại chức năng <strong>Thu tiền</strong>. Số dư nợ chưa được tự động giảm. </span>
                       </div>
                     )}
 
@@ -878,12 +837,10 @@ export const DebtsView: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <ShieldAlert className="w-5 h-5 text-purple-600" />
                   <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-                    Tra cứu Căn cứ Xử lý Nợ kéo dài
-                  </h2>
+                    Tra cứu Căn cứ Xử lý Nợ kéo dài </h2>
                 </div>
                 <p className="text-slate-500 mt-0.5">
-                  Tổng hợp điều khoản hợp đồng vi phạm, lịch sử đôn đốc và tình trạng chậm trả. <strong>Chỉ hỗ trợ tra cứu, không tự ý áp dụng chế tài hay chấm dứt hợp đồng</strong>.
-                </p>
+                  Tổng hợp điều khoản hợp đồng vi phạm, lịch sử đôn đốc và tình trạng chậm trả. <strong>Chỉ hỗ trợ tra cứu, không tự ý áp dụng chế tài hay chấm dứt hợp đồng</strong>. </p>
               </div>
 
               {activeSelectedNotice && (
@@ -906,8 +863,7 @@ export const DebtsView: React.FC = () => {
                 >
                   {overdueDebtList.map(n => (
                     <option key={n.id} value={n.id}>
-                      {n.roomCode} · {n.noticeCode} ({n.tenantName} - {n.uncollectedBalance.toLocaleString('vi-VN')} đ)
-                    </option>
+                      {n.roomCode} · {n.noticeCode} ({n.tenantName} - {n.uncollectedBalance.toLocaleString('vi-VN')} đ) </option>
                   ))}
                 </select>
               </div>
@@ -926,8 +882,7 @@ export const DebtsView: React.FC = () => {
                 {/* Khối 1: Thông tin số dư và nghĩa vụ */}
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
                   <span className="font-bold text-slate-800 uppercase tracking-wider block text-xs">
-                    1. Chi tiết số dư nợ quá hạn theo đúng lần thuê:
-                  </span>
+                    1. Chi tiết số dư nợ quá hạn theo đúng lần thuê: </span>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[11px]">
                     <div className="p-3 bg-white rounded border border-slate-200">
                       <span className="text-slate-400 block">Phòng & Khách thuê:</span>
@@ -947,11 +902,9 @@ export const DebtsView: React.FC = () => {
                     <div className="p-3 bg-white rounded border border-slate-200">
                       <span className="text-slate-400 block">Số dư nợ Chưa thu:</span>
                       <strong className="text-red-700 text-base font-mono font-bold block">
-                        {activeSelectedNotice.uncollectedBalance.toLocaleString('vi-VN')} đ
-                      </strong>
+                        {activeSelectedNotice.uncollectedBalance.toLocaleString('vi-VN')} đ </strong>
                       <span className="text-[10px] text-slate-400">
-                        (Tổng phải thu: {activeSelectedNotice.totalAmount.toLocaleString('vi-VN')} đ)
-                      </span>
+                        (Tổng phải thu: {activeSelectedNotice.totalAmount.toLocaleString('vi-VN')} đ) </span>
                     </div>
                   </div>
                 </div>
@@ -960,8 +913,7 @@ export const DebtsView: React.FC = () => {
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-slate-800 uppercase tracking-wider block text-xs">
-                      2. Căn cứ điều khoản Hợp đồng thuê nhà:
-                    </span>
+                      2. Căn cứ điều khoản Hợp đồng thuê nhà: </span>
                     <span className="font-mono text-[11px] font-bold text-purple-800 bg-purple-100 px-2 py-0.5 rounded">
                       {activeSelectedNotice.contract?.id || 'HĐ chưa xác định'}
                     </span>
@@ -971,39 +923,33 @@ export const DebtsView: React.FC = () => {
                     <div className="space-y-2.5 text-[11px]">
                       <div className="p-3 bg-white rounded border border-slate-200 space-y-1">
                         <strong className="text-slate-900 block font-semibold">
-                          Điều 3. Thời hạn và phương thức thanh toán tiền thuê:
-                        </strong>
+                          Điều 3. Thời hạn và phương thức thanh toán tiền thuê: </strong>
                         <p className="text-slate-700 leading-relaxed">
-                          "Bên B có nghĩa vụ thanh toán đầy đủ tiền thuê nhà và các chi phí dịch vụ sử dụng (điện, nước, phí vệ sinh) trước hoặc đúng ngày <strong>05</strong> của kỳ thanh toán thông qua hình thức chuyển khoản ngân hàng vào tài khoản chỉ định của Bên A."
-                        </p>
+                          "Bên B có nghĩa vụ thanh toán đầy đủ tiền thuê nhà và các chi phí dịch vụ sử dụng (điện, nước, phí vệ sinh) trước hoặc đúng ngày <strong>05</strong> của kỳ thanh toán thông qua hình thức chuyển khoản ngân hàng vào tài khoản chỉ định của Bên A." </p>
                       </div>
 
                       <div className="p-3 bg-white rounded border border-slate-200 space-y-1">
                         <strong className="text-slate-900 block font-semibold text-red-900">
-                          Điều 6. Xử lý vi phạm và đơn phương chấm dứt hợp đồng do chậm trả nợ:
-                        </strong>
+                          Điều 6. Xử lý vi phạm và đơn phương chấm dứt hợp đồng do chậm trả nợ: </strong>
                         <p className="text-slate-700 leading-relaxed italic bg-red-50/50 p-2 rounded border border-red-100">
-                          "Trường hợp Bên B chậm thanh toán tiền thuê hoặc các chi phí dịch vụ quá <strong>15 ngày</strong> kể từ ngày đến hạn thanh toán mà không có thỏa thuận gia hạn bằng văn bản, Bên A có quyền đơn phương chấm dứt hợp đồng thuê, thu hồi lại phòng và khấu trừ toàn bộ tiền cọc để bù đắp các chi phí thiệt hại."
-                        </p>
+                          "Trường hợp Bên B chậm thanh toán tiền thuê hoặc các chi phí dịch vụ quá <strong>15 ngày</strong> kể từ ngày đến hạn thanh toán mà không có thỏa thuận gia hạn bằng văn bản, Bên A có quyền đơn phương chấm dứt hợp đồng thuê, thu hồi lại phòng và khấu trừ toàn bộ tiền cọc để bù đắp các chi phí thiệt hại." </p>
                       </div>
                     </div>
                   ): (
                     <div className="p-3 bg-amber-50 rounded border border-amber-200 text-amber-900 text-[11px]">
-                      Không tìm thấy bản ghi hợp đồng tương ứng cho lần thuê này (Lỗi ). Không dùng hợp đồng khác thay thế.
-                    </div>
+                      Không tìm thấy bản ghi hợp đồng tương ứng cho lần thuê này (Lỗi ). Không dùng hợp đồng khác thay thế. </div>
                   )}
                 </div>
 
                 {/* Khối 3: Lịch sử đôn đốc và nhật ký trao đổi */}
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
                   <span className="font-bold text-slate-800 uppercase tracking-wider block text-xs">
-                    3. Bằng chứng đôn đốc & cam kết phản hồi:
-                  </span>
+                    3. Bằng chứng đôn đốc & cam kết phản hồi: </span>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px]">
                     <div className="p-3 bg-white rounded border border-slate-200 space-y-2">
                       <strong className="text-slate-900 block font-semibold flex items-center justify-between">
-                        <span>Lịch sử đôn đốc nhắc nợ (CN-02):</span>
+                        <span>Lịch sử đôn đốc nhắc nợ:</span>
                         <span className="font-mono text-slate-500 font-normal">{activeNoticeReminders.length} lần</span>
                       </strong>
                       {activeNoticeReminders.length > 0 ? (
@@ -1025,7 +971,7 @@ export const DebtsView: React.FC = () => {
 
                     <div className="p-3 bg-white rounded border border-slate-200 space-y-2">
                       <strong className="text-slate-900 block font-semibold flex items-center justify-between">
-                        <span>Phản hồi & Cam kết ngày hẹn (CN-03):</span>
+                        <span>Phản hồi & Cam kết ngày hẹn:</span>
                         <span className="font-mono text-slate-500 font-normal">{activeNoticePromises.length} lần</span>
                       </strong>
                       {activeNoticePromises.length > 0 ? (
@@ -1052,8 +998,7 @@ export const DebtsView: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <strong className="text-xs font-bold flex items-center gap-2">
                       <Scale className="w-4 h-4 text-indigo-700" />
-                      Đánh giá bộ hồ sơ căn cứ (Hỗ trợ tra cứu nội bộ):
-                    </strong>
+                      Đánh giá bộ hồ sơ căn cứ (Hỗ trợ tra cứu nội bộ): </strong>
                     <span className={`px-2.5 py-1 rounded text-xs font-bold border ${prolongedDebtAssessment.badgeColor}`}>
                       {prolongedDebtAssessment.status}
                     </span>
@@ -1066,14 +1011,12 @@ export const DebtsView: React.FC = () => {
                   </ul>
 
                   <div className="pt-2 border-t border-indigo-200/60 text-[10px] text-slate-500">
-                    *  Chức năng chỉ cung cấp bảng tổng hợp căn cứ tra cứu. Hệ thống không tự động áp dụng chế tài, không tự phạt nợ, không tự gửi lệnh thanh lý và không tự ý thay đổi hợp đồng. Chủ nhà tự quyết định các bước xử lý theo pháp lý ngoài hệ thống.
-                  </div>
+                    * Chức năng chỉ cung cấp bảng tổng hợp căn cứ tra cứu. Hệ thống không tự động áp dụng chế tài, không tự phạt nợ, không tự gửi lệnh thanh lý và không tự ý thay đổi hợp đồng. Chủ nhà tự quyết định các bước xử lý theo pháp lý ngoài hệ thống. </div>
                 </div>
               </div>
             ): (
               <div className="p-8 text-center text-slate-400">
-                Vui lòng chọn một khoản nợ quá hạn để tra cứu căn cứ xử lý nợ kéo dài.
-              </div>
+                Vui lòng chọn một khoản nợ quá hạn để tra cứu căn cứ xử lý nợ kéo dài. </div>
             )}
           </div>
         </div>
@@ -1202,8 +1145,7 @@ export const DebtsView: React.FC = () => {
                     className="mt-0.5 rounded border-slate-300 text-amber-600"
                   />
                   <span className="text-[11px] text-slate-700 font-semibold">
-                    Xác nhận Chủ nhà đã thực sự liên hệ khách thuê (Bắt buộc theo )
-                  </span>
+                    Xác nhận Chủ nhà đã thực sự liên hệ khách thuê (Bắt buộc theo ) </span>
                 </label>
 
                 <label className="flex items-start gap-2 cursor-pointer">
@@ -1214,29 +1156,25 @@ export const DebtsView: React.FC = () => {
                     className="mt-0.5 rounded border-slate-300 text-slate-600"
                   />
                   <span className="text-[11px] text-slate-500">
-                    Chế độ ghi hồi cứu: Ghi lại sự kiện đã liên hệ trước khi khoản nợ thay đổi
-                  </span>
+                    Chế độ ghi hồi cứu: Ghi lại sự kiện đã liên hệ trước khi khoản nợ thay đổi </span>
                 </label>
               </div>
 
               <div className="flex items-center justify-between pt-3 border-t border-slate-100">
                 <span className="text-[10px] text-slate-400 italic">
-                  * Tuyệt đối không có nút gửi Zalo tự động
-                </span>
+                  * Tuyệt đối không có nút gửi Zalo tự động </span>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => setShowReminderModal(false)}
                     className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium cursor-pointer"
                   >
-                    Hủy
-                  </button>
+                    Hủy </button>
                   <button
                     type="submit"
                     className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-semibold cursor-pointer shadow-xs"
                   >
-                    Lưu lịch sử nhắc nợ (CN-02)
-                  </button>
+                    Lưu lịch sử nhắc nợ </button>
                 </div>
               </div>
             </form>
@@ -1279,8 +1217,7 @@ export const DebtsView: React.FC = () => {
                 <div>Số dư nợ hiện tại: <strong className="font-mono text-red-700 font-bold">{activeSelectedNotice.uncollectedBalance.toLocaleString('vi-VN')} đ</strong></div>
               </div>
               <p className="text-[10px] text-blue-800 italic pt-1">
-                *  Ngày hẹn thanh toán không thay thế hạn thanh toán gốc của khoản nợ và không làm mất nhãn Quá hạn.
-              </p>
+                * Ngày hẹn thanh toán không thay thế hạn thanh toán gốc của khoản nợ và không làm mất nhãn Quá hạn. </p>
             </div>
 
             {/* Biểu mẫu ghi nhận phản hồi */}
@@ -1373,11 +1310,9 @@ export const DebtsView: React.FC = () => {
                   />
                   <div>
                     <span className="font-semibold text-purple-950 text-xs block">
-                      Khách báo đã chuyển khoản & gửi chứng từ
-                    </span>
+                      Khách báo đã chuyển khoản & gửi chứng từ </span>
                     <span className="text-[10px] text-purple-800">
-                      Hệ thống sẽ gắn cờ chuyển xác minh; không tự giảm nợ tại màn hình này.
-                    </span>
+                      Hệ thống sẽ gắn cờ chuyển xác minh; không tự giảm nợ tại màn hình này. </span>
                   </div>
                 </label>
 
@@ -1397,22 +1332,19 @@ export const DebtsView: React.FC = () => {
 
               <div className="flex items-center justify-between pt-3 border-t border-slate-100">
                 <span className="text-[10px] text-slate-400 italic">
-                  * Tuyệt đối không có nút Gạch nợ tại đây
-                </span>
+                  * Tuyệt đối không có nút Gạch nợ tại đây </span>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => setShowPromiseModal(false)}
                     className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium cursor-pointer"
                   >
-                    Hủy
-                  </button>
+                    Hủy </button>
                   <button
                     type="submit"
                     className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold cursor-pointer shadow-xs"
                   >
-                    Lưu phản hồi & ngày hẹn (CN-03)
-                  </button>
+                    Lưu phản hồi & ngày hẹn </button>
                 </div>
               </div>
             </form>
@@ -1443,8 +1375,7 @@ export const DebtsView: React.FC = () => {
             </div>
 
             <p className="text-slate-500 text-xs">
-              Hệ thống hỗ trợ: Cho phép mở tra cứu lịch sử cả các khoản Đang hiệu lực, Đã tất toán (Đã thu), Hủy hoặc Đã xử lý bù cọc mà không bắt buộc khoản nợ phải còn số dư.
-            </p>
+              Hệ thống hỗ trợ: Cho phép mở tra cứu lịch sử cả các khoản Đang hiệu lực, Đã tất toán (Đã thu), Hủy hoặc Đã xử lý bù cọc mà không bắt buộc khoản nợ phải còn số dư. </p>
 
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
@@ -1468,14 +1399,12 @@ export const DebtsView: React.FC = () => {
                       <td className="py-2.5 px-3">{n.periodCode}</td>
                       <td className="py-2.5 px-3 font-mono text-slate-600">{n.dueDate}</td>
                       <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-800">
-                        {n.totalAmount.toLocaleString('vi-VN')} đ
-                      </td>
+                        {n.totalAmount.toLocaleString('vi-VN')} đ </td>
                       <td className="py-2.5 px-3 text-right font-mono text-indigo-700">
                         {n.handledByDeposit > 0 ? n.handledByDeposit.toLocaleString('vi-VN') + ' đ': '—'}
                       </td>
                       <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">
-                        {n.uncollectedBalance.toLocaleString('vi-VN')} đ
-                      </td>
+                        {n.uncollectedBalance.toLocaleString('vi-VN')} đ </td>
                       <td className="py-2.5 px-3 text-center">
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                           n.isPaid
@@ -1498,8 +1427,7 @@ export const DebtsView: React.FC = () => {
                 onClick={() => setShowAllInvoicesModal(false)}
                 className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg font-semibold cursor-pointer"
               >
-                Đóng
-              </button>
+                Đóng </button>
             </div>
           </div>
         </div>

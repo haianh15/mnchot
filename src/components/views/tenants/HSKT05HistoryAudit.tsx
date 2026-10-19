@@ -50,9 +50,7 @@ export const HSKT05HistoryAudit: React.FC<{tenantId?: string}> = ({tenantId}) =>
               <h2 className="text-base font-bold text-slate-900">Tra cứu lịch sử hồ sơ khách thuê</h2>
             </div>
             <p className="text-xs text-slate-700 mt-1">
-              Chế độ tra cứu nghiệp vụ: Chỉ đọc, không tạo, sửa hoặc xóa nhật ký.
-              Tra cứu thông tin khách chính, người ở cùng, chuỗi lần thuê, hợp đồng và biên bản bàn giao.
-            </p>
+              Chế độ tra cứu nghiệp vụ: Chỉ đọc, không tạo, sửa hoặc xóa nhật ký. Tra cứu thông tin khách chính, người ở cùng, chuỗi lần thuê, hợp đồng và biên bản bàn giao. </p>
           </div>
           <div className="flex items-center gap-2">
             <span className="px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 flex items-center gap-1.5">
@@ -67,7 +65,7 @@ export const HSKT05HistoryAudit: React.FC<{tenantId?: string}> = ({tenantId}) =>
       <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-xs space-y-3">
         <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
           <Filter className="w-4 h-4 text-blue-600" />
-          <span>Bộ lọc tra cứu lịch sử (Bước 2)</span>
+          <span>Bộ lọc tra cứu lịch sử </span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
@@ -142,8 +140,7 @@ export const HSKT05HistoryAudit: React.FC<{tenantId?: string}> = ({tenantId}) =>
       <div className="p-5 bg-white border border-slate-200 rounded-xl shadow-xs space-y-3">
         <div className="flex items-center justify-between pb-2 border-b border-slate-100">
           <h3 className="text-sm font-bold text-slate-800">
-            Kết quả tra cứu ({filteredHistory.length} bản ghi)
-          </h3>
+            Kết quả tra cứu ({filteredHistory.length} bản ghi) </h3>
           <span className="text-[11px] text-slate-400">Nhấn vào sự kiện để xem chi tiết trước/sau</span>
         </div>
 
@@ -198,8 +195,7 @@ export const HSKT05HistoryAudit: React.FC<{tenantId?: string}> = ({tenantId}) =>
                           className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] font-medium"
                         >
                           <Eye className="w-3.5 h-3.5 inline mr-1" />
-                          Xem
-                        </button>
+                          Xem </button>
                       </td>
                     </tr>
                   );
@@ -209,8 +205,7 @@ export const HSKT05HistoryAudit: React.FC<{tenantId?: string}> = ({tenantId}) =>
           </div>
         ): (
           <div className="p-8 text-center text-slate-400 text-xs">
-            Không có sự kiện lịch sử nào phù hợp với điều kiện tra cứu hiện tại.
-          </div>
+            Không có sự kiện lịch sử nào phù hợp với điều kiện tra cứu hiện tại. </div>
         )}
       </div>
 
@@ -221,8 +216,7 @@ export const HSKT05HistoryAudit: React.FC<{tenantId?: string}> = ({tenantId}) =>
             <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
               <h3 className="text-sm font-bold flex items-center gap-2">
                 <History className="w-4 h-4 text-blue-400" />
-                Chi tiết sự kiện lịch sử (Chỉ đọc)
-              </h3>
+                Chi tiết sự kiện lịch sử (Chỉ đọc) </h3>
               <button onClick={() => setSelectedEvent(null)} className="text-slate-400 hover:text-white cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
@@ -306,8 +300,7 @@ export const HSKT05HistoryAudit: React.FC<{tenantId?: string}> = ({tenantId}) =>
                 onClick={() => setSelectedEvent(null)}
                 className="px-4 py-1.5 bg-slate-800 hover:bg-slate-900 text-white font-semibold rounded-lg text-xs"
               >
-                Đóng (Bước 5)
-              </button>
+                Đóng </button>
             </div>
           </div>
         </div>

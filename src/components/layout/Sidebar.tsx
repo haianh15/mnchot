@@ -95,8 +95,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
       <button onClick={()=>setMobileExpanded(!mobileExpanded)} className="md:hidden p-3 w-full text-left text-sm font-bold text-blue-700 border-b border-slate-200" aria-expanded={mobileExpanded} aria-controls="main-navigation">{mobileExpanded ? 'Thu gọn danh mục ▲' : '☰ Danh mục chức năng'}</button>
       <div className="hidden md:block p-3 border-b border-slate-100 bg-slate-50">
         <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
-          Chức năng
-        </span>
+          Chức năng </span>
       </div>
 
       <nav id="main-navigation" className={`${mobileExpanded ? 'block' : 'hidden'} md:block p-2 space-y-1 overflow-y-auto flex-1`}>
@@ -129,7 +128,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
 
       <div className="hidden md:block p-3 border-t border-slate-100 bg-slate-50 text-[11px] text-slate-500 space-y-0.5">
         <div className="font-semibold text-slate-700">Chung cư mini An Bình</div>
-        <div className="text-[10px] text-slate-400">Quản lý theo hồ sơ · bản trình diễn</div>
+        <div className="text-[10px] text-slate-400">Quản lý vận hành</div>
       </div>
     </aside>
   );

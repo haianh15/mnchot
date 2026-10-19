@@ -1,3 +1,4 @@
+import { toUserMessage } from '../../utils/userMessages';
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { MeterReading, PeriodBill, Room } from '../../types';
@@ -32,6 +33,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
 
   // UC-TT-01 Reading Modal State
   const [showReadingModal, setShowReadingModal] = useState(false);
+  const [readingStage, setReadingStage] = useState<0 | 1 | 2>(0);
   const [readRoom, setReadRoom] = useState('');
   const [readPeriod, setReadPeriod] = useState(() => `Kỳ ${String(new Date().getMonth()+1).padStart(2,'0')}/${new Date().getFullYear()}`);
   const [readType, setReadType] = useState<'Theo kỳ chung' | 'Ngoài kỳ chung'>('Theo kỳ chung');
@@ -48,8 +50,8 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
   // Bất thường chỉ số State (Bước 4)
   const [isAbnormal, setIsAbnormal] = useState(false);
   const [abnormalReason, setAbnormalReason] = useState<'Nhập sai' | 'Quay vòng' | 'Thay công tơ' | 'Công tơ hỏng' | 'Khác'>('Quay vòng');
-  const [verifiedElec, setVerifiedElec] = useState<number>(65);
-  const [verifiedWater, setVerifiedWater] = useState<number>(5);
+  const [verifiedElec, setVerifiedElec] = useState<number>(0);
+  const [verifiedWater, setVerifiedWater] = useState<number>(0);
   const [abnormalProof, setAbnormalProof] = useState('');
 
   // Chốt ngoài kỳ chung date validation warning
@@ -144,7 +146,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
 
     // Check mandatory proof if abnormal
     if (hasAbnormal && !abnormalProof.trim() && !isDraftOnly) {
-      alert('Chỉ số có dấu hiệu bất thường (quay vòng / lượng dùng = 0 / cuối nhỏ hơn đầu). Bắt buộc phải nhập ảnh công tơ hoặc biên bản xác minh theo ');
+      alert('Chỉ số có dấu hiệu bất thường. Vui lòng bổ sung ảnh công tơ hoặc biên bản xác minh.');
       setIsAbnormal(true);
       return;
     }
@@ -184,9 +186,9 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
     if (isDraftOnly) {
       alert('Đã lưu dở dang ở trạng thái "Nháp"! Bạn có thể quay lại điền tiếp bất kỳ lúc nào.');
     } else if (newReading.pendingVerificationFlag) {
-      alert('Đã lưu chỉ số nhưng gắn cờ "Chờ xác minh" do có bất thường chưa đủ chứng cứ. TT-03 sẽ tạm khóa xác nhận bảng tính cho phòng này.');
+      alert("Đã lưu chỉ số nhưng gắn cờ \"Chờ xác minh\" do có bất thường chưa đủ chứng cứ. sẽ tạm khóa xác nhận bảng tính cho phòng này.");
     } else {
-      alert('Ghi nhận và lưu chỉ số điện nước thành công ! Đã sẵn sàng làm nguồn tính tiền cho TT-03.');
+      alert("Ghi nhận và lưu chỉ số điện nước thành công! Đã sẵn sàng làm nguồn tính tiền cho.");
     }
   };
 
@@ -213,11 +215,11 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
     if (!billRoom || !billPeriod.trim()) { alert('Chọn phòng và kỳ tính tiền trước khi lập bảng tính.'); return; }
     const res = generatePeriodBillTT03(billRoom, billPeriod);
     if (!res.success) {
-      alert(res.message);
+      alert(toUserMessage(res.message));
     } else {
       setShowGenBillModal(false);
       setActiveTab('bills');
-      alert(res.message);
+      alert(toUserMessage(res.message));
     }
   };
 
@@ -227,9 +229,9 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
     const res = confirmPeriodBillTT03(billId);
     if (!res.success) {
       setBillConfirmError(res.message);
-      alert(res.message);
+      alert(toUserMessage(res.message));
     } else {
-      alert(res.message);
+      alert(toUserMessage(res.message));
     }
   };
 
@@ -241,8 +243,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
           <div className="flex items-center gap-2">
             
             <h1 className="text-lg font-bold text-slate-900">
-              Tính tiền theo kỳ
-            </h1>
+              Tính tiền theo kỳ </h1>
           </div>
         </div>
 
@@ -255,8 +256,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
             }`}
           >
             <Zap className="w-4 h-4 text-amber-600" />
-            Ghi/Sửa chỉ số
-          </button>
+            Ghi/Sửa chỉ số </button>
           <button
             onClick={() => setActiveTab('bills')}
             className={`px-3.5 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
@@ -264,8 +264,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
             }`}
           >
             <Calculator className="w-4 h-4 text-blue-600" />
-            Bảng tính kỳ
-          </button>
+            Bảng tính kỳ </button>
         </div>
       </div>
 
@@ -282,21 +281,20 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                 <span>Lưu ý ghi nhận chỉ số:</span>
               </div>
               <p className="text-blue-800 text-[11px]">
-                Áp dụng cho phòng <strong>Đang thuê</strong>, <strong>Sắp trả</strong>, và <strong>Đã trả phòng chờ chốt kỳ cuối</strong>. Tự động kiểm tra quay vòng / công tơ thay mới / sản lượng 0 bất thường. Hỗ trợ lưu nháp dở dang và chốt ngoài kỳ chung.
-              </p>
+                Áp dụng cho phòng <strong>Đang thuê</strong>, <strong>Sắp trả</strong>, và <strong>Đã trả phòng chờ chốt kỳ cuối</strong>. Tự động kiểm tra quay vòng / công tơ thay mới / sản lượng 0 bất thường. Hỗ trợ lưu nháp dở dang và chốt ngoài kỳ chung. </p>
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={() => {
                   handleSelectRoomForReading('');
+                  setReadingStage(0);
                   setShowReadingModal(true);
                 }}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold flex items-center gap-1.5 shadow-xs cursor-pointer text-xs"
               >
                 <Plus className="w-4 h-4" />
-                Ghi nhận chỉ số mới
-              </button>
+                Ghi nhận chỉ số mới </button>
             </div>
           </div>
 
@@ -304,8 +302,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-white rounded-xl border border-slate-200">
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="text-xs font-semibold text-slate-500 mr-1 flex items-center gap-1">
-                <Filter className="w-3.5 h-3.5" /> Lọc phòng:
-              </span>
+                <Filter className="w-3.5 h-3.5" /> Lọc phòng: </span>
               {[
                 { id: 'ALL', label: 'Tất cả phòng cần chốt' },
                 { id: 'RENTING', label: 'Đang thuê' },
@@ -342,23 +339,18 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
             <div className="p-3.5 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="font-bold text-xs uppercase tracking-wider text-slate-700">
-                  Danh sách chỉ số đã ghi nhận
-                </span>
+                  Danh sách chỉ số đã ghi nhận </span>
                 <span className="px-2 py-0.5 bg-slate-100 rounded-full font-mono text-[11px] text-slate-600 font-semibold">
-                  {meterReadings.length} bản ghi
-                </span>
+                  {meterReadings.length} bản ghi </span>
               </div>
 
               <div className="flex items-center gap-3 text-[11px] text-slate-500">
                 <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Đã xác nhận
-                </span>
+                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Đã xác nhận </span>
                 <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-amber-500"></span> Nháp (Lưu dở)
-                </span>
+                  <span className="w-2 h-2 rounded-full bg-amber-500"></span> Nháp (Lưu dở) </span>
                 <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-red-500"></span> Chờ xác minh
-                </span>
+                  <span className="w-2 h-2 rounded-full bg-red-500"></span> Chờ xác minh </span>
               </div>
             </div>
 
@@ -416,8 +408,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                           {m.isAbnormal ? (
                             <div className="space-y-1">
                               <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
-                                ⚠ {m.abnormalReason} (Xác minh: {m.verifiedElectricKwh} kWh)
-                              </span>
+                                ⚠ {m.abnormalReason} (Xác minh: {m.verifiedElectricKwh} kWh) </span>
                               {m.abnormalEvidence && (
                                 <span className="block text-[10px] text-slate-500 truncate max-w-xs" title={m.abnormalEvidence}>
                                   📎 {m.abnormalEvidence}
@@ -431,12 +422,10 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                         <td className="py-3 px-3">
                           {m.pendingVerificationFlag ? (
                             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-800 border border-red-200 block text-center">
-                              Chờ xác minh
-                            </span>
+                              Chờ xác minh </span>
                           ): m.status === 'Đã xác nhận' ? (
                             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 block text-center">
-                              Đã xác nhận
-                            </span>
+                              Đã xác nhận </span>
                           ): (
                             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 block text-center">
                               {m.status}
@@ -462,8 +451,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                               }}
                               className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded text-[11px] font-medium cursor-pointer"
                             >
-                              Sửa (TT-02)
-                            </button>
+                              Sửa </button>
                           </div>
                         </td>
                       </tr>
@@ -484,10 +472,8 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
           <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-wrap justify-between items-center gap-3">
             <div className="text-xs text-slate-600">
               <span className="font-bold text-slate-800">Công thức chuẩn hóa: </span>
-              <strong>Tiền thuê kỳ tiếp theo (Trả trước)</strong> + <strong>Điện/nước & phí dịch vụ vừa sử dụng (Trả sau)</strong>.
-              <span className="text-blue-800 block mt-0.5">
-                * Dòng chỉ số còn cờ &quot;Chờ xác minh&quot; sẽ không được TT-03 xác nhận cho đến khi hoàn tất.
-              </span>
+              <strong>Tiền thuê kỳ tiếp theo (Trả trước)</strong> + <strong>Điện/nước & phí dịch vụ vừa sử dụng (Trả sau)</strong>. <span className="text-blue-800 block mt-0.5">
+                * Dòng chỉ số còn cờ &quot;Chờ xác minh&quot; sẽ không được xác nhận cho đến khi hoàn tất. </span>
             </div>
 
             <button
@@ -495,8 +481,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer"
             >
               <Calculator className="w-4 h-4" />
-              Tính tiền kỳ mới
-            </button>
+              Tính tiền kỳ mới </button>
           </div>
 
           {billConfirmError && (
@@ -531,8 +516,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                     <div className="text-right">
                       <span className="text-xs text-slate-400 block">Tổng tiền kỳ:</span>
                       <span className="font-mono font-bold text-base text-blue-700">
-                        {bill.totalAmount.toLocaleString('vi-VN')} đ
-                      </span>
+                        {bill.totalAmount.toLocaleString('vi-VN')} đ </span>
                     </div>
                   </div>
 
@@ -543,8 +527,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                       <div className="flex items-center justify-between border-b border-blue-100 pb-1.5">
                         <span className="font-bold text-blue-950 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
                           <span className="w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px]">1</span>
-                          Nhóm 1: Tiền thuê kỳ tiếp theo (Trả trước)
-                        </span>
+                          Nhóm 1: Tiền thuê kỳ tiếp theo (Trả trước) </span>
                         <span className="font-mono font-bold text-blue-900">
                           {bill.isRentPeriodEnded ? '0 đ': `${bill.nextMonthRentAmount.toLocaleString('vi-VN')} đ`}
                         </span>
@@ -555,8 +538,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                       </div>
                       {bill.isRentPeriodEnded && (
                         <div className="p-2 bg-purple-50 text-purple-800 rounded-lg text-[11px] border border-purple-200">
-                          Phòng đã nhận lại thực tế, TT-03 đã ngừng sinh tiền thuê kỳ tiếp theo.
-                        </div>
+                          Phòng đã nhận lại thực tế, đã ngừng sinh tiền thuê kỳ tiếp theo. </div>
                       )}
                     </div>
 
@@ -565,11 +547,9 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                       <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
                         <span className="font-bold text-slate-900 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
                           <span className="w-4 h-4 rounded-full bg-slate-700 text-white flex items-center justify-center text-[10px]">2</span>
-                          Nhóm 2: Điện, nước & dịch vụ vừa dùng (Trả sau)
-                        </span>
+                          Nhóm 2: Điện, nước & dịch vụ vừa dùng (Trả sau) </span>
                         <span className="font-mono font-bold text-slate-800">
-                          {(bill.totalAmount - (bill.isRentPeriodEnded ? 0: bill.nextMonthRentAmount)).toLocaleString('vi-VN')} đ
-                        </span>
+                          {(bill.totalAmount - (bill.isRentPeriodEnded ? 0: bill.nextMonthRentAmount)).toLocaleString('vi-VN')} đ </span>
                       </div>
                       <div className="flex justify-between text-slate-600">
                         <span>Kỳ sử dụng dịch vụ:</span>
@@ -586,8 +566,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                       <div className="flex justify-between pt-1 border-t border-slate-200 text-slate-600">
                         <span>Tổng phí dịch vụ chung ({bill.serviceFees.length} dịch vụ):</span>
                         <span className="font-mono font-semibold text-slate-800">
-                          {bill.serviceFees.reduce((s, f) => s + f.amount, 0).toLocaleString('vi-VN')} đ
-                        </span>
+                          {bill.serviceFees.reduce((s, f) => s + f.amount, 0).toLocaleString('vi-VN')} đ </span>
                       </div>
                     </div>
                   </div>
@@ -597,16 +576,14 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                     <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-900 text-xs flex items-center gap-2">
                       <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
                       <span>
-                        <strong>Cảnh báo:</strong> Chỉ số điện nước của phòng này đang gắn cờ &quot;Chờ xác minh&quot;. Bạn không thể xác nhận bảng tính cho đến khi xử lý bất thường tại tab Ghi/Sửa chỉ số.
-                      </span>
+                        <strong>Cảnh báo:</strong> Chỉ số điện nước của phòng này đang gắn cờ &quot;Chờ xác minh&quot;. Bạn không thể xác nhận bảng tính cho đến khi xử lý bất thường tại tab Ghi/Sửa chỉ số. </span>
                     </div>
                   )}
 
                   {/* Confirm actions */}
                   <div className="flex justify-between items-center pt-2 border-t border-slate-100">
                     <span className="text-slate-400 text-[11px]">
-                      Điều kiện tiên quyết cho UC07.1: Bảng tính tiền phải được xác nhận trước khi chuyển sang đối chiếu khoản phải thu.
-                    </span>
+                      Điều kiện tiên quyết cho UC07.1: Bảng tính tiền phải được xác nhận trước khi chuyển sang đối chiếu khoản phải thu. </span>
 
                     <div className="flex items-center gap-2">
                       {!bill.isConfirmed ? (
@@ -616,21 +593,18 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                           className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs"
                         >
                           <CheckCircle2 className="w-4 h-4" />
-                          Xác nhận bảng tính
-                        </button>
+                          Xác nhận bảng tính </button>
                       ): (
                         <div className="flex items-center gap-3">
                           <span className="text-emerald-700 font-semibold flex items-center gap-1 text-xs">
                             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                            Đã xác nhận bảng tính nguồn
-                          </span>
+                            Đã xác nhận bảng tính nguồn </span>
                           {onNavigateToNotices && (
                             <button
                               onClick={() => onNavigateToNotices(bill.id)}
                               className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold cursor-pointer flex items-center gap-1.5 shadow-xs"
                             >
-                              Chuyển sang Đối chiếu khoản phải thu →
-                            </button>
+                              Chuyển sang Đối chiếu khoản phải thu → </button>
                           )}
                         </div>
                       )}
@@ -654,11 +628,10 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
               <div>
                 <div className="flex items-center gap-2">
                   
-                  <h3 className="font-bold text-slate-900 text-base">Ghi nhận chỉ số điện/nước (6 bước chuẩn hóa)</h3>
+                  <h3 className="font-bold text-slate-900 text-base">Ghi nhận chỉ số điện và nước</h3>
                 </div>
                 <p className="text-slate-500 text-[11px] mt-0.5">
-                  Áp dụng cho phòng đang thuê, sắp trả, hoặc lần thuê đã trả nhưng chưa chốt kỳ cuối.
-                </p>
+                  Chọn đúng phòng và kỳ cần ghi nhận. </p>
               </div>
               <button
                 onClick={() => setShowReadingModal(false)}
@@ -668,11 +641,12 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
               </button>
             </div>
 
+            {readingStage === 0 && <>
             {/* Bước 1 & 2: Chọn phòng & Loại chốt */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl">
               <div>
                 <label className="block font-bold text-slate-800 mb-1">
-                  Bước 1: Chọn phòng / Lần thuê <span className="text-red-500">*</span>
+                   Chọn phòng / Lần thuê <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={readRoom}
@@ -682,8 +656,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                   <option value="">-- Chọn phòng --</option>
                   {rooms.map(r => (
                     <option key={r.id} value={r.roomCode}>
-                      {r.roomCode} ({r.status} {r.status === 'Trống' ? '– Đã trả phòng': ''})
-                    </option>
+                      {r.roomCode} ({r.status} {r.status === 'Trống' ? '– Đã trả phòng': ''}) </option>
                   ))}
                 </select>
                 <span className="text-[10px] text-slate-500 mt-1 block">
@@ -693,7 +666,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
 
               <div>
                 <label className="block font-bold text-slate-800 mb-1">
-                  Bước 2: Loại chốt chỉ số <span className="text-red-500">*</span>
+                   Loại chốt chỉ số <span className="text-red-500">*</span>
                 </label>
                 <div className="flex items-center gap-2">
                   <button
@@ -704,8 +677,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                         ? 'bg-blue-600 text-white border-blue-600 shadow-xs': 'bg-white text-slate-700 border-slate-200'
                     }`}
                   >
-                    Theo kỳ chung
-                  </button>
+                    Theo kỳ chung </button>
                   <button
                     type="button"
                     onClick={() => setReadType('Ngoài kỳ chung')}
@@ -714,8 +686,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                         ? 'bg-purple-600 text-white border-purple-600 shadow-xs': 'bg-white text-slate-700 border-slate-200'
                     }`}
                   >
-                    Ngoài kỳ
-                  </button>
+                    Ngoài kỳ </button>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 mt-2">
@@ -745,29 +716,30 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
               </div>
             </div>
 
+              <div className="flex justify-end"><button type="button" disabled={!readRoom || !readPeriod.trim() || !readingDate} onClick={()=>setReadingStage(1)} className="rounded-lg bg-blue-600 px-4 py-2 text-white font-semibold disabled:bg-slate-200 disabled:text-slate-500">Tiếp tục <ArrowRight className="inline h-4 w-4"/></button></div>
+            </>}
+
+            {readingStage === 1 && <>
             {/* Bước 3: Nhập chỉ số & Mã công tơ */}
             <div className="p-4 bg-slate-50/70 border border-slate-200 rounded-2xl space-y-4">
               <span className="font-bold text-slate-800 text-xs block">
-                Bước 3: Nhập chỉ số & kiểm tra định dạng hợp lệ
-              </span>
+                 Nhập chỉ số & kiểm tra định dạng hợp lệ </span>
 
               {/* Điện */}
               <div className="p-3 bg-white border border-amber-200 rounded-xl space-y-2">
                 <div className="flex justify-between items-center border-b border-amber-100 pb-1.5">
                   <span className="font-bold text-amber-900 flex items-center gap-1.5">
                     <Zap className="w-4 h-4 text-amber-600" />
-                    Công tơ điện
-                  </span>
+                    Công tơ điện </span>
                   <span className="font-mono text-[11px] text-slate-500">
                     Sản lượng tạm tính: <strong className="text-amber-800">{currentElecUsage} kWh</strong>
                   </span>
                 </div>
-                <label className="block text-xs text-slate-700">Mã công tơ điện theo hồ sơ nguồn
-                  <input value={elecMeterCode} onChange={e=>setElecMeterCode(e.target.value)} placeholder="Nhập đúng mã công tơ điện" className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"/>
+                <label className="block text-xs text-slate-700">Mã công tơ điện theo hồ sơ nguồn <input value={elecMeterCode} onChange={e=>setElecMeterCode(e.target.value)} placeholder="Nhập đúng mã công tơ điện" className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"/>
                 </label>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-slate-500 block mb-1">Chỉ số đầu kỳ (từ BG03 / kỳ trước):</label>
+                    <label className="text-slate-500 block mb-1">Chỉ số đầu kỳ (từ / kỳ trước):</label>
                     <input
                       type="number"
                       value={initElec}
@@ -777,8 +749,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                   </div>
                   <div>
                     <label className="text-slate-700 font-bold block mb-1">
-                      Chỉ số cuối kỳ <span className="text-red-500">*</span>:
-                    </label>
+                      Chỉ số cuối kỳ <span className="text-red-500">*</span>: </label>
                     <input
                       type="number"
                       value={finalElec}
@@ -794,18 +765,16 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                 <div className="flex justify-between items-center border-b border-blue-100 pb-1.5">
                   <span className="font-bold text-blue-900 flex items-center gap-1.5">
                     <Droplets className="w-4 h-4 text-blue-600" />
-                    Công tơ nước
-                  </span>
+                    Công tơ nước </span>
                   <span className="font-mono text-[11px] text-slate-500">
                     Sản lượng tạm tính: <strong className="text-blue-800">{currentWaterUsage} m³</strong>
                   </span>
                 </div>
-                <label className="block text-xs text-slate-700">Mã công tơ nước theo hồ sơ nguồn
-                  <input value={waterMeterCode} onChange={e=>setWaterMeterCode(e.target.value)} placeholder="Nhập đúng mã công tơ nước" className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"/>
+                <label className="block text-xs text-slate-700">Mã công tơ nước theo hồ sơ nguồn <input value={waterMeterCode} onChange={e=>setWaterMeterCode(e.target.value)} placeholder="Nhập đúng mã công tơ nước" className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"/>
                 </label>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-slate-500 block mb-1">Chỉ số đầu kỳ (từ BG03 / kỳ trước):</label>
+                    <label className="text-slate-500 block mb-1">Chỉ số đầu kỳ (từ / kỳ trước):</label>
                     <input
                       type="number"
                       value={initWater}
@@ -815,8 +784,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                   </div>
                   <div>
                     <label className="text-slate-700 font-bold block mb-1">
-                      Chỉ số cuối kỳ <span className="text-red-500">*</span>:
-                    </label>
+                      Chỉ số cuối kỳ <span className="text-red-500">*</span>: </label>
                     <input
                       type="number"
                       value={finalWater}
@@ -828,6 +796,10 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
               </div>
             </div>
 
+              <div className="flex items-center justify-between gap-3"><button type="button" onClick={()=>setReadingStage(0)} className="rounded-lg border px-4 py-2 font-semibold">Quay lại</button><button type="button" disabled={!elecMeterCode.trim() || !waterMeterCode.trim() || !Number.isFinite(finalElec) || !Number.isFinite(finalWater)} onClick={()=>setReadingStage(2)} className="rounded-lg bg-blue-600 px-4 py-2 text-white font-semibold disabled:bg-slate-200 disabled:text-slate-500">Tiếp tục <ArrowRight className="inline h-4 w-4"/></button></div>
+            </>}
+
+            {readingStage === 2 && <>
             {/* Bước 4: Kiểm tra bất thường & */}
             <div className={`p-4 rounded-2xl border transition-all ${
               detectedAbnormal || isAbnormal
@@ -841,12 +813,11 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                     onChange={(e) => setIsAbnormal(e.target.checked)}
                     className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
                   />
-                  <span>Bước 4: Xử lý bất thường công tơ</span>
+                  <span> Xử lý bất thường công tơ</span>
                 </label>
                 {detectedAbnormal && (
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-200 text-amber-900 animate-pulse">
-                    ⚠ Hệ thống tự động phát hiện bất thường
-                  </span>
+                    ⚠ Hệ thống tự động phát hiện bất thường </span>
                 )}
               </div>
 
@@ -885,7 +856,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
 
                   <div>
                     <label className="block font-semibold text-slate-700 mb-1">
-                      Chứng cứ ảnh / Biên bản xác minh công tơ (Bắt buộc theo ) <span className="text-red-500">*</span>
+                      Chứng cứ ảnh / Biên bản xác minh công tơ (Bắt buộc ) <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
                       <Camera className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
@@ -898,18 +869,17 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                       />
                     </div>
                     <span className="text-[10px] text-amber-800 mt-1 block">
-                      * Dòng chỉ số thiếu chứng cứ sẽ bị gắn cờ &quot;Chờ xác minh&quot; và TT-03 sẽ không thể xác nhận bảng tính.
-                    </span>
+                      * Dòng chỉ số thiếu chứng cứ sẽ bị gắn cờ &quot;Chờ xác minh&quot; và sẽ không thể xác nhận bảng tính. </span>
                   </div>
                 </div>
               )}
             </div>
 
+              <button type="button" onClick={()=>setReadingStage(1)} className="rounded-lg border px-4 py-2 font-semibold">Quay lại chỉ số</button>
             {/* Bước 5: Nút Lưu chỉ số & Lưu dở dang */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-200">
               <span className="text-slate-400 text-[11px]">
-                Bước 5: Chọn Lưu dở dang hoặc Lưu hoàn tất để tạo nguồn dữ liệu cho TT-03.
-              </span>
+                 Bạn có thể lưu nháp hoặc hoàn tất thông tin. </span>
 
               <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
                 <button
@@ -917,25 +887,23 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                   onClick={() => setShowReadingModal(false)}
                   className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-medium cursor-pointer"
                 >
-                  Hủy
-                </button>
+                  Hủy </button>
                 <button
                   type="button"
                   onClick={() => handleSaveReadingSubmit(true)}
                   className="px-4 py-2 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-xl font-semibold cursor-pointer"
                   title="Giữ ở trạng thái Nháp để tiếp tục hoàn thiện sau"
                 >
-                  Lưu dở (Nháp - )
-                </button>
+                  Lưu dở (Nháp - ) </button>
                 <button
                   type="button"
                   onClick={() => handleSaveReadingSubmit(false)}
                   className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold cursor-pointer shadow-xs"
                 >
-                  Lưu hoàn tất 
-                </button>
+                  Lưu hoàn tất </button>
               </div>
             </div>
+            </>}
           </div>
         </div>
       )}
@@ -957,8 +925,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
             </div>
 
             <p className="text-slate-500 text-[11px]">
-              Chỉ sửa kỳ chưa thu tiền. Sau khi sửa, bảng tính tiền tương ứng sẽ được gắn cờ &quot;Cần tính lại&quot;.
-            </p>
+              Chỉ sửa kỳ chưa thu tiền. Sau khi sửa, bảng tính tiền tương ứng sẽ được gắn cờ &quot;Cần tính lại&quot;. </p>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -1002,15 +969,13 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                 onClick={() => setShowEditModal(false)}
                 className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-medium cursor-pointer"
               >
-                Hủy
-              </button>
+                Hủy </button>
               <button
                 type="button"
                 onClick={handleUpdateReading}
                 className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold cursor-pointer shadow-xs"
               >
-                Lưu sửa chỉ số (TT-02)
-              </button>
+                Lưu sửa chỉ số </button>
             </div>
           </div>
         </div>
@@ -1062,15 +1027,13 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                 onClick={() => setShowGenBillModal(false)}
                 className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-medium cursor-pointer"
               >
-                Hủy
-              </button>
+                Hủy </button>
               <button
                 type="button"
                 onClick={handleGenerateBill}
                 className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold cursor-pointer shadow-xs"
               >
-                Tính tiền kỳ
-              </button>
+                Tính tiền kỳ </button>
             </div>
           </div>
         </div>
@@ -1084,8 +1047,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
           <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-md w-full p-6 space-y-4 text-xs">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3">
               <h3 className="font-bold text-slate-900 text-base">
-                Chi tiết chỉ số: {inspectReading.roomCode} ({inspectReading.periodCode})
-              </h3>
+                Chi tiết chỉ số: {inspectReading.roomCode} ({inspectReading.periodCode}) </h3>
               <button
                 onClick={() => setInspectReading(null)}
                 className="p-1 rounded-lg text-slate-400 hover:text-slate-600 cursor-pointer"
@@ -1110,14 +1072,12 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
               <div className="flex justify-between py-1 border-b border-slate-100">
                 <span>Điện (CT: {inspectReading.electricMeterCode}):</span>
                 <span className="font-mono font-bold text-amber-800">
-                  {inspectReading.initialElectricKwh} → {inspectReading.finalElectricKwh} ({Math.max(0, inspectReading.finalElectricKwh - inspectReading.initialElectricKwh)} kWh)
-                </span>
+                  {inspectReading.initialElectricKwh} → {inspectReading.finalElectricKwh} ({Math.max(0, inspectReading.finalElectricKwh - inspectReading.initialElectricKwh)} kWh) </span>
               </div>
               <div className="flex justify-between py-1 border-b border-slate-100">
                 <span>Nước (CT: {inspectReading.waterMeterCode}):</span>
                 <span className="font-mono font-bold text-blue-800">
-                  {inspectReading.initialWaterM3} → {inspectReading.finalWaterM3} ({Math.max(0, inspectReading.finalWaterM3 - inspectReading.initialWaterM3)} m³)
-                </span>
+                  {inspectReading.initialWaterM3} → {inspectReading.finalWaterM3} ({Math.max(0, inspectReading.finalWaterM3 - inspectReading.initialWaterM3)} m³) </span>
               </div>
               {inspectReading.isAbnormal && (
                 <div className="p-3 bg-amber-50 rounded-xl space-y-1 text-amber-900">
@@ -1135,8 +1095,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                 onClick={() => setInspectReading(null)}
                 className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-medium cursor-pointer"
               >
-                Đóng
-              </button>
+                Đóng </button>
             </div>
           </div>
         </div>

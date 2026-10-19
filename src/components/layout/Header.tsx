@@ -1,3 +1,4 @@
+import { toUserMessage } from '../../utils/userMessages';
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Building2, User, LogOut, Key, ChevronDown } from 'lucide-react';
@@ -19,7 +20,7 @@ export const Header: React.FC<HeaderProps> = ({
   const handleLogoutClick = () => {
     setShowAccountMenu(false);
     const res = logout();
-    alert(res.message);
+    alert(toUserMessage(res.message));
   };
 
   return (
@@ -27,11 +28,9 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Brand title */}
       <div className="flex items-center gap-2 min-w-0">
         <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
-          AB
-        </div>
+          AB </div>
         <span className="text-sm sm:text-base font-bold tracking-tight text-slate-900 truncate max-w-[185px] sm:max-w-xs">
-          Chung cư mini An Bình
-        </span>
+          Chung cư mini An Bình </span>
       </div>
 
       {/* Active section breadcrumb */}
@@ -92,8 +91,7 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={onOpenLogin}
             className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
           >
-            Đăng nhập
-          </button>
+            Đăng nhập </button>
         )}
       </div>
     </header>

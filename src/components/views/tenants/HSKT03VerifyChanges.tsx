@@ -184,9 +184,7 @@ export const HSKT03VerifyChanges: React.FC<HSKT03Props> = ({ onNavigateToTab, on
               <h2 className="text-base font-bold text-purple-950">Kiểm tra thông tin thay đổi & Đối chiếu trước ký</h2>
             </div>
             <p className="text-xs text-purple-800 mt-1">
-              Điểm kiểm soát  3.12: Chỉ tạo kết quả đối chiếu, không ghi đè hồ sơ.
-              Tách biệt Chế độ A (Kiểm tra bộ dữ liệu thay đổi dùng chung) và Chế độ B (Đối chiếu định danh khách cũ trước ký - ).
-            </p>
+              Điểm kiểm soát 3.12: Chỉ tạo kết quả đối chiếu, không ghi đè hồ sơ. Tách biệt Chế độ A (Kiểm tra bộ dữ liệu thay đổi dùng chung) và Chế độ B (Đối chiếu định danh khách cũ trước ký - ). </p>
           </div>
 
           {/* Mode Switcher */}
@@ -197,16 +195,14 @@ export const HSKT03VerifyChanges: React.FC<HSKT03Props> = ({ onNavigateToTab, on
                 activeMode === 'modeA' ? 'bg-purple-600 text-white shadow-xs': 'text-purple-900 hover:bg-purple-50'
               }`}
             >
-              Chế độ A: Bộ đề nghị thay đổi
-            </button>
+              Chế độ A: Bộ đề nghị thay đổi </button>
             <button
               onClick={() => { setActiveMode('modeB'); setActionMsg(null); }}
               className={`px-3 py-1.5 rounded-md font-semibold cursor-pointer transition-colors ${
                 activeMode === 'modeB' ? 'bg-purple-600 text-white shadow-xs': 'text-purple-900 hover:bg-purple-50'
               }`}
             >
-              Chế độ B: Đối chiếu trước ký
-            </button>
+              Chế độ B: Đối chiếu trước ký </button>
           </div>
         </div>
       </div>
@@ -241,8 +237,7 @@ export const HSKT03VerifyChanges: React.FC<HSKT03Props> = ({ onNavigateToTab, on
                   const t = tenants.find(item => item.id === p.tenantId);
                   return (
                     <option key={p.id} value={p.id}>
-                      {p.id} (v{p.version}) - {t?.fullName || p.tenantId} [{p.verificationResult}]
-                    </option>
+                      {p.id} (v{p.version}) - {t?.fullName || p.tenantId} [{p.verificationResult}] </option>
                   );
                 })}
               </select>
@@ -254,8 +249,7 @@ export const HSKT03VerifyChanges: React.FC<HSKT03Props> = ({ onNavigateToTab, on
                 className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
-                Tạo đề nghị tại đây
-              </button>
+                Tạo đề nghị tại đây </button>
             </div>
           </div>
 
@@ -272,8 +266,7 @@ export const HSKT03VerifyChanges: React.FC<HSKT03Props> = ({ onNavigateToTab, on
                         <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">Nguồn: {selectedProposal.source}</span>
                       </div>
                       <div className="text-xs text-slate-800 font-bold mt-1">
-                        Khách thuê: {targetTenant?.fullName} ({selectedProposal.tenantId})
-                      </div>
+                        Khách thuê: {targetTenant?.fullName} ({selectedProposal.tenantId}) </div>
                     </div>
 
                     <div className="text-right">
@@ -294,8 +287,7 @@ export const HSKT03VerifyChanges: React.FC<HSKT03Props> = ({ onNavigateToTab, on
                   <div>
                     <h4 className="text-xs font-bold text-slate-700 mb-2 flex items-center gap-1.5">
                       <ArrowLeftRight className="w-3.5 h-3.5 text-blue-600" />
-                      Đối chiếu dữ liệu trước – sau
-                    </h4>
+                      Đối chiếu dữ liệu trước – sau </h4>
                     <div className="grid grid-cols-2 gap-3 text-xs">
                       {/* Cột hiện tại */}
                       <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
@@ -348,7 +340,7 @@ export const HSKT03VerifyChanges: React.FC<HSKT03Props> = ({ onNavigateToTab, on
                 <div className="p-5 bg-white border border-slate-200 rounded-xl shadow-xs space-y-4 text-xs">
                   <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
                     <ShieldCheck className="w-4 h-4 text-purple-600" />
-                    <h4 className="font-bold text-slate-800">Thực hiện kiểm tra & xác nhận (Bước 3-5)</h4>
+                    <h4 className="font-bold text-slate-800">Thực hiện kiểm tra & xác nhận </h4>
                   </div>
 
                   <div>
@@ -374,8 +366,7 @@ export const HSKT03VerifyChanges: React.FC<HSKT03Props> = ({ onNavigateToTab, on
 
                   <div>
                     <label className="block font-semibold text-slate-700 mb-1">
-                      Lý do / Căn cứ chưa xác minh
-                    </label>
+                      Lý do / Căn cứ chưa xác minh </label>
                     <input
                       type="text"
                       value={verifyReason}
@@ -387,8 +378,7 @@ export const HSKT03VerifyChanges: React.FC<HSKT03Props> = ({ onNavigateToTab, on
 
                   <div>
                     <label className="block font-semibold text-slate-700 mb-1">
-                      Căn cứ phân biệt nếu có nghi trùng
-                    </label>
+                      Căn cứ phân biệt nếu có nghi trùng </label>
                     <input
                       type="text"
                       value={distinctionBasis}
@@ -404,8 +394,7 @@ export const HSKT03VerifyChanges: React.FC<HSKT03Props> = ({ onNavigateToTab, on
                       onClick={handleConfirmVerification}
                       className="w-full py-2 bg-slate-900 hover:bg-black text-white font-bold rounded-lg cursor-pointer transition-colors"
                     >
-                      Xác nhận lưu kết quả (Bước 4)
-                    </button>
+                      Xác nhận lưu kết quả </button>
 
                     <button
                       type="button"
@@ -414,20 +403,17 @@ export const HSKT03VerifyChanges: React.FC<HSKT03Props> = ({ onNavigateToTab, on
                       className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg cursor-pointer transition-colors flex items-center justify-center gap-1.5 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed shadow-xs"
                     >
                       <ArrowRight className="w-4 h-4" />
-                      Chuyển sang cập nhật hồ sơ
-                    </button>
+                      Chuyển sang cập nhật hồ sơ </button>
                   </div>
 
                   <p className="text-[10px] text-slate-400 italic">
-                    Nếu hủy chuyển ở bước 5, kết quả kiểm tra đã lưu tại bước 4 vẫn được bảo lưu, không bị xóa.
-                  </p>
+                    Nếu hủy chuyển ở, kết quả kiểm tra đã lưu tại vẫn được bảo lưu, không bị xóa. </p>
                 </div>
               </div>
             </div>
           ): (
             <div className="p-8 bg-white border border-slate-200 rounded-xl text-center text-slate-500 text-xs">
-              Chưa có bộ dữ liệu đề nghị thay đổi nào. Bạn có thể nhấn nút "Tạo đề nghị tại đây" ở góc trên.
-            </div>
+              Chưa có bộ dữ liệu đề nghị thay đổi nào. Bạn có thể nhấn nút "Tạo đề nghị tại đây" ở góc trên. </div>
           )}
         </div>
       )}
@@ -440,13 +426,10 @@ export const HSKT03VerifyChanges: React.FC<HSKT03Props> = ({ onNavigateToTab, on
               <div className="flex items-center gap-2">
                 <FileCheck className="w-4 h-4 text-purple-600" />
                 <h3 className="text-sm font-bold text-slate-800">
-                  Đối chiếu định danh khách cũ trước ký
-                </h3>
+                  Đối chiếu định danh khách cũ trước ký </h3>
               </div>
               <p className="text-xs text-slate-500 mt-1">
-                Áp dụng khi khách cũ không thay đổi dữ liệu cá nhân nhưng phải đối chiếu giấy tờ hợp lệ trước khi Khách ký tại  ghi nhận ký.
-                Không tạo bộ dữ liệu đề nghị thay đổi giả.
-              </p>
+                Áp dụng khi khách cũ không thay đổi dữ liệu cá nhân nhưng phải đối chiếu giấy tờ hợp lệ trước khi Khách ký tại ghi nhận ký. Không tạo bộ dữ liệu đề nghị thay đổi giả. </p>
             </div>
 
             <form onSubmit={handleRecordPreSignSubmit} className="space-y-4 text-xs">
@@ -536,7 +519,7 @@ export const HSKT03VerifyChanges: React.FC<HSKT03Props> = ({ onNavigateToTab, on
                   rows={2}
                   value={psvNotes}
                   onChange={(e) => setPsvNotes(e.target.value)}
-                  placeholder="Ghi chú mục đích ký hợp đồng  ghi nhận ký..."
+                  placeholder="Ghi chú mục đích ký hợp đồng ghi nhận ký..."
                   className="w-full p-2 border border-slate-300 rounded-lg"
                 />
               </div>
@@ -546,8 +529,7 @@ export const HSKT03VerifyChanges: React.FC<HSKT03Props> = ({ onNavigateToTab, on
                   type="submit"
                   className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg shadow-xs cursor-pointer"
                 >
-                  Ghi nhận kết quả đối chiếu định danh
-                </button>
+                  Ghi nhận kết quả đối chiếu định danh </button>
               </div>
             </form>
           </div>
@@ -674,14 +656,12 @@ export const HSKT03VerifyChanges: React.FC<HSKT03Props> = ({ onNavigateToTab, on
                   onClick={() => setShowNewProposalModal(false)}
                   className="px-3 py-1.5 border border-slate-300 rounded-lg text-slate-600"
                 >
-                  Hủy
-                </button>
+                  Hủy </button>
                 <button
                   type="submit"
                   className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg"
                 >
-                  Tạo bộ đề nghị
-                </button>
+                  Tạo bộ đề nghị </button>
               </div>
             </form>
           </div>

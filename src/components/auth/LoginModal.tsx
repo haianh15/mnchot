@@ -174,8 +174,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
                   : 'text-slate-500 hover:text-slate-800'
               }`}
             >
-              Đăng nhập
-            </button>
+              Đăng nhập </button>
             <button
               onClick={() => setActiveTab('forgot')}
               className={`flex-1 py-3 text-center transition-colors cursor-pointer ${
@@ -184,8 +183,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
                   : 'text-slate-500 hover:text-slate-800'
               }`}
             >
-              Quên mật khẩu
-            </button>
+              Quên mật khẩu </button>
           </div>
         )}
 
@@ -220,8 +218,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
                     onClick={() => setActiveTab('forgot')}
                     className="text-xs text-blue-600 hover:underline cursor-pointer"
                   >
-                    Quên mật khẩu?
-                  </button>
+                    Quên mật khẩu? </button>
                 </div>
                 <div className="relative">
                   <input
@@ -268,8 +265,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
           {activeTab === 'first_change' && (
             <form onSubmit={handleFirstChangeSubmit} className="space-y-3.5">
               <div className="p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-lg text-xs">
-                Tài khoản của bạn được cấp mật khẩu tạm thời. Vui lòng đặt mật khẩu mới để tiếp tục vào Quản lý phòng.
-              </div>
+                Tài khoản của bạn được cấp mật khẩu tạm thời. Vui lòng đặt mật khẩu mới để tiếp tục vào Quản lý phòng. </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -335,15 +331,13 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
                   type="submit"
                   className="flex-1 py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg text-sm transition-colors cursor-pointer"
                 >
-                  Lưu mật khẩu mới
-                </button>
+                  Lưu mật khẩu mới </button>
                 <button
                   type="button"
                   onClick={handleCancelFirstChange}
                   className="py-2 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg text-sm transition-colors cursor-pointer"
                 >
-                  Thoát
-                </button>
+                  Thoát </button>
               </div>
             </form>
           )}
@@ -356,8 +350,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
                 <span>Quên mật khẩu → Đặt lại mật khẩu</span>
               </div>
               <p className="text-xs text-slate-600">
-                Khôi phục qua email yêu cầu dịch vụ gửi email và dữ liệu xác thực trên máy chủ. Bản xem thử chưa cấu hình chức năng này.
-              </p>
+                Khôi phục qua email yêu cầu dịch vụ gửi email và dữ liệu xác thực trên máy chủ. Bản xem thử chưa cấu hình chức năng này. </p>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
@@ -391,8 +384,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
                   type="submit"
                   className="flex-1 py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg text-sm transition-colors cursor-pointer"
                 >
-                  Gửi liên kết đặt lại
-                </button>
+                  Gửi liên kết đặt lại </button>
                 <button
                   type="button"
                   onClick={() => {
@@ -402,8 +394,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
                   }}
                   className="py-2 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg text-sm transition-colors cursor-pointer"
                 >
-                  Quay lại Đăng nhập
-                </button>
+                  Quay lại Đăng nhập </button>
               </div>
             </form>
           )}
@@ -476,15 +467,13 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
                   type="submit"
                   className="flex-1 py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg text-sm transition-colors cursor-pointer"
                 >
-                  Hoàn tất đặt lại mật khẩu
-                </button>
+                  Hoàn tất đặt lại mật khẩu </button>
                 <button
                   type="button"
                   onClick={() => setActiveTab('login')}
                   className="py-2 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg text-sm transition-colors cursor-pointer"
                 >
-                  Quay lại Đăng nhập
-                </button>
+                  Quay lại Đăng nhập </button>
               </div>
             </form>
           )}

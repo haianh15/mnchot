@@ -41,7 +41,6 @@ export const ContractsView: React.FC<{initialContractId?: string; onBackToRooms?
 
   const [selectedContractId, setSelectedContractId] = useState(initialContractId || '');
   const [searchContract, setSearchContract] = useState('');
-  const [showMoreTools, setShowMoreTools] = useState(false);
   useEffect(() => { if (initialContractId) {setSelectedContractId(initialContractId); setActiveTab('overview');} }, [initialContractId]);
   const selectedContract = contracts.find(c => c.id === selectedContractId);
   const linkedSlips = settlementSlips.filter(s => s.leaseId === selectedContract?.leaseId);
@@ -79,6 +78,7 @@ export const ContractsView: React.FC<{initialContractId?: string; onBackToRooms?
           <p className="text-xs text-slate-500 mt-1">Chọn hợp đồng để xem chi tiết, gia hạn hoặc quyết toán cọc theo điều kiện.</p>
           <div className="flex flex-wrap gap-2 mt-3 items-center">
             <input value={searchContract} onChange={e=>setSearchContract(e.target.value)} placeholder="Tìm mã hợp đồng, phòng hoặc khách thuê" className="w-full sm:w-auto sm:flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+            <button onClick={()=>setActiveTab('schedules')} className="px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">Lịch hợp đồng chung</button>
             <button onClick={()=>setActiveTab('expiry')} className="px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">Theo dõi hạn hợp đồng</button>
             <button onClick={()=>setActiveTab('conditions')} className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold">+ Lập hợp đồng</button>
           </div>
@@ -117,14 +117,6 @@ export const ContractsView: React.FC<{initialContractId?: string; onBackToRooms?
               </div>
             </>}
           </div>
-        </div>
-        <div className="border-t border-slate-200 pt-3">
-          <button onClick={()=>setShowMoreTools(!showMoreTools)} aria-expanded={showMoreTools} className="text-sm text-slate-700 font-semibold underline underline-offset-2">{showMoreTools ? 'Ẩn' : 'Hiện'} các công cụ hợp đồng khác</button>
-          {showMoreTools && <div className="mt-3 flex flex-wrap gap-2 text-sm">
-            <button className="px-3 py-2 border rounded-lg" onClick={()=>setActiveTab('schedules')}>Lịch đợt hợp đồng chung</button>
-            <button className="px-3 py-2 border rounded-lg" onClick={()=>setActiveTab('negotiate')}>Điều chỉnh dự thảo</button>
-            <button className="px-3 py-2 border rounded-lg" onClick={()=>setActiveTab('activate')}>Ghi nhận hợp đồng nối tiếp</button>
-          </div>}
         </div>
       </div>}
       {activeTab === 'settlement' && selectedContract && <div className="space-y-3">

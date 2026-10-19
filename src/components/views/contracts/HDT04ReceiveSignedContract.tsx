@@ -1,3 +1,4 @@
+import { toUserMessage } from '../../../utils/userMessages';
 import React, { useState } from 'react';
 import { useApp } from '../../../context/AppContext';
 import { Contract } from '../../../types';
@@ -75,9 +76,9 @@ export const HDT04ReceiveSignedContract: React.FC<HDT04Props> = ({
 
     if (res.success) {
       setSuccessMessage(res.message);
-      alert(res.message);
+      alert(toUserMessage(res.message));
     } else {
-      alert(res.message);
+      alert(toUserMessage(res.message));
     }
   };
 
@@ -91,18 +92,15 @@ export const HDT04ReceiveSignedContract: React.FC<HDT04Props> = ({
               
             </span>
             <h2 className="text-sm font-bold text-slate-900">
-              Tiếp nhận, đối chiếu & lưu hợp đồng đã ký (Lưu bản ký hợp đồng)
-            </h2>
+              Tiếp nhận, đối chiếu & lưu hợp đồng đã ký (Lưu bản ký hợp đồng) </h2>
           </div>
           <p className="text-xs text-slate-600 mt-1 max-w-2xl leading-relaxed">
-            Đối chiếu văn bản có chữ ký của cả hai bên, tải file chứng cứ hợp đồng giấy. <strong>Ràng buộc đặc tả  ghi nhận ký:</strong> Bắt buộc hoàn tất đối chiếu bản gốc CCCD/Hộ chiếu của khách thuê trước khi ký kết chính thức nếu là hồ sơ sơ bộ.
-          </p>
+            Đối chiếu văn bản có chữ ký của cả hai bên, tải file chứng cứ hợp đồng giấy. <strong>Ràng buộc đặc tả ghi nhận ký:</strong> Bắt buộc hoàn tất đối chiếu bản gốc CCCD/Hộ chiếu của khách thuê trước khi ký kết chính thức nếu là hồ sơ sơ bộ. </p>
         </div>
 
         <div className="flex items-center gap-2 text-xs">
           <span className="bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-2xs font-semibold text-slate-700">
-            Chờ tiếp nhận ký: <strong>{eligibleContracts.length}</strong> hợp đồng
-          </span>
+            Chờ tiếp nhận ký: <strong>{eligibleContracts.length}</strong> hợp đồng </span>
         </div>
       </div>
 
@@ -113,11 +111,9 @@ export const HDT04ReceiveSignedContract: React.FC<HDT04Props> = ({
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <h3 className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
               <FileCheck className="w-4 h-4 text-emerald-600" />
-              Biểu mẫu tiếp nhận & đối chiếu hợp đồng ký
-            </h3>
+              Biểu mẫu tiếp nhận & đối chiếu hợp đồng ký </h3>
             <span className="text-[11px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-semibold">
-              Khóa dữ liệu pháp lý
-            </span>
+              Khóa dữ liệu pháp lý </span>
           </div>
 
           <form onSubmit={handleConfirmSigned} className="space-y-4 text-xs">
@@ -136,8 +132,7 @@ export const HDT04ReceiveSignedContract: React.FC<HDT04Props> = ({
               >
                 {eligibleContracts.map(c => (
                   <option key={c.id} value={c.id}>
-                    {c.id} - Phòng {c.roomCode} - Khách: {c.tenantName} ({c.status})
-                  </option>
+                    {c.id} - Phòng {c.roomCode} - Khách: {c.tenantName} ({c.status}) </option>
                 ))}
               </select>
             </div>
@@ -181,11 +176,9 @@ export const HDT04ReceiveSignedContract: React.FC<HDT04Props> = ({
                       <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                       <div>
                         <strong className="block font-bold text-amber-950 text-xs uppercase tracking-wide">
-                          ĐỐI CHIẾU GIẤY TỜ NHÂN THÂN KHÁCH THUÊ
-                        </strong>
+                          ĐỐI CHIẾU GIẤY TỜ NHÂN THÂN KHÁCH THUÊ </strong>
                         <p className="text-[11px] text-amber-800 mt-0.5 leading-relaxed">
-                          Hồ sơ khách <strong>{selectedTenant?.fullName}</strong> ({selectedTenant?.id}) hiện là <strong>Hồ sơ sơ bộ</strong>. Quy trình không cho phép lưu hợp đồng đã ký nếu chưa xác thực đối chiếu bản gốc CCCD/Hộ chiếu tại chỗ.
-                        </p>
+                          Hồ sơ khách <strong>{selectedTenant?.fullName}</strong> ({selectedTenant?.id}) hiện là <strong>Hồ sơ sơ bộ</strong>. Cần đối chiếu bản gốc giấy tờ tùy thân trước khi lưu hợp đồng đã ký. </p>
                       </div>
                     </div>
 
@@ -226,32 +219,28 @@ export const HDT04ReceiveSignedContract: React.FC<HDT04Props> = ({
                         className="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
                       />
                       <span className="text-[11px] text-slate-800 font-medium">
-                        Tôi xác nhận đã kiểm tra, đối chiếu trực tiếp bản gốc CCCD/Hộ chiếu với người ký tên, đảm bảo thông tin hợp lệ và chính xác trước khi khóa hợp đồng.
-                      </span>
+                        Tôi xác nhận đã kiểm tra, đối chiếu trực tiếp bản gốc CCCD/Hộ chiếu với người ký tên, đảm bảo thông tin hợp lệ và chính xác trước khi khóa hợp đồng. </span>
                     </label>
                   </div>
                 ): (
                   <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center gap-2 text-emerald-900 text-xs">
                     <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
                     <span>
-                      Hồ sơ khách thuê <strong>{selectedTenant?.fullName}</strong> đã được xác minh giấy tờ hợp lệ từ trước (CCCD: <span className="font-mono font-semibold">{selectedTenant?.idNumber || 'Đã có'}</span>). Đủ điều kiện ký hợp đồng ngay.
-                    </span>
+                      Hồ sơ khách thuê <strong>{selectedTenant?.fullName}</strong> đã được xác minh giấy tờ hợp lệ từ trước (CCCD: <span className="font-mono font-semibold">{selectedTenant?.idNumber || 'Đã có'}</span>). Đủ điều kiện ký hợp đồng ngay. </span>
                   </div>
                 )}
 
                 {/* Submit Action */}
                 <div className="pt-3 border-t border-slate-200 flex items-center justify-between">
                   <span className="text-slate-400 text-[11px]">
-                    Thao tác này sẽ chuyển hợp đồng sang trạng thái Đã ký / Hiệu lực và khóa phòng.
-                  </span>
+                    Thao tác này sẽ chuyển hợp đồng sang trạng thái Đã ký / Hiệu lực và khóa phòng. </span>
 
                   <button
                     type="submit"
                     className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold flex items-center gap-2 shadow-sm cursor-pointer"
                   >
                     <CheckCircle2 className="w-4 h-4" />
-                    Xác nhận lưu hợp đồng đã ký (4.12)
-                  </button>
+                    Xác nhận lưu hợp đồng đã ký (4.12) </button>
                 </div>
               </>
             )}
@@ -322,14 +311,12 @@ export const HDT04ReceiveSignedContract: React.FC<HDT04Props> = ({
               <div className="p-3 bg-blue-50/60 rounded-xl border border-blue-200 text-[11px] text-blue-900 space-y-1">
                 <span className="font-bold block">Hiệu lực tự động:</span>
                 <p>
-                  Nếu ngày bắt đầu ({selectedContract.startDate}) &lt;= hôm nay, trạng thái hợp đồng lập tức chuyển thành <strong>Hiệu lực</strong>. Nếu ngày bắt đầu trong tương lai, trạng thái sẽ là <strong>Chờ hiệu lực</strong>.
-                </p>
+                  Nếu ngày bắt đầu ({selectedContract.startDate}) &lt;= hôm nay, trạng thái hợp đồng lập tức chuyển thành <strong>Hiệu lực</strong>. Nếu ngày bắt đầu trong tương lai, trạng thái sẽ là <strong>Chờ hiệu lực</strong>. </p>
               </div>
             </div>
           ): (
             <div className="p-8 text-center bg-white rounded-xl border border-slate-200 text-slate-400 text-xs">
-              Vui lòng chọn một hợp đồng để tiến hành đối chiếu và lưu bản ký.
-            </div>
+              Vui lòng chọn một hợp đồng để tiến hành đối chiếu và lưu bản ký. </div>
           )}
         </div>
       </div>

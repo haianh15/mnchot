@@ -182,16 +182,14 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onNavigateToNotices }) =
                 placeholder="Ví dụ: Kỳ 10/2026"
               />
               <p className="text-[11px] text-slate-500 mt-1">
-                Lưu ý: Mức giá mới chỉ dùng cho kỳ sử dụng chưa chốt; bảng tính tiền đã chốt giữ nguyên đơn giá gốc.
-              </p>
+                Lưu ý: Mức giá mới chỉ dùng cho kỳ sử dụng chưa chốt; bảng tính tiền đã chốt giữ nguyên đơn giá gốc. </p>
             </div>
 
             {/* Danh mục phí dịch vụ cố định theo phòng/kỳ */}
             <div className="border-t border-slate-200 pt-3 flex-1">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                  Phí dịch vụ cố định (tính theo phòng/kỳ)
-                </span>
+                  Phí dịch vụ cố định (tính theo phòng/kỳ) </span>
               </div>
 
               <div className="space-y-2 mb-3">
@@ -241,8 +239,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onNavigateToNotices }) =
                     className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded text-xs font-medium flex items-center gap-1 cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    Thêm
-                  </button>
+                    Thêm </button>
                 </div>
               </div>
             </div>
@@ -262,15 +259,13 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onNavigateToNotices }) =
             <div className="pt-3 border-t border-slate-100 flex items-center justify-between mt-auto">
               <span className="text-[11px] text-slate-400 flex items-center gap-1">
                 <History className="w-3.5 h-3.5" />
-                Đã lưu {priceHistory.length} bản ghi lịch sử
-              </span>
+                Đã lưu {priceHistory.length} bản ghi lịch sử </span>
               <button
                 type="submit"
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
               >
                 <Save className="w-3.5 h-3.5" />
-                Lưu cấu hình đơn giá
-              </button>
+                Lưu cấu hình đơn giá </button>
             </div>
           </form>
         </div>
@@ -283,16 +278,14 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onNavigateToNotices }) =
               <h2 className="text-sm font-bold text-slate-800">Tài khoản Ngân hàng Nhận Tiền</h2>
             </div>
             <span className="text-[11px] text-emerald-700 font-medium bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-              Duy nhất 1 tài khoản áp dụng
-            </span>
+              Duy nhất 1 tài khoản áp dụng </span>
           </div>
 
           <div className="p-5 space-y-4 flex-1 flex flex-col">
             {/* Active bank account card */}
             <div className="p-4 rounded-xl border border-indigo-200 bg-gradient-to-br from-indigo-50/70 to-blue-50/40">
               <span className="text-[11px] font-bold text-indigo-900 uppercase tracking-wider block mb-2">
-                Tài khoản đang áp dụng làm nguồn QR Code
-              </span>
+                Tài khoản đang áp dụng làm nguồn QR Code </span>
               {activeBankAccount ? (
                 <div className="space-y-1.5 text-xs text-slate-800">
                   <div className="flex justify-between">
@@ -323,8 +316,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onNavigateToNotices }) =
                 <div className="flex items-start gap-2">
                   <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                   <span>
-                    Cảnh báo: Có <strong>{pendingNoticesWithOldBank.length}</strong> thông báo chưa thu tiền đang dùng mã QR của tài khoản ngân hàng cũ.
-                  </span>
+                    Cảnh báo: Có <strong>{pendingNoticesWithOldBank.length}</strong> thông báo chưa thu tiền đang dùng mã QR của tài khoản ngân hàng cũ. </span>
                 </div>
                 {onNavigateToNotices && (
                   <button
@@ -332,8 +324,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onNavigateToNotices }) =
                     onClick={onNavigateToNotices}
                     className="text-xs text-blue-700 font-semibold underline block cursor-pointer"
                   >
-                    Xem danh sách thông báo cần phát hành lại mã QR →
-                  </button>
+                    Xem danh sách thông báo cần phát hành lại mã QR → </button>
                 )}
               </div>
             )}
@@ -341,8 +332,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onNavigateToNotices }) =
             {/* Form to update bank account */}
             <form onSubmit={handleSaveBank} className="space-y-3 border-t border-slate-200 pt-3">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-700 block">
-                Thiết lập / Thay đổi tài khoản ngân hàng
-              </span>
+                Thiết lập / Thay đổi tài khoản ngân hàng </span>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -407,8 +397,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onNavigateToNotices }) =
                   className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
                 >
                   <Save className="w-3.5 h-3.5" />
-                  Lưu tài khoản ngân hàng
-                </button>
+                  Lưu tài khoản ngân hàng </button>
               </div>
             </form>
           </div>

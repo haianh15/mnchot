@@ -1,3 +1,4 @@
+import { toUserMessage } from '../../../utils/userMessages';
 import React, { useState } from 'react';
 import { useApp } from '../../../context/AppContext';
 import { BatchSchedule } from '../../../types';
@@ -81,7 +82,7 @@ export const HDT05BatchSchedules: React.FC = () => {
 
     if (res.success) {
       setShowEditModal(false);
-      alert(res.message);
+      alert(toUserMessage(res.message));
     }
   };
 
@@ -95,12 +96,10 @@ export const HDT05BatchSchedules: React.FC = () => {
               
             </span>
             <h2 className="text-sm font-bold text-slate-900">
-              Quản lý lịch đợt hợp đồng chung
-            </h2>
+              Quản lý lịch đợt hợp đồng chung </h2>
           </div>
           <p className="text-xs text-slate-600 mt-1 max-w-2xl leading-relaxed">
-            Lịch đợt chung áp dụng cho toàn bộ các phòng tham gia cùng kỳ thuê. Các hợp đồng mới và hợp đồng nối tiếp bắt buộc phải tham chiếu theo đợt chung đã xác nhận để đồng bộ chu kỳ thu tiền và chốt điện nước.
-          </p>
+            Lịch đợt chung áp dụng cho toàn bộ các phòng tham gia cùng kỳ thuê. Các hợp đồng mới và hợp đồng nối tiếp bắt buộc phải tham chiếu theo đợt chung đã xác nhận để đồng bộ chu kỳ thu tiền và chốt điện nước. </p>
         </div>
 
         <button
@@ -108,8 +107,7 @@ export const HDT05BatchSchedules: React.FC = () => {
           className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm cursor-pointer whitespace-nowrap self-start md:self-center"
         >
           <Plus className="w-4 h-4" />
-          Thêm lịch đợt mới
-        </button>
+          Thêm lịch đợt mới </button>
       </div>
 
       {/* Search Bar */}
@@ -126,8 +124,7 @@ export const HDT05BatchSchedules: React.FC = () => {
         </div>
 
         <span className="text-xs text-slate-500 font-medium">
-          Tổng cộng: <strong>{batchSchedules.length}</strong> đợt chung
-        </span>
+          Tổng cộng: <strong>{batchSchedules.length}</strong> đợt chung </span>
       </div>
 
       {/* Grid of Batch Schedules */}
@@ -148,8 +145,7 @@ export const HDT05BatchSchedules: React.FC = () => {
                     {b.batchCode}
                   </span>
                   <div className="text-[11px] text-slate-500 mt-0.5">
-                    Thời lượng: 6 tháng tiêu chuẩn
-                  </div>
+                    Thời lượng: 6 tháng tiêu chuẩn </div>
                 </div>
 
                 <div className="flex items-center gap-1.5">
@@ -219,8 +215,7 @@ export const HDT05BatchSchedules: React.FC = () => {
                 onClick={() => setShowAddModal(false)}
                 className="p-1 text-slate-400 hover:text-slate-700 cursor-pointer"
               >
-                ✕
-              </button>
+                ✕ </button>
             </div>
 
             <form onSubmit={handleAddBatch} className="space-y-3.5">
@@ -268,8 +263,7 @@ export const HDT05BatchSchedules: React.FC = () => {
 
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">
-                  Ghi chú chu kỳ thu tiền phòng & dịch vụ
-                </label>
+                  Ghi chú chu kỳ thu tiền phòng & dịch vụ </label>
                 <textarea
                   rows={2}
                   value={newBillingNote}
@@ -286,8 +280,7 @@ export const HDT05BatchSchedules: React.FC = () => {
                   className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
                 />
                 <span className="font-semibold text-slate-700">
-                  Xác nhận lịch đợt chính thức ngay (isConfirmed)
-                </span>
+                  Xác nhận lịch đợt chính thức ngay (isConfirmed) </span>
               </label>
 
               <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
@@ -296,14 +289,12 @@ export const HDT05BatchSchedules: React.FC = () => {
                   onClick={() => setShowAddModal(false)}
                   className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-semibold cursor-pointer"
                 >
-                  Hủy
-                </button>
+                  Hủy </button>
                 <button
                   type="submit"
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold cursor-pointer"
                 >
-                  Xác nhận lưu đợt
-                </button>
+                  Xác nhận lưu đợt </button>
               </div>
             </form>
           </div>
@@ -323,8 +314,7 @@ export const HDT05BatchSchedules: React.FC = () => {
                 onClick={() => setShowEditModal(false)}
                 className="p-1 text-slate-400 hover:text-slate-700 cursor-pointer"
               >
-                ✕
-              </button>
+                ✕ </button>
             </div>
 
             <form onSubmit={handleSaveEdit} className="space-y-3.5">
@@ -335,8 +325,7 @@ export const HDT05BatchSchedules: React.FC = () => {
 
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">
-                  Ghi chú chu kỳ thu tiền phòng & dịch vụ
-                </label>
+                  Ghi chú chu kỳ thu tiền phòng & dịch vụ </label>
                 <textarea
                   rows={2}
                   value={editBillingNote}
@@ -353,8 +342,7 @@ export const HDT05BatchSchedules: React.FC = () => {
                   className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
                 />
                 <span className="font-semibold text-slate-700">
-                  Đợt đã xác nhận lịch chính thức
-                </span>
+                  Đợt đã xác nhận lịch chính thức </span>
               </label>
 
               <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
@@ -363,14 +351,12 @@ export const HDT05BatchSchedules: React.FC = () => {
                   onClick={() => setShowEditModal(false)}
                   className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-semibold cursor-pointer"
                 >
-                  Đóng
-                </button>
+                  Đóng </button>
                 <button
                   type="submit"
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold cursor-pointer"
                 >
-                  Lưu thay đổi
-                </button>
+                  Lưu thay đổi </button>
               </div>
             </form>
           </div>

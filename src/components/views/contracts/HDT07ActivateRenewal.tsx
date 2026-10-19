@@ -1,3 +1,4 @@
+import { toUserMessage } from '../../../utils/userMessages';
 import React, { useState } from 'react';
 import { useApp } from '../../../context/AppContext';
 import { Contract } from '../../../types';
@@ -31,7 +32,7 @@ export const HDT07ActivateRenewal: React.FC = () => {
 
   const handleActivate = (contractId: string) => {
     const res = activateRenewalContractHDT07(contractId, signDate, [proofFile]);
-    alert(res.message);
+    alert(toUserMessage(res.message));
   };
 
   // Filtered all contracts
@@ -55,12 +56,10 @@ export const HDT07ActivateRenewal: React.FC = () => {
               
             </span>
             <h2 className="text-sm font-bold text-slate-900">
-              Kích hoạt hiệu lực hợp đồng gia hạn & Vòng đời hợp đồng
-            </h2>
+              Kích hoạt hiệu lực hợp đồng gia hạn & Vòng đời hợp đồng </h2>
           </div>
           <p className="text-xs text-slate-600 mt-1 max-w-2xl leading-relaxed">
-            Kích hoạt chuyển tiếp hợp đồng nối tiếp thành <strong>Hiệu lực</strong>, tự động chuyển hợp đồng cũ thành <strong>Kết thúc</strong> và tự động hủy bỏ kế hoạch trả phòng nếu có theo. Đồng thời cung cấp bảng tổng thể quản lý vòng đời toàn bộ hợp đồng thuê.
-          </p>
+            Kích hoạt chuyển tiếp hợp đồng nối tiếp thành <strong>Hiệu lực</strong>, tự động chuyển hợp đồng cũ thành <strong>Kết thúc</strong> và tự động hủy bỏ kế hoạch trả phòng nếu có theo. Đồng thời cung cấp bảng tổng thể quản lý vòng đời toàn bộ hợp đồng thuê. </p>
         </div>
 
         <div className="text-xs font-semibold bg-white px-3 py-1.5 rounded-lg border border-purple-200 text-purple-800 shadow-2xs">
@@ -74,11 +73,9 @@ export const HDT07ActivateRenewal: React.FC = () => {
           <div className="flex items-center justify-between border-b border-purple-100 pb-3">
             <h3 className="font-bold text-purple-900 text-sm flex items-center gap-1.5">
               <Sparkles className="w-4 h-4 text-purple-600" />
-              Hợp đồng nối tiếp đang chờ kích hoạt hiệu lực
-            </h3>
+              Hợp đồng nối tiếp đang chờ kích hoạt hiệu lực </h3>
             <span className="text-[11px] bg-purple-100 text-purple-800 px-2 py-0.5 rounded font-bold">
-              {draftRenewals.length} hợp đồng
-            </span>
+              {draftRenewals.length} hợp đồng </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -122,8 +119,7 @@ export const HDT07ActivateRenewal: React.FC = () => {
                     className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-bold text-xs flex items-center gap-1.5 shadow-sm cursor-pointer"
                   >
                     <CheckCircle2 className="w-4 h-4" />
-                    Kích hoạt hiệu lực nối tiếp
-                  </button>
+                    Kích hoạt hiệu lực nối tiếp </button>
                 </div>
               </div>
             ))}
@@ -136,17 +132,14 @@ export const HDT07ActivateRenewal: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
           <div>
             <h3 className="font-bold text-slate-900 text-sm">
-              Bảng tra cứu vòng đời toàn bộ hợp đồng thuê
-            </h3>
+              Bảng tra cứu vòng đời toàn bộ hợp đồng thuê </h3>
             <p className="text-xs text-slate-500">
-              Tổng hợp hợp đồng lần đầu và hợp đồng nối tiếp theo các giai đoạn hiệu lực.
-            </p>
+              Tổng hợp hợp đồng lần đầu và hợp đồng nối tiếp theo các giai đoạn hiệu lực. </p>
           </div>
 
           <div className="flex items-center gap-2">
             <span className="text-xs text-slate-500 font-medium">
-              Tìm thấy: <strong>{allFilteredContracts.length}</strong> hợp đồng
-            </span>
+              Tìm thấy: <strong>{allFilteredContracts.length}</strong> hợp đồng </span>
           </div>
         </div>
 
@@ -232,11 +225,9 @@ export const HDT07ActivateRenewal: React.FC = () => {
                     {c.startDate} → {c.endDate}
                   </td>
                   <td className="py-2.5 px-3 font-mono font-semibold">
-                    {c.monthlyRent.toLocaleString('vi-VN')} đ
-                  </td>
+                    {c.monthlyRent.toLocaleString('vi-VN')} đ </td>
                   <td className="py-2.5 px-3 font-mono text-emerald-700">
-                    {c.depositAmount.toLocaleString('vi-VN')} đ
-                    {c.previousContractId && (
+                    {c.depositAmount.toLocaleString('vi-VN')} đ {c.previousContractId && (
                       <span className="block text-[10px] text-slate-400 font-sans">(cọc gốc)</span>
                     )}
                   </td>
@@ -272,8 +263,7 @@ export const HDT07ActivateRenewal: React.FC = () => {
                       className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[11px] font-semibold cursor-pointer inline-flex items-center gap-1"
                     >
                       <Eye className="w-3 h-3" />
-                      Xem
-                    </button>
+                      Xem </button>
                   </td>
                 </tr>
               ))}
@@ -289,16 +279,14 @@ export const HDT07ActivateRenewal: React.FC = () => {
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="font-bold text-slate-900 text-base">
-                  Chi tiết hồ sơ hợp đồng
-                </h3>
+                  Chi tiết hồ sơ hợp đồng </h3>
                 <span className="font-mono text-blue-700 font-bold">{selectedContractForDetail.id}</span>
               </div>
               <button
                 onClick={() => setShowDetailModal(false)}
                 className="p-1 text-slate-400 hover:text-slate-700 cursor-pointer"
               >
-                ✕
-              </button>
+                ✕ </button>
             </div>
 
             <div className="space-y-3">
@@ -317,8 +305,7 @@ export const HDT07ActivateRenewal: React.FC = () => {
 
               {selectedContractForDetail.previousContractId && (
                 <div className="p-2.5 bg-indigo-50 border border-indigo-200 rounded-lg text-indigo-900 text-[11px]">
-                  Kế thừa cọc gốc từ hợp đồng: <strong className="font-mono">{selectedContractForDetail.previousContractId}</strong> (Mã cọc: {selectedContractForDetail.initialDepositCode})
-                </div>
+                  Kế thừa cọc gốc từ hợp đồng: <strong className="font-mono">{selectedContractForDetail.previousContractId}</strong> (Mã cọc: {selectedContractForDetail.initialDepositCode}) </div>
               )}
 
               {selectedContractForDetail.terms && (
@@ -353,8 +340,7 @@ export const HDT07ActivateRenewal: React.FC = () => {
                 onClick={() => setShowDetailModal(false)}
                 className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg font-semibold cursor-pointer"
               >
-                Đóng
-              </button>
+                Đóng </button>
             </div>
           </div>
         </div>
