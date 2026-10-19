@@ -1,0 +1,6 @@
+{
+  "name": "Hệ thống Quản lý Chung cư Mini",
+  "description": "Hệ thống Quản lý Chung cư Mini toàn diện - Quản lý phòng, hợp đồng, kiểm kê tài sản, tính tiền dịch vụ và quyết toán",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
