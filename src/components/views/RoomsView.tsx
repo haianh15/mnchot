@@ -1,4 +1,5 @@
 import { getInitialPaymentStatus } from '../../utils/initialPayments';
+import { auditOccupiedRoom } from '../../utils/roomReadiness';
 import { toUserMessage } from '../../utils/userMessages';
 import { resolveRoomContract, resolveRoomTenantId, getLeaseContractChain, getConfirmedRoomHandover } from '../../utils/roomLinks';
 import { getRoomOccupancy } from '../../utils/occupancy';
@@ -482,7 +483,11 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
   // Always use the same live residency calculation as Hồ sơ khách thuê.
   const getOccupancyForRoom = (room: Room) =>
     getRoomOccupancy(room, contracts, returnInspections, tenants, coTenants);
+  const getRoomAudit = (room: Room) =>
+    auditOccupiedRoom(room, contracts, tenants, initialPaymentRecords, handoverReports);
   const selectedOccupancy = selectedRoom ? getOccupancyForRoom(selectedRoom) : undefined;
+  const selectedRoomAudit = selectedRoom ? getRoomAudit(selectedRoom) : undefined;
+  const roomsNeedingReconciliation = rooms.filter(room => room.status !== 'Trống' && !getRoomAudit(room).valid);
 
   // Find related records for selectedRoom
   const relatedContract = selectedRoom ? getActiveRoomContract(selectedRoom) : undefined;
@@ -491,8 +496,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
   const relatedCoTenants = selectedOccupancy?.currentCoTenants ?? [];
   const relatedHandover = selectedRoom ? getCurrentRoomHandover(selectedRoom) : undefined;
   const relatedReturnPlan = selectedRoom ? getCurrentRoomReturnPlan(selectedRoom) : undefined;
-  const missingConfirmedCheckIn = Boolean(selectedRoom && selectedRoom.status !== 'Trống' &&
-    !getConfirmedRoomHandover(relatedContract, contracts, handoverReports));
+  const missingConfirmedCheckIn = Boolean(selectedRoomAudit && !selectedRoomAudit.valid);
   const relatedSettlement = relatedContract ? settlementSlips.find(s => s.roomCode === relatedContract.roomCode &&
     s.leaseId === relatedContract.leaseId) : undefined;
   const relatedPaymentStatus = getInitialPaymentStatus(relatedContract, contracts, initialPaymentRecords);
@@ -501,6 +505,11 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
 
   return (
     <div className="space-y-6 relative">
+      {roomsNeedingReconciliation.length > 0 && <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-amber-950 text-sm">
+        <strong>{roomsNeedingReconciliation.length} phòng đang thuê/sắp trả cần đối chiếu hồ sơ nhận phòng:</strong>
+        <span className="ml-1">{roomsNeedingReconciliation.map(r => r.roomCode).join(', ')}.</span>
+        <p className="mt-1 text-xs">Phòng đang có người ở thực tế không được tự đổi thành Trống. Nhấn Chi tiết phòng để xem thiếu hồ sơ khách, chứng từ cọc/thuê kỳ đầu hay biên bản nhận đã ký. Không sử dụng dữ liệu mẫu thay chứng từ thật.</p>
+      </div>}
       {/* Toast Notification Container */}
       {toast && (
         <div className="fixed top-6 right-6 z-50 transition-all duration-300 transform scale-100 animate-in fade-in slide-in-from-top-4">
@@ -633,6 +642,9 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                   ): (
                     filteredRooms.map((room, idx) => {
                       const expBadge = getExpiryBadge(room.contractEndDate);
+                      const roomAudit = getRoomAudit(room);
+                      const verifiedContract = getActiveRoomContract(room);
+                      const verifiedPayment = getInitialPaymentStatus(verifiedContract, contracts, initialPaymentRecords).valid;
                       return (
                         <tr
                           key={room.id}
@@ -659,25 +671,26 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                             }`}>
                               {room.status === 'Sắp trả' ? 'Sắp trả phòng' : room.status}
                             </span>
+                            {!roomAudit.valid && <span title={roomAudit.missing.join('; ')} className="mt-1 block text-[10px] font-semibold text-amber-800">Cần đối chiếu hồ sơ</span>}
                           </td>
 
                           {/* 6. Đã cọc */}
                           <td className="py-3 px-3">
-                            <span className={`text-[11px] font-semibold ${room.hasDeposit ? 'text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200': 'text-slate-400'}`}>
-                              {room.hasDeposit ? 'Đã cọc': 'Chưa'}
+                            <span className={`text-[11px] font-semibold ${verifiedPayment ? 'text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200': 'text-slate-400'}`}>
+                              {verifiedPayment ? 'Đã đối chiếu' : 'Chưa xác nhận'}
                             </span>
                           </td>
 
                           {/* 7. Đã thanh toán tiền thuê kỳ đầu */}
                           <td className="py-3 px-3">
-                            <span className={`text-[11px] font-semibold ${room.firstMonthRentPaid ? 'text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200': 'text-slate-400'}`}>
-                              {room.firstMonthRentPaid ? 'Đã thanh toán': 'Chưa'}
+                            <span className={`text-[11px] font-semibold ${verifiedPayment ? 'text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200': 'text-slate-400'}`}>
+                              {verifiedPayment ? 'Đã đối chiếu' : 'Chưa xác nhận'}
                             </span>
                           </td>
 
                           {/* 8. Kỳ thuê trả trước */}
                           <td className="py-3 px-3 font-mono text-slate-700">
-                            {room.firstMonthPeriod || <span className="text-slate-400">—</span>}
+                            {verifiedPayment ? (getInitialPaymentStatus(verifiedContract, contracts, initialPaymentRecords).payment?.rentPeriodNote || room.firstMonthPeriod || 'Kỳ đầu') : <span className="text-slate-400">—</span>}
                           </td>
 
                           {/* 9. Khách thuê hiện tại */}
@@ -938,8 +951,11 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                 </div>
               )}
 
-              {missingConfirmedCheckIn && <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-amber-950 text-sm">
-                <strong>Hồ sơ nhận phòng chưa đầy đủ.</strong> Phòng đang có khách nhưng chưa tìm thấy biên bản nhận phòng đã xác nhận đúng hợp đồng/lần thuê. Đây là dữ liệu cần đối chiếu, không phải bằng chứng đã bàn giao. Vui lòng mở <strong>Bổ sung biên bản nhận phòng</strong> và chỉ xác nhận khi có bản giấy thực tế đủ chữ ký.
+              {missingConfirmedCheckIn && <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-amber-950 text-sm space-y-1">
+                <strong>Cần đối chiếu hồ sơ nhận phòng trước khi thực hiện nghiệp vụ mới.</strong>
+                <p>Dữ liệu phòng cũ đang ghi Đang thuê/Sắp trả nhưng chưa có đủ bằng chứng của lần thuê hiện tại. Không tự chuyển phòng thành Trống và không tự tạo chứng từ hoặc biên bản đã ký.</p>
+                <ul className="list-disc pl-5">{selectedRoomAudit?.missing.map(item => <li key={item}>{item}</li>)}</ul>
+                <p>Hãy đối chiếu hợp đồng, hồ sơ khách, sao kê cọc/thuê đầu và bản giấy bàn giao thực tế; chỉ ghi nhận những chứng từ có thật.</p>
               </div>}
               {/* 1. THÔNG TIN CƠ BẢN PHÒNG */}
               <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
@@ -1566,7 +1582,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
             <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5">
               <div className="flex justify-between">
                 <span className="text-slate-500">Họ và tên khách thuê:</span>
-                <span className="font-bold text-slate-900">{selectedRoom.currentTenantName || 'Chưa ghi nhận'}</span>
+                <span className="font-bold text-slate-900">{relatedContract?.tenantName || 'Chưa ghi nhận'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Số CCCD/CMND:</span>
@@ -1710,13 +1726,13 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Trạng thái khoản cọc:</span>
-                <span className={`font-bold ${selectedRoom.hasDeposit ? 'text-emerald-700': 'text-slate-400'}`}>
-                  {selectedRoom.hasDeposit ? 'Đã thu cọc bảo đảm hợp đồng': 'Chưa thu cọc'}
+                <span className={`font-bold ${relatedPaymentStatus.valid ? 'text-emerald-700': 'text-amber-700'}`}>
+                  {relatedPaymentStatus.valid ? 'Đã đối chiếu cọc và thuê kỳ đầu' : 'Chưa có đủ chứng từ đối chiếu'}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Số tiền cọc gốc theo hợp đồng:</span>
-                <span className="font-mono font-bold text-blue-700 text-sm">3.500.000 đ</span>
+                <span className="font-mono font-bold text-blue-700 text-sm">{relatedContract?.depositAmount !== undefined ? `${relatedContract.depositAmount.toLocaleString('vi-VN')} đ` : 'Chưa có hợp đồng'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Phương thức lưu giữ:</span>
@@ -3109,7 +3125,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
       {showMissingConditionModal && selectedRoom && (() => {
         const targetContract = getActiveRoomContract(selectedRoom);
         const report = getCurrentRoomHandover(selectedRoom);
-        const twoPaymentsPassed = selectedRoom.hasDeposit && selectedRoom.firstMonthRentPaid;
+        const twoPaymentsPassed = getInitialPaymentStatus(targetContract, contracts, initialPaymentRecords).valid;
         const roomLogs = missingConditionLogs.filter(m => m.roomCode === selectedRoom.roomCode);
 
         return (
