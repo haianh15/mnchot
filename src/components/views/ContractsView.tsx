@@ -30,7 +30,7 @@ export type ContractTabKey =
   | 'renewal'
   | 'activate';
 
-export const ContractsView: React.FC<{initialContractId?: string; initialRoomCode?: string; initialAction?: 'create' | 'return-plans'; initialLeaseId?: string; onBackToRooms?: (roomCode: string) => void; onOpenTenant?: (target: {tenantId: string; roomCode: string; leaseId: string; contractId: string}) => void}> = ({initialContractId, initialRoomCode, initialAction, initialLeaseId, onBackToRooms, onOpenTenant}) => {
+export const ContractsView: React.FC<{initialContractId?: string; initialRoomCode?: string; initialAction?: 'create' | 'return-plans' | 'deposit-settlement' | 'return'; initialLeaseId?: string; onBackToRooms?: (roomCode: string) => void; onOpenTenant?: (target: {tenantId: string; roomCode: string; leaseId: string; contractId: string}) => void; onResumeHandover?: (record: { roomCode: string; leaseId: string; contractId: string }) => void}> = ({initialContractId, initialRoomCode, initialAction, initialLeaseId, onBackToRooms, onOpenTenant, onResumeHandover}) => {
   const {
     contracts,
     leaseConditions,
@@ -51,6 +51,7 @@ export const ContractsView: React.FC<{initialContractId?: string; initialRoomCod
   const [settlementFilter, setSettlementFilter] = useState<'all'|'pending'>('all');
   const [settlementMode, setSettlementMode] = useState<'list'|'create'|'edit'|'result'|'view'>('list');
   const [settlementOpenId, setSettlementOpenId] = useState('');
+  const [settlementFromHandover, setSettlementFromHandover] = useState(initialAction === 'deposit-settlement');
   const [largeContractOpen, setLargeContractOpen] = useState(false);
   const [returnFocus, setReturnFocus] = useState<{roomCode?: string; leaseId?: string; contractId?: string}>({});
   const openReturnTracking = (record: {roomCode?: string; leaseId?: string; contractId?: string} = {}) => {
@@ -58,7 +59,21 @@ export const ContractsView: React.FC<{initialContractId?: string; initialRoomCod
     setActiveTab('expiry');
   };
   useEffect(() => {
-    if (initialAction === 'return-plans') {
+    if (initialAction === 'deposit-settlement') {
+      const exactContract = contracts.find(c => c.id === initialContractId &&
+        c.roomCode === initialRoomCode && c.leaseId === initialLeaseId);
+      if (exactContract) {
+        setSelectedContractId(exactContract.id);
+        setSettlementFromHandover(true);
+        setSettlementMode('list');
+        setSettlementOpenId('');
+        setActiveTab('settlement');
+      } else {
+        setSelectedContractId('');
+        setSettlementFromHandover(false);
+        setActiveTab('overview');
+      }
+    } else if (initialAction === 'return-plans') {
       setSelectedContractId(initialContractId || '');
       openReturnTracking({roomCode: initialRoomCode, leaseId: initialLeaseId, contractId: initialContractId});
     } else if (initialAction === 'create' && initialRoomCode) {
@@ -87,6 +102,7 @@ export const ContractsView: React.FC<{initialContractId?: string; initialRoomCod
   const returnToContractList = () => {
     setSettlementMode('list');
     setSettlementOpenId('');
+    setSettlementFromHandover(false);
     setSelectedContractId('');
     setLargeContractOpen(false);
     setActiveTab('overview');
@@ -138,7 +154,7 @@ export const ContractsView: React.FC<{initialContractId?: string; initialRoomCod
             <input value={searchContract} onChange={e=>setSearchContract(e.target.value)} placeholder="Tìm mã hợp đồng, phòng hoặc khách thuê" aria-label="Tìm mã hợp đồng, phòng hoặc khách thuê" className="w-full sm:min-w-[230px] sm:flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm" />
             <button onClick={()=>setActiveTab('schedules')} className="px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">Lịch hợp đồng chung</button>
             <button onClick={()=>openReturnTracking()} className="px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">Theo dõi hạn hợp đồng</button>
-            <button onClick={()=>{setSelectedContractId('');openSettlement('list');}} className="px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">Quản lý quyết toán cọc</button>
+            <button onClick={()=>{setSettlementFromHandover(false);setSelectedContractId('');openSettlement('list');}} className="px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">Quản lý quyết toán cọc</button>
             <button onClick={()=>setActiveTab('conditions')} className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold">+ Lập hợp đồng</button>
           </div>
           <div className="flex flex-wrap items-center gap-2 mt-2">
@@ -232,8 +248,28 @@ export const ContractsView: React.FC<{initialContractId?: string; initialRoomCod
         </div>
       )}
       {activeTab === 'settlement' && (selectedContract || settlementMode === 'list') && <div className="space-y-3">
-        <button type="button" onClick={returnToContractList} className="px-3 py-2 border rounded-lg text-sm bg-white">← Danh sách hợp đồng</button>
-        <DepositSettlementView key={`${settlementMode}-${selectedContract?.leaseId || 'all'}-${settlementOpenId}`} leaseId={settlementMode === 'list' ? undefined : selectedContract?.leaseId} contractId={selectedContract?.id} initialMode={settlementMode} initialSlipId={settlementOpenId} onCreateClose={returnToContractList} />
+        <div className="flex flex-wrap gap-2 items-center">
+          <button type="button" onClick={returnToContractList} className="px-3 py-2 border rounded-lg text-sm bg-white">← Danh sách hợp đồng</button>
+          {settlementFromHandover && selectedContract && (
+            <>
+              <span className="rounded-lg border border-blue-300 bg-blue-50 px-3 py-2 text-sm font-bold text-blue-900">
+                Đang xử lý: Phòng {selectedContract.roomCode} · {selectedContract.id} · Lần thuê {selectedContract.leaseId}
+              </span>
+              <button type="button" onClick={() => onResumeHandover?.({
+                roomCode: selectedContract.roomCode, leaseId: selectedContract.leaseId, contractId: selectedContract.id
+              })} className="rounded-lg bg-blue-600 px-3 py-2 font-semibold text-sm text-white">
+                ← Tiếp tục bàn giao trả phòng
+              </button>
+            </>
+          )}
+        </div>
+        <DepositSettlementView
+          key={`${settlementMode}-${selectedContract?.leaseId || 'all'}-${settlementOpenId}`}
+          leaseId={settlementFromHandover || settlementMode !== 'list' ? selectedContract?.leaseId : undefined}
+          contractId={settlementFromHandover || settlementMode !== 'list' ? selectedContract?.id : undefined}
+          initialMode={settlementMode} initialSlipId={settlementOpenId}
+          onCreateClose={settlementFromHandover ? () => { setSettlementMode('list'); setSettlementOpenId(''); } : returnToContractList}
+        />
       </div>}
       {/* Action screens are contextual. The page no longer exposes every UC as a navigation tab. */}
       {activeTab !== 'overview' && activeTab !== 'settlement' && activeTab !== 'expiry' && <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-wrap gap-3 items-center justify-between">

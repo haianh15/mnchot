@@ -35,7 +35,7 @@ export const DepositSettlementView: React.FC<{leaseId?: string; contractId?: str
   const contractFocus = contracts.find(c => c.id === contractId && (!leaseId || c.leaseId === leaseId));
   const [selectedSlipId, setSelectedSlipId] = useState<string>(initialSlipId || (leaseId ? getCurrentSettlementSlip(settlementSlips, leaseId, contractFocus?.roomCode)?.id : settlementSlips[0]?.id) || '');
   const [isEditMode, setIsEditMode] = useState(initialMode === 'edit');
-  const selectedSlip = useMemo(() => settlementSlips.find(s => s.id === selectedSlipId && (!leaseId || s.leaseId === leaseId) && (!contractFocus || s.roomCode === contractFocus.roomCode)) || (leaseId ? getCurrentSettlementSlip(settlementSlips, leaseId, contractFocus?.roomCode) : settlementSlips[0] || null), [settlementSlips, selectedSlipId, leaseId, contractId]);
+  const selectedSlip = useMemo(() => settlementSlips.find(s => s.id === selectedSlipId && (!leaseId || s.leaseId === leaseId) && (!contractFocus || s.roomCode === contractFocus.roomCode)) || (leaseId ? (getCurrentSettlementSlip(settlementSlips, leaseId, contractFocus?.roomCode) || null) : settlementSlips[0] || null), [settlementSlips, selectedSlipId, leaseId, contractId]);
 
   useEffect(() => { if (initialSlipId) setSelectedSlipId(initialSlipId); else setSelectedSlipId(leaseId ? (getCurrentSettlementSlip(settlementSlips, leaseId, contractFocus?.roomCode)?.id || '') : (settlementSlips[0]?.id || '')); }, [leaseId, contractId, initialSlipId]);
   // Filters & Search
@@ -761,6 +761,11 @@ export const DepositSettlementView: React.FC<{leaseId?: string; contractId?: str
             <option value="Đã hủy">Đã hủy</option>
           </select>
           {/* Slips Cards */}
+          {contractFocus && (
+            <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-900">
+              Phòng đang đối soát: {contractFocus.roomCode} · Lần thuê {contractFocus.leaseId}
+            </div>
+          )}
           <div className="space-y-2 max-h-[680px] overflow-y-auto pr-1">
             {filteredSlips.length === 0 ? (
               <div className="p-8 text-center text-xs text-slate-400 space-y-2">
@@ -785,7 +790,9 @@ export const DepositSettlementView: React.FC<{leaseId?: string; contractId?: str
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5">
                         <span className="font-mono font-bold text-slate-900">{slip.id}</span>
-                        <span className="px-1.5 py-0.5 rounded bg-slate-100 font-mono text-[10px] text-slate-700 font-bold">
+                        <span className={`px-1.5 py-0.5 rounded font-mono text-[10px] font-bold ${
+                          isSelected ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700'
+                        }`}>
                           {slip.roomCode}
                         </span>
                       </div>

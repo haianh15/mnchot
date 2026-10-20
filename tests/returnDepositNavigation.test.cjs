@@ -1,0 +1,32 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const source = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+const app = source('src/App.tsx');
+const handover = source('src/components/views/HandoverAssetsView.tsx');
+const contracts = source('src/components/views/ContractsView.tsx');
+const deposits = source('src/components/views/DepositSettlementView.tsx');
+const rooms = source('src/components/views/RoomsView.tsx');
+
+// Navigation contract: avoid generic slip selection and preserve exact identifiers.
+assert.match(handover, /onClick=\{openLinkedDepositSettlement\}/, 'BG09 must open the actual settlement module');
+assert.match(handover, /onOpenDepositSettlement\(\{ roomCode: selectedRoomCode, leaseId: targetContract\.leaseId, contractId: targetContract\.id \}\)/);
+assert.match(app, /action: 'deposit-settlement'/);
+assert.match(contracts, /initialAction === 'deposit-settlement'/);
+assert.match(contracts, /c\.id === initialContractId &&\s*c\.roomCode === initialRoomCode && c\.leaseId === initialLeaseId/);
+assert.match(contracts, /leaseId=\{settlementFromHandover \|\| settlementMode !== 'list' \? selectedContract\?\.leaseId : undefined\}/);
+assert.match(deposits, /if \(leaseId && slip\.leaseId !== leaseId\) return false/);
+assert.match(deposits, /if \(contractFocus && slip\.roomCode !== contractFocus\.roomCode\) return false/);
+assert.match(deposits, /isSelected \? 'bg-blue-600 text-white'/);
+assert.match(contracts, /Tiếp tục bàn giao trả phòng/);
+assert.match(app, /handoverStep: 'deposit'/);
+assert.match(handover, /confirmedReturn \? 'deposit_check_bg10' : 'return_room_bg09'/);
+assert.match(handover, /if \(result\.success\) setActiveTab\('deposit_check_bg10'\)/);
+assert.match(handover, /getCurrentSettlementSlip\(settlementSlips, selectedLeaseId, selectedRoomCode\)/);
+assert.match(handover, /Tiếp tục xác nhận trả phòng/);
+assert.match(app, /action: 'return'/);
+assert.match(rooms, /room\.currentLeaseId !== initialLeaseId/);
+assert.match(rooms, /room\.currentContractId !== initialContractId/);
+assert.match(rooms, /setSubTab\('return'\)/);
+assert.match(rooms, /confirmReturnStep305AndVacantPH08/);
+console.log('PASS 20 integration assertions for deposit/return navigation and scope');

@@ -20,7 +20,7 @@ const MainAppContent: React.FC = () => {
   const [currentTab, setCurrentTab] = useState<NavTabKey>('rooms');
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [target, setTarget] = useState<{roomCode?: string; contractId?: string; tenantId?: string; leaseId?: string; billId?: string; noticeId?: string; action?: 'create' | 'return-plans'; handoverMode?: 'receive' | 'return' | 'view'}>({});
+  const [target, setTarget] = useState<{roomCode?: string; contractId?: string; tenantId?: string; leaseId?: string; billId?: string; noticeId?: string; action?: 'create' | 'return-plans' | 'deposit-settlement' | 'return'; handoverMode?: 'receive' | 'return' | 'view'; handoverStep?: 'deposit' | 'final'}>({});
   const navigate = (tab: NavTabKey, record: typeof target = {}) => { setTarget(record); setCurrentTab(tab); };
   const authenticated = currentSession?.type === 'admin' && currentSession.expiresAt > Date.now();
 
@@ -51,13 +51,15 @@ const MainAppContent: React.FC = () => {
             </div>
           )}
 
-          {currentTab === 'rooms' && <RoomsView onNavigate={navigate} initialRoomCode={target.roomCode} />}
+          {currentTab === 'rooms' && <RoomsView onNavigate={navigate} initialRoomCode={target.roomCode} initialAction={target.action} initialLeaseId={target.leaseId} initialContractId={target.contractId} />}
 
-          {currentTab === 'handover' && <HandoverAssetsView initialRoomCode={target.roomCode} initialLeaseId={target.leaseId} initialContractId={target.contractId} initialMode={target.handoverMode} />}
+          {currentTab === 'handover' && <HandoverAssetsView initialRoomCode={target.roomCode} initialLeaseId={target.leaseId} initialContractId={target.contractId} initialMode={target.handoverMode} initialStep={target.handoverStep}
+            onOpenDepositSettlement={(record) => navigate('contracts', { ...record, action: 'deposit-settlement' })}
+            onContinueReturn={(record) => navigate('rooms', { ...record, action: 'return' })} />}
 
           {currentTab === 'tenants' && <TenantsView initialTenantId={target.tenantId} initialRoomCode={target.roomCode} initialLeaseId={target.leaseId} />}
 
-          {currentTab === 'contracts' && <ContractsView initialContractId={target.contractId} initialRoomCode={target.roomCode} initialLeaseId={target.leaseId} initialAction={target.action} onBackToRooms={(roomCode) => navigate('rooms', {roomCode})} onOpenTenant={(record) => navigate('tenants', record)} />}
+          {currentTab === 'contracts' && <ContractsView initialContractId={target.contractId} initialRoomCode={target.roomCode} initialLeaseId={target.leaseId} initialAction={target.action} onBackToRooms={(roomCode) => navigate('rooms', {roomCode})} onOpenTenant={(record) => navigate('tenants', record)} onResumeHandover={(record) => navigate('handover', { ...record, handoverMode: 'return', handoverStep: 'deposit' })} />}
 
           {currentTab === 'billing' && (
             <BillingView />

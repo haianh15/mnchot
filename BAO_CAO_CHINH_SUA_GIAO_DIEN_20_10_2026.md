@@ -1,18 +1,23 @@
-# Báo cáo chỉnh sửa giao diện trên bản người dùng gửi
+# Cập nhật giao diện Quản lý phòng và Hợp đồng
+
+Nguồn: CCMN_MNCHOT_BO_SUNG_DAY_DU_HO_SO_DEMO_PHONG_DANG_THUE_FULL (1)(1).zip do người dùng cung cấp.
+
+## Nội dung chỉnh sửa
+
+- Bỏ banner chạy thử ở đầu giao diện.
+- Bỏ banner yêu cầu đối chiếu hồ sơ ở đầu Quản lý phòng.
+- Bỏ banner cùng nút bổ sung hồ sơ DEMO ở Danh sách phòng.
+- Bỏ nhãn Hồ sơ DEMO và cảnh báo đối chiếu hiển thị dưới trạng thái phòng.
+- Cọc và tiền thuê kỳ đầu hiển thị nhất quán với P.101: Đã đối chiếu khi bản ghi được hàm kiểm tra xác định hợp lệ, Chưa xác nhận khi không hợp lệ; không còn nhãn DEMO - giả lập hoặc Có bản ghi.
+- Bỏ khung note đối chiếu lặp ở Chi tiết phòng.
+- Bỏ label Tình trạng quyết toán cọc; giữ dropdown và chức năng lọc ở Hợp đồng.
 
 ## Phạm vi
-- Nguồn: file `CCMN_MNCHOT_BO_SUNG_DAY_DU_HO_SO_DEMO_PHONG_DANG_THUE_FULL (1)(1).zip`.
-- `src/App.tsx`: bỏ banner vàng toàn cục “Bản chạy thử...”.
-- `src/components/views/RoomsView.tsx`: bỏ banner “phòng đang thuê/sắp trả cần đối chiếu”, bỏ khối “phòng mẫu cần bổ sung hồ sơ demo”, bỏ nút “Bổ sung hồ sơ DEMO”, bỏ nhãn “Hồ sơ DEMO” và chỉ báo cảnh báo ở dòng danh sách. Mẫu giao dịch được hiển thị là “Có bản ghi” (trung tính), không hiển thị sai là đã đối chiếu giao dịch có thật.
-- `src/components/views/ContractsView.tsx`: bỏ nhãn “Tình trạng quyết toán cọc”, giữ dropdown và 2 lựa chọn; có `aria-label` hỗ trợ truy cập.
-- `tests/occupiedRoomReadiness.test.cjs`: sửa kiểm tra giao diện vốn cố định chuỗi cảnh báo cũ; giữ nguyên mọi kiểm tra nghiệp vụ.
-- Thêm `tests/uiCleanup.test.cjs`: kiểm tra những thay đổi hiển thị theo yêu cầu.
 
-## Không thay đổi
-- Không xóa dữ liệu mẫu hoặc bản ghi chứng từ đang lưu.
-- Không thay đổi luật hợp đồng, kiểm kê tài sản, tiền cọc, trạng thái phòng, luồng xác nhận nhận/trả phòng.
-- Cảnh báo thiếu hồ sơ **bên trong Chi tiết phòng** vẫn được giữ để người quản lý không vô tình coi chứng từ chưa hợp lệ là đã xác nhận.
+Chỉ thay hiển thị; không sửa hồ sơ hợp đồng, chứng từ, biên bản, dữ liệu seed hay hàm kiểm tra nghiệp vụ.
+Dữ liệu được tạo từ bộ dữ liệu thử nghiệm vẫn là dữ liệu giả lập, không thay cho chứng từ thanh toán hoặc biên bản có chữ ký thực tế. Nếu trình duyệt đã lưu hồ sơ thiếu dữ liệu, code mới không tự dựng chứng từ hay biến trạng thái Chưa xác nhận thành Đã đối chiếu.
 
-## Lưu ý
-- Hồ sơ và chứng từ giả lập vẫn chỉ để thử nghiệm, không có giá trị chứng minh giao dịch hoặc chữ ký.
-- Hệ thống chưa có backend và cơ chế lưu trữ bảo mật cho dữ liệu thật.
+## Kiểm tra
+
+- 15 bài kiểm thử .cjs và kiểm tra cú pháp TS/TSX đã chạy qua ở phiên làm việc này.
+- Chưa xác nhận build Vite hay chạy end-to-end trên trình duyệt.

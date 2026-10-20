@@ -1,5 +1,4 @@
 import { getInitialPaymentStatus } from '../../utils/initialPayments';
-import { auditOccupiedRoom } from '../../utils/roomReadiness';
 import { toUserMessage } from '../../utils/userMessages';
 import { resolveRoomContract, resolveRoomTenantId, getLeaseContractChain, getConfirmedRoomHandover } from '../../utils/roomLinks';
 import { getRoomOccupancy } from '../../utils/occupancy';
@@ -13,7 +12,7 @@ import {
   History, ArrowLeft, RotateCcw, Building2, FileCheck2
 } from 'lucide-react';
 
-export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | 'handover', target: {roomCode?: string; contractId?: string; tenantId?: string; leaseId?: string; action?: 'create' | 'return-plans'; handoverMode?: 'receive' | 'return' | 'view'}) => void; initialRoomCode?: string}> = ({onNavigate, initialRoomCode}) => {
+export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | 'handover', target: {roomCode?: string; contractId?: string; tenantId?: string; leaseId?: string; action?: 'create' | 'return-plans' | 'deposit-settlement' | 'return'; handoverMode?: 'receive' | 'return' | 'view'; handoverStep?: 'deposit' | 'final'}) => void; initialRoomCode?: string; initialAction?: 'create' | 'return-plans' | 'deposit-settlement' | 'return'; initialLeaseId?: string; initialContractId?: string}> = ({onNavigate, initialRoomCode, initialAction, initialLeaseId, initialContractId}) => {
   const {
     currentUser,
     currentSession,
@@ -55,6 +54,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
   // Search & Filter
   const [searchCode, setSearchCode] = useState('');
   const [statusFilter, setStatusFilter] = useState<'Tất cả' | 'Trống' | 'Đang thuê' | 'Sắp trả'>('Tất cả');
+
   // The selected room identifies the record used by actions. It does NOT open the room detail dialog.
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [isRoomDetailOpen, setIsRoomDetailOpen] = useState(false);
@@ -75,8 +75,24 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
   useEffect(() => {
     if (!initialRoomCode) return;
     const room = rooms.find(r => r.roomCode === initialRoomCode);
-    if (room) openRoomDetails(room);
-  }, [initialRoomCode]);
+    if (!room) return;
+    if (initialAction === 'return') {
+      // Không chuyển nhầm sang lần thuê khác sau khi phòng được sử dụng lại.
+      if (room.status === 'Trống' || room.currentLeaseId !== initialLeaseId ||
+          room.currentContractId !== initialContractId) {
+        setIsRoomDetailOpen(false);
+        setSubTab('list');
+        return;
+      }
+      setSelectedRoom(room);
+      setIsRoomDetailOpen(false);
+      setActiveReturnRoomCode(room.roomCode);
+      setReturnStage(0);
+      setSubTab('return');
+    } else {
+      openRoomDetails(room);
+    }
+  }, [initialRoomCode, initialAction, initialLeaseId, initialContractId]);
 
   // Shared room-to-lease resolver also supports signed leases awaiting check-in.
   const getActiveRoomContract = (room: Room) => resolveRoomContract(room, contracts, returnInspections);
@@ -482,10 +498,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
   // Always use the same live residency calculation as Hồ sơ khách thuê.
   const getOccupancyForRoom = (room: Room) =>
     getRoomOccupancy(room, contracts, returnInspections, tenants, coTenants);
-  const getRoomAudit = (room: Room) =>
-    auditOccupiedRoom(room, contracts, tenants, initialPaymentRecords, handoverReports);
   const selectedOccupancy = selectedRoom ? getOccupancyForRoom(selectedRoom) : undefined;
-  const selectedRoomAudit = selectedRoom ? getRoomAudit(selectedRoom) : undefined;
 
   // Find related records for selectedRoom
   const relatedContract = selectedRoom ? getActiveRoomContract(selectedRoom) : undefined;
@@ -494,7 +507,6 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
   const relatedCoTenants = selectedOccupancy?.currentCoTenants ?? [];
   const relatedHandover = selectedRoom ? getCurrentRoomHandover(selectedRoom) : undefined;
   const relatedReturnPlan = selectedRoom ? getCurrentRoomReturnPlan(selectedRoom) : undefined;
-  const missingConfirmedCheckIn = Boolean(selectedRoomAudit && !selectedRoomAudit.valid);
   const relatedSettlement = relatedContract ? settlementSlips.find(s => s.roomCode === relatedContract.roomCode &&
     s.leaseId === relatedContract.leaseId) : undefined;
   const relatedPaymentStatus = getInitialPaymentStatus(relatedContract, contracts, initialPaymentRecords);
@@ -637,7 +649,6 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                       const expBadge = getExpiryBadge(room.contractEndDate);
                       const verifiedContract = getActiveRoomContract(room);
                       const verifiedPayment = getInitialPaymentStatus(verifiedContract, contracts, initialPaymentRecords).valid;
-                      const isSamplePayment = getInitialPaymentStatus(verifiedContract, contracts, initialPaymentRecords).payment?.transactionCode?.startsWith('DEMO-') ?? false;
                       return (
                         <tr
                           key={room.id}
@@ -668,15 +679,15 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
 
                           {/* 6. Đã cọc */}
                           <td className="py-3 px-3">
-                            <span className={`text-[11px] font-semibold ${verifiedPayment && !isSamplePayment ? 'text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200': 'text-slate-500'}`}>
-                              {verifiedPayment ? (isSamplePayment ? 'Có bản ghi' : 'Đã đối chiếu') : 'Chưa xác nhận'}
+                            <span className={`text-[11px] font-semibold ${verifiedPayment ? 'text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200': 'text-slate-400'}`}>
+                              {verifiedPayment ? 'Đã đối chiếu' : 'Chưa xác nhận'}
                             </span>
                           </td>
 
                           {/* 7. Đã thanh toán tiền thuê kỳ đầu */}
                           <td className="py-3 px-3">
-                            <span className={`text-[11px] font-semibold ${verifiedPayment && !isSamplePayment ? 'text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200': 'text-slate-500'}`}>
-                              {verifiedPayment ? (isSamplePayment ? 'Có bản ghi' : 'Đã đối chiếu') : 'Chưa xác nhận'}
+                            <span className={`text-[11px] font-semibold ${verifiedPayment ? 'text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200': 'text-slate-400'}`}>
+                              {verifiedPayment ? 'Đã đối chiếu' : 'Chưa xác nhận'}
                             </span>
                           </td>
 
@@ -943,12 +954,6 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                 </div>
               )}
 
-              {missingConfirmedCheckIn && <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-amber-950 text-sm space-y-1">
-                <strong>Cần đối chiếu hồ sơ nhận phòng trước khi thực hiện nghiệp vụ mới.</strong>
-                <p>Dữ liệu phòng cũ đang ghi Đang thuê/Sắp trả nhưng chưa có đủ bằng chứng của lần thuê hiện tại. Không tự chuyển phòng thành Trống và không tự tạo chứng từ hoặc biên bản đã ký.</p>
-                <ul className="list-disc pl-5">{selectedRoomAudit?.missing.map(item => <li key={item}>{item}</li>)}</ul>
-                <p>Hãy đối chiếu hợp đồng, hồ sơ khách, sao kê cọc/thuê đầu và bản giấy bàn giao thực tế; chỉ ghi nhận những chứng từ có thật.</p>
-              </div>}
               {/* 1. THÔNG TIN CƠ BẢN PHÒNG */}
               <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block mb-2">

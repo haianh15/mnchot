@@ -1,6 +1,7 @@
 import { toUserMessage } from '../../utils/userMessages';
 import React, { useState, useEffect } from 'react';
 import { getConfirmedRoomHandover, getLeaseContractChain, resolveRoomContract } from '../../utils/roomLinks';
+import { getCurrentSettlementSlip } from '../../utils/settlementUi';
 import { useApp } from '../../context/AppContext';
 import {
   InventoryRecord,
@@ -49,7 +50,15 @@ import {
   RefreshCw
 } from 'lucide-react';
 
-export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeaseId?: string; initialContractId?: string; initialMode?: 'receive' | 'return' | 'view'}> = ({initialRoomCode, initialLeaseId, initialContractId, initialMode}) => {
+export const HandoverAssetsView: React.FC<{
+  initialRoomCode?: string;
+  initialLeaseId?: string;
+  initialContractId?: string;
+  initialMode?: 'receive' | 'return' | 'view';
+  initialStep?: 'deposit' | 'final';
+  onOpenDepositSettlement?: (record: { roomCode: string; leaseId: string; contractId: string }) => void;
+  onContinueReturn?: (record: { roomCode: string; leaseId: string; contractId: string }) => void;
+}> = ({initialRoomCode, initialLeaseId, initialContractId, initialMode, initialStep, onOpenDepositSettlement, onContinueReturn}) => {
   const {
     rooms,
     contracts,
@@ -67,6 +76,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
     saveHandoverConditionBG02,
     saveHandoverReportBG03,
     confirmHandoverSignaturesBG03,
+    confirmCheckInPH05,
     recordIncidentBG04,
     recordReturnInspectionBG09,
     confirmReturnInspectionStep305,
@@ -118,12 +128,20 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
     handleRoomChange(initialRoomCode);
     // From Room Details, open the matching lease's handover form, including when
     // the legacy occupied room is missing a paper report that must be reconciled.
-    if (initialMode === 'return') {
-      // Bắt đầu bàn giao trả bằng phiếu trả phòng Nháp, không chờ nhận lại xong.
+    if (initialStep === 'deposit') {
+      // Nếu chưa nhận lại đầy đủ, hướng Chủ nhà hoàn tất bàn giao trước khi lập cọc.
+      // Nếu đã xác nhận nhận lại thì mở phần đồng bộ kết quả cọc vào biên bản.
+      const confirmedReturn = returnInspections.some(r => r.roomCode === initialRoomCode &&
+        r.leaseId === initialLeaseId && r.step304Status === 'Đã nhận lại' && r.step305Confirmed);
+      setActiveTab(confirmedReturn ? 'deposit_check_bg10' : 'return_room_bg09');
+    } else if (initialStep === 'final') {
+      setActiveTab('final_report_bg11');
+    } else if (initialMode === 'return') {
       setActiveTab('init_report_bg08');
+    } else if (initialLeaseId || initialMode === 'receive' || initialMode === 'view') {
+      setActiveTab('handover_bg03');
     }
-    else if (initialLeaseId || initialMode === 'receive' || initialMode === 'view') setActiveTab('handover_bg03');
-  }, [initialRoomCode, initialLeaseId, initialContractId, initialMode]);
+  }, [initialRoomCode, initialLeaseId, initialContractId, initialMode, initialStep]);
   // Toast feedback
   const [toast, setToast] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
   const showToast = (type: 'success' | 'error' | 'info', message: string) => {
@@ -164,6 +182,17 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
     c.leaseId === selectedLeaseId && c.id === (initialRoomCode === selectedRoomCode && initialContractId
       ? initialContractId : (selectedRoom?.currentContractId || selectedRoom?.pendingContractId))) ||
     (resolvedContract?.leaseId === selectedLeaseId ? resolvedContract : undefined);
+  const openLinkedDepositSettlement = () => {
+    if (!targetContract || targetContract.roomCode !== selectedRoomCode || targetContract.leaseId !== selectedLeaseId) {
+      showToast('error', 'Không xác định được hợp đồng và lần thuê của phòng đang bàn giao.');
+      return;
+    }
+    if (!onOpenDepositSettlement) {
+      showToast('error', 'Không mở được quyết toán cọc từ màn hình này.');
+      return;
+    }
+    onOpenDepositSettlement({ roomCode: selectedRoomCode, leaseId: targetContract.leaseId, contractId: targetContract.id });
+  };
   const activeCurrentContract = contracts.find(c => c.id === selectedRoom?.currentContractId && c.roomCode === selectedRoomCode);
   const permittedRenewalChain = getLeaseContractChain(activeCurrentContract, contracts);
   const pendingHandoverMatch = Boolean(initialLeaseId && selectedRoom?.status === 'Trống' &&
@@ -372,7 +401,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
   const [mismatchNoticeSent, setMismatchNoticeSent] = useState(false);
 
   // ==================== STATE : THEO DÕI ĐỐI SOÁT CỌC ====================
-  const matchingSettlementSlip = settlementSlips.find(s => s.roomCode === selectedRoomCode && s.leaseId === selectedLeaseId);
+  const matchingSettlementSlip = selectedLeaseId ? getCurrentSettlementSlip(settlementSlips, selectedLeaseId, selectedRoomCode) : null;
   const [bg10WaitingReason, setBg10WaitingReason] = useState('');
   const [showSettlementDetailModal, setShowSettlementDetailModal] = useState(false);
   const [bg10SaveError, setBg10SaveError] = useState<string | null>(null);
@@ -1381,6 +1410,14 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                 * Phần mềm không có nút In, Xuất để in hoặc ký điện tử. User chuẩn bị bản giấy ngoài hệ thống theo đúng thông tin đã ghi nhận. </div>
             </div>
 
+            {selectedRoom?.status === 'Trống' && (
+              <p className="text-xs text-blue-700 rounded-lg bg-blue-50 border border-blue-200 px-3 py-2">
+                Lưu nháp hoặc Lưu Đã lập chỉ lưu biên bản. Khi hai bên đã ký giấy,
+                chọn <strong>Ghi nhận ký giấy</strong>; nếu hợp đồng, hồ sơ khách và
+                cọc/tiền thuê đầu đã đối chiếu hợp lệ, phòng sẽ tự chuyển sang
+                <strong> Đang thuê</strong> và liên kết đúng khách thuê.
+              </p>
+            )}
             {/* Action Buttons for BG03 */}
             <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100">
               <button
@@ -1458,6 +1495,24 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                 >
                   Lưu Đã lập </button>
 
+                {/* Biên bản cũ đã xác nhận nhưng phòng vẫn Trống: đồng bộ khi đủ điều kiện. */}
+                {selectedRoom?.status === 'Trống' && targetContract &&
+                  existingReport?.status === 'Đã xác nhận' &&
+                  existingReport.tenantSignedPaper === 'Đã ký giấy' &&
+                  existingReport.ownerSignedPaper === 'Đã ký giấy' && (
+                    <button
+                      onClick={() => {
+                        const result = confirmCheckInPH05(
+                          selectedRoomCode, targetContract.leaseId,
+                          existingReport.date, existingReport.id, `v${existingReport.version}`
+                        );
+                        showToast(result.success ? 'success' : 'error', result.message);
+                      }}
+                      className="px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
+                    >
+                      Hoàn tất nhận phòng
+                    </button>
+                  )}
                 {/* Ghi nhận kết quả ký giấy (Bước 7) */}
                 <button
                   disabled={!existingReport || isInheritedReceiveReport || existingReport.status !== 'Đã lập'}
@@ -3321,7 +3376,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                       bg09EvidenceVideoUrl
                     );
                     showToast(result.success ? 'success' : 'error', result.message);
-                    if (result.success) setActiveTab('init_report_bg08');
+                    if (result.success) setActiveTab('deposit_check_bg10');
                   }}
                   className={`px-4 py-2 rounded-lg font-semibold cursor-pointer shadow-xs flex items-center gap-1.5 ${
                     is305Confirmed
@@ -3336,10 +3391,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                 </button>
 
                 <button
-                  onClick={() => {
-                    setActiveTab('deposit_check_bg10');
-                    showToast('info', "Mở: Theo dõi đối soát cọc từ Quyết toán cọc.");
-                  }}
+                  onClick={openLinkedDepositSettlement}
                   className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold cursor-pointer flex items-center gap-1.5 shadow-xs"
                 >
                   <span>Đối soát cọc </span>
@@ -3497,7 +3549,11 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
               >
                 &larr; Xem kết quả nhận lại </button>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <button type="button" onClick={openLinkedDepositSettlement}
+                  className="rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 font-semibold">
+                  Đối soát cọc tại Quản lý hợp đồng →
+                </button>
                 {/* : Lưu biên bản để chờ */}
                 {!is58Valid && (
                   <button
@@ -3921,8 +3977,15 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                   }`}
                 >
                   <FileCheck2 className="w-4 h-4" />
-                  <span>Xác nhận hoàn tất (Thao tác)</span>
+                  <span>Xác nhận hoàn tất biên bản</span>
                 </button>
+                {existingReturnReport?.status === 'Đã xác nhận' && onContinueReturn && targetContract && (
+                  <button type="button" onClick={() => onContinueReturn({
+                    roomCode: selectedRoomCode, leaseId: targetContract.leaseId, contractId: targetContract.id
+                  })} className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold">
+                    Tiếp tục xác nhận trả phòng →
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -4542,11 +4605,9 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                 onClick={() => {
                   const res = confirmHandoverSignaturesBG03(existingReport.id, signPaperTenant, signPaperOwner, paperLocation, signedDocumentScanUrl);
                   if (!res.success) { showToast('error', res.message); return; }
-                  if (signPaperTenant && signPaperOwner) {
-                    showToast('success', 'Đã ghi nhận cả 2 bên đã ký tay! Biên bản chuyển sang trạng thái ĐÃ XÁC NHẬN.');
-                  } else {
-                    showToast('info', 'Đã cập nhật tình trạng ký tay từng bên. Biên bản giữ trạng thái Đã lập cho đến khi cả hai bên đều ký.');
-                  }
+                  // Hiển thị kết quả đồng bộ thực tế từ tầng dữ liệu, không báo
+                  // 'đã nhận phòng' nếu thiếu hợp đồng, hồ sơ hay tiền đã đối chiếu.
+                  showToast(res.message.includes('chưa thể chuyển phòng') ? 'info' : (signPaperTenant && signPaperOwner ? 'success' : 'info'), res.message);
                   setShowSignPaperModal(false);
                 }}
                 className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold cursor-pointer"
