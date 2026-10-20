@@ -3025,16 +3025,29 @@ export const HandoverAssetsView: React.FC<{
       ========================================================================= */}
       {selectedRoomCode && !linkedRoomMismatch && targetContract && activeTab === 'return_room_bg09' && (() => {
         // Evaluate completeness of 
-        const allItemsChecked = bg09Items.every(i => i.inspected);
+        // A row marked "Đã kiểm tra" is not complete until the actual quantity and
+        // physical condition have both been entered. The select must not imply a
+        // "Bình thường" answer when the persisted value is actually empty.
+        const allItemsChecked = bg09Items.length > 0 && bg09Items.every(i =>
+          i.inspected && Number.isInteger(i.quantity) && i.quantity >= 0 && Boolean(i.condition?.trim())
+        );
         const hasMissingReason = bg09Items.filter(i => !i.inspected).every(i => Boolean(i.reasonIfNotInspected && i.reasonIfNotInspected.trim()));
         const is303Complete = allItemsChecked;
 
-        // Condition for  = "Đã nhận lại"
-        const canSaveOfficially304 = is303Complete && bg09Items.length > 0 &&
-          bg09Items.every(i => Number.isInteger(i.quantity) && i.quantity >= 0 && Boolean(i.condition)) &&
-          bg09FinalElec !== '' && Number.isFinite(bg09FinalElec) && bg09FinalElec >= 0 &&
-          bg09FinalWater !== '' && Number.isFinite(bg09FinalWater) && bg09FinalWater >= 0 &&
-          Boolean(bg09Evidence.trim()) && Boolean(targetContract?.id && selectedLeaseId);
+        const returnMissingFields: string[] = [];
+        if (bg09Items.length === 0) returnMissingFields.push('Chưa có danh sách tài sản để kiểm tra.');
+        for (const item of bg09Items) {
+          if (!item.inspected) returnMissingFields.push(`${item.name}: chưa xác nhận đã kiểm tra.`);
+          if (!Number.isInteger(item.quantity) || item.quantity < 0) returnMissingFields.push(`${item.name}: số lượng thực tế không hợp lệ.`);
+          if (!item.condition?.trim()) returnMissingFields.push(`${item.name}: chưa chọn tình trạng vật lý.`);
+        }
+        if (bg09FinalElec === '' || !Number.isFinite(bg09FinalElec) || bg09FinalElec < 0)
+          returnMissingFields.push('Chưa ghi số điện cuối kỳ hợp lệ.');
+        if (bg09FinalWater === '' || !Number.isFinite(bg09FinalWater) || bg09FinalWater < 0)
+          returnMissingFields.push('Chưa ghi số nước cuối kỳ hợp lệ.');
+        if (!bg09Evidence.trim()) returnMissingFields.push('Chưa nhập mô tả bằng chứng nhận lại phòng.');
+        if (!targetContract?.id || !selectedLeaseId) returnMissingFields.push('Thiếu liên kết hợp đồng hoặc lần thuê của phòng.');
+        const canSaveOfficially304 = returnMissingFields.length === 0;
         const is305Confirmed = Boolean(returnInspectionTarget?.step305Confirmed);
 
         return (
@@ -3169,10 +3182,13 @@ export const HandoverAssetsView: React.FC<{
                               const cond = e.target.value;
                               setBg09Items(prev => prev.map((it, i) => i === idx ? { ...it, condition: cond } : it));
                             }}
-                            className={`px-2 py-1 border border-slate-300 rounded text-xs ${
-                              item.inspected ? 'bg-white' : 'bg-slate-100 text-slate-400'
+                            className={`px-2 py-1 border rounded text-xs ${
+                              item.inspected && !item.condition?.trim()
+                                ? 'border-rose-400 bg-rose-50 text-rose-800'
+                                : item.inspected ? 'border-slate-300 bg-white' : 'border-slate-300 bg-slate-100 text-slate-400'
                             }`}
                           >
+                            <option value="" disabled>Chọn tình trạng</option>
                             <option value="Bình thường">Bình thường</option>
                             <option value="Hư hỏng">Hư hỏng</option>
                             <option value="Khác">Khác</option>
@@ -3285,7 +3301,12 @@ export const HandoverAssetsView: React.FC<{
               {/* Notice  validation */}
               {bg09Step304Status === 'Đã nhận lại' && !canSaveOfficially304 && (
                 <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 text-[11px]">
-                  <strong>:</strong> Để lưu chính thức kết quả <strong>Đã nhận lại</strong> tại, bảng kiểm tra phải <strong>Đã kiểm tra đầy đủ 100%</strong> và có mô tả bằng chứng. Nếu chưa đủ, chỉ cho phép <em>Lưu nháp - chờ bổ sung</em> và chưa kích hoạt xác nhận. </div>
+                  <strong>Chưa thể xác nhận nhận lại phòng. Hãy hoàn thiện:</strong>
+                  <ul className="mt-1 list-disc pl-5 space-y-1">
+                    {returnMissingFields.map((reason, i) => <li key={`${i}-${reason}`}>{reason}</li>)}
+                  </ul>
+                  <span className="block mt-1">Chỉ chọn <strong>Lưu nháp kiểm tra</strong> nếu chưa có đủ thông tin thực tế.</span>
+                </div>
               )}
             </div>
 
@@ -3325,7 +3346,7 @@ export const HandoverAssetsView: React.FC<{
                 <button
                   onClick={() => {
                     if (bg09Step304Status === 'Đã nhận lại' && !canSaveOfficially304) {
-                      showToast('error', ": Bảng chưa kiểm tra đầy đủ hoặc thiếu mô tả chứng cứ nhận lại. Vui lòng kiểm tra lại hoặc chọn Lưu nháp.");
+                      showToast('error', `Chưa thể lưu kết quả nhận lại: ${returnMissingFields[0] || 'Thông tin kiểm tra chưa hợp lệ.'}`);
                       return;
                     }
 
