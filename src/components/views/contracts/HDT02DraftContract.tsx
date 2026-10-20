@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../../context/AppContext';
 import { Contract, LeaseConditionDraft } from '../../../types';
+import { ContractDocument } from './ContractDocument';
 import {
   FileText, Plus, Search, CheckCircle2, AlertTriangle, AlertCircle,
   Building, User, Calendar, DollarSign, CreditCard, ShieldCheck,
@@ -36,10 +37,15 @@ export const HDT02DraftContract: React.FC<HDT02Props> = ({
   const [endDate, setEndDate] = useState<string>(initialCondition?.endDate || batchSchedules[0]?.endDate || '2027-04-01');
   const [monthlyRent, setMonthlyRent] = useState<number>(initialCondition?.monthlyRent || 3500000);
   const [terms, setTerms] = useState<string>(
-    initialCondition?.termsNote ||
-    'Hợp đồng thuê căn hộ mini theo đợt chung của tòa nhà. Bên thuê thanh toán định kỳ hàng tháng bằng hình thức chuyển khoản qua tài khoản chỉ định. Tiền cọc được bảo lưu và quyết toán khi thanh lý hợp đồng.'
+    initialCondition?.termsNote || ''
   );
 
+  const [lessorName, setLessorName] = useState('');
+  const [lessorIdNumber, setLessorIdNumber] = useState('');
+  const [lessorAddress, setLessorAddress] = useState('');
+  const [lessorPhone, setLessorPhone] = useState('');
+  const [propertyAddress, setPropertyAddress] = useState('');
+  
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [createdContractSuccess, setCreatedContractSuccess] = useState<string | null>(null);
 
@@ -55,9 +61,7 @@ export const HDT02DraftContract: React.FC<HDT02Props> = ({
       setStartDate(initialCondition.startDate);
       setEndDate(initialCondition.endDate);
       setMonthlyRent(initialCondition.monthlyRent);
-      if (initialCondition.termsNote) {
-        setTerms(initialCondition.termsNote);
-      }
+      setTerms(initialCondition.termsNote || '');
     }
   }, [initialCondition]);
 
@@ -71,13 +75,43 @@ export const HDT02DraftContract: React.FC<HDT02Props> = ({
       setStartDate(cond.startDate);
       setEndDate(cond.endDate);
       setMonthlyRent(cond.monthlyRent);
-      if (cond.termsNote) setTerms(cond.termsNote);
+      setTerms(cond.termsNote || '');
     }
   };
 
   const selectedTenant = tenants.find(t => t.id === selectedTenantId);
   const selectedRoom = rooms.find(r => r.roomCode === selectedRoomCode);
   const selectedBatch = batchSchedules.find(b => b.batchCode === selectedBatchCode);
+
+  // Dựng cùng một mẫu văn bản cho cả xem trước và chi tiết hợp đồng đã lưu.
+  // Không tạo mã hợp đồng hoặc chữ ký giả khi chưa lưu và chưa ký.
+  const previewContract: Contract = {
+    id: 'DỰ THẢO (chưa lưu)',
+    contractType: 'Hợp đồng lần đầu',
+    leaseId: '',
+    roomCode: selectedRoomCode,
+    tenantId: selectedTenant?.id || '',
+    tenantName: selectedTenant?.fullName || '',
+    tenantPhone: selectedTenant?.phoneNumber,
+    tenantIdNumber: selectedTenant?.idNumber,
+    lessorName: lessorName.trim() || undefined,
+    lessorIdNumber: lessorIdNumber.trim() || undefined,
+    lessorAddress: lessorAddress.trim() || undefined,
+    lessorPhone: lessorPhone.trim() || undefined,
+    propertyAddress: propertyAddress.trim() || undefined,
+    batchCode: selectedBatchCode,
+    startDate,
+    endDate,
+    monthlyRent,
+    depositAmount: monthlyRent,
+    firstMonthRentAmount: monthlyRent,
+    firstMonthRentPaid: false,
+    paymentMethod: 'Chuyển khoản',
+    terms: terms.trim(),
+    status: 'Nháp',
+    isSignedPaper: false,
+    version: 1
+  };
 
   // Check preliminary warning ( 3.6 /  ghi nhận ký)
   const isPreliminaryTenant = selectedTenant?.isPreliminary || selectedTenant?.verificationStatus === 'Chưa xác minh';
@@ -118,7 +152,12 @@ export const HDT02DraftContract: React.FC<HDT02Props> = ({
       depositAmount: monthlyRent, // Cọc = 1 tháng
       firstMonthRentAmount: monthlyRent, // 1 tháng thuê đầu
       firstMonthRentPaid: false,
-      paymentMethod: 'Chuyển khoản', terms: 'Áp dụng theo hợp đồng thuê phòng tiêu chuẩn',
+      paymentMethod: 'Chuyển khoản', terms: terms.trim(),
+      lessorName: lessorName.trim() || undefined,
+      lessorIdNumber: lessorIdNumber.trim() || undefined,
+      lessorAddress: lessorAddress.trim() || undefined,
+      lessorPhone: lessorPhone.trim() || undefined,
+      propertyAddress: propertyAddress.trim() || undefined,
     });
 
     if (res.success && res.contractId) {
@@ -322,6 +361,19 @@ export const HDT02DraftContract: React.FC<HDT02Props> = ({
               </div>
             </div>
 
+            {/* Bên cho thuê: thông tin riêng trên hợp đồng, không suy từ tài khoản nhận tiền. */}
+            <fieldset className="rounded-lg border border-slate-200 p-3 space-y-3">
+              <legend className="font-bold text-slate-800 px-1">Thông tin Bên cho thuê và địa chỉ phòng</legend>
+              <p className="text-slate-500">Nhập từ hồ sơ pháp lý của bên cho thuê. Để trống nếu chưa có căn cứ; không sử dụng tên chủ tài khoản ngân hàng thay thế.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="space-y-1"><span className="block font-medium">Họ tên Bên cho thuê</span><input value={lessorName} onChange={e=>setLessorName(e.target.value)} placeholder="Họ và tên theo giấy tờ" className="w-full rounded-lg border border-slate-300 p-2" /></label>
+                <label className="space-y-1"><span className="block font-medium">Số CCCD/Định danh Bên A</span><input value={lessorIdNumber} onChange={e=>setLessorIdNumber(e.target.value)} placeholder="Theo giấy tờ" className="w-full rounded-lg border border-slate-300 p-2" /></label>
+                <label className="space-y-1"><span className="block font-medium">Địa chỉ Bên cho thuê</span><input value={lessorAddress} onChange={e=>setLessorAddress(e.target.value)} placeholder="Địa chỉ liên hệ" className="w-full rounded-lg border border-slate-300 p-2" /></label>
+                <label className="space-y-1"><span className="block font-medium">Số điện thoại Bên cho thuê</span><input value={lessorPhone} onChange={e=>setLessorPhone(e.target.value)} placeholder="Số điện thoại liên hệ" className="w-full rounded-lg border border-slate-300 p-2" /></label>
+              </div>
+              <label className="space-y-1 block"><span className="block font-medium">Địa chỉ tòa nhà/phòng cho thuê</span><input value={propertyAddress} onChange={e=>setPropertyAddress(e.target.value)} placeholder="Số nhà, đường, phường, tỉnh/thành phố" className="w-full rounded-lg border border-slate-300 p-2" /></label>
+            </fieldset>
+
             {/* Terms */}
             <div>
               <label className="block font-semibold text-slate-700 mb-1">
@@ -411,93 +463,15 @@ export const HDT02DraftContract: React.FC<HDT02Props> = ({
         </div>
       </div>
 
-      {/* ==================== MODAL: FULL CONTRACT PREVIEW ==================== */}
+      {/* Xem trước cùng mẫu văn bản được dùng tại Chi tiết hợp đồng. */}
       {showPreviewModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-2xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto text-xs">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <div className="flex items-center gap-2">
-                <BookOpen className="w-5 h-5 text-blue-600" />
-                <h3 className="font-bold text-slate-900 text-base">
-                  Văn bản dự thảo hợp đồng thuê phòng </h3>
-              </div>
-              <button
-                onClick={() => setShowPreviewModal(false)}
-                className="p-1 text-slate-400 hover:text-slate-700 cursor-pointer"
-              >
-                ✕ </button>
+        <div className="fixed inset-0 z-[80] bg-slate-900/70 p-2 sm:p-5 overflow-y-auto" role="dialog" aria-modal="true" aria-label="Bản dự thảo hợp đồng">
+          <div className="max-w-[225mm] mx-auto">
+            <div className="rounded-lg bg-white border border-slate-200 mb-3 p-3 flex items-center justify-between gap-2 text-sm">
+              <h3 className="font-bold">Xem trước dự thảo hợp đồng (chưa lưu / chưa ký)</h3>
+              <button type="button" onClick={() => setShowPreviewModal(false)} className="px-3 py-2 border rounded-lg font-medium">Đóng</button>
             </div>
-
-            {/* Contract Body Document */}
-            <div className="p-6 bg-slate-50 rounded-xl border border-slate-200 font-serif space-y-4 text-slate-800 leading-relaxed text-xs">
-              <div className="text-center space-y-1 border-b border-slate-300 pb-3">
-                <div className="font-bold uppercase tracking-wider text-xs">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
-                <div className="text-[11px]">Độc lập – Tự do – Hạnh phúc</div>
-                <div className="text-base font-bold text-slate-900 pt-2 font-sans">
-                  HỢP ĐỒNG THUÊ CĂN HỘ / PHÒNG TRỌ MINI </div>
-                <div className="font-mono text-[11px] text-slate-500 font-sans">
-                  Số: HD-{selectedRoomCode.replace(/\D/g, '')}-DRAFT / QTR-04 </div>
-              </div>
-
-              <div>
-                <strong className="font-sans block text-slate-900 mb-1">BÊN CHO THUÊ (BÊN A):</strong>
-                <p>Họ tên: Nguyễn Văn An (Chủ nhà / Quản lý tòa nhà)</p>
-                <p>Địa chỉ: Tòa nhà căn hộ mini, P.{selectedRoomCode.slice(2)}, Hà Nội</p>
-                <p>Phương thức thanh toán: Chuyển khoản ngân hàng chính thức của tòa nhà</p>
-              </div>
-
-              <div>
-                <strong className="font-sans block text-slate-900 mb-1">BÊN THUÊ (BÊN B):</strong>
-                <p>Họ tên khách thuê: <strong>{selectedTenant?.fullName || '...........................'}</strong></p>
-                <p>Số CCCD/Định danh: <span className="font-mono">{selectedTenant?.idNumber || 'Chưa cung cấp (Hồ sơ sơ bộ)'}</span></p>
-                <p>Số điện thoại: <span className="font-mono">{selectedTenant?.phoneNumber || '...........................'}</span></p>
-              </div>
-
-              <div className="space-y-2 border-t border-slate-200 pt-3">
-                <strong className="font-sans block text-slate-900">ĐIỀU 1: ĐỐI TƯỢNG VÀ THỜI HẠN THUÊ</strong>
-                <p>
-                  1.1. Bên A đồng ý cho Bên B thuê phòng số: <strong>{selectedRoomCode}</strong>. </p>
-                <p>
-                  1.2. Thời hạn thuê: Từ ngày <strong>{startDate}</strong> đến hết ngày <strong>{endDate}</strong> (Thuộc đợt hợp đồng chung <strong>{selectedBatchCode}</strong>). </p>
-
-                <strong className="font-sans block text-slate-900 pt-1">ĐIỀU 2: GIÁ THUÊ VÀ PHƯƠNG THỨC THANH TOÁN</strong>
-                <p>
-                  2.1. Đơn giá thuê: <strong>{monthlyRent.toLocaleString('vi-VN')} đ/tháng</strong> (Bằng chữ:......................... đồng/tháng). </p>
-                <p>
-                  2.2. Tiền cọc giữ phòng và bảo đảm tài sản: <strong>{monthlyRent.toLocaleString('vi-VN')} đ</strong> (Bằng đúng 01 tháng tiền thuê nhà theo quy chuẩn tòa nhà). </p>
-                <p>
-                  2.3. Tiền thuê tháng đầu: <strong>{monthlyRent.toLocaleString('vi-VN')} đ</strong>. </p>
-                <p>
-                  2.4. Phương thức thanh toán: Bắt buộc chuyển khoản định kỳ ngày 25 đến 30 hàng tháng. </p>
-
-                <strong className="font-sans block text-slate-900 pt-1">ĐIỀU 3: ĐIỀU KHOẢN ĐẶC BIỆT & THỎA THUẬN BỔ SUNG</strong>
-                <p className="italic bg-white p-2.5 rounded border border-slate-200 font-sans text-[11px]">
-                  {terms}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 text-center pt-4 border-t border-slate-300 font-sans">
-                <div>
-                  <strong className="block text-slate-900">ĐẠI DIỆN BÊN A</strong>
-                  <span className="text-[11px] text-slate-400 block mb-8">(Ký và ghi rõ họ tên)</span>
-                  <div className="font-bold text-slate-700">Nguyễn Văn An</div>
-                </div>
-                <div>
-                  <strong className="block text-slate-900">ĐẠI DIỆN BÊN B</strong>
-                  <span className="text-[11px] text-slate-400 block mb-8">(Ký và ghi rõ họ tên)</span>
-                  <div className="font-bold text-slate-700">{selectedTenant?.fullName || 'Khách thuê'}</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-between items-center pt-2 border-t border-slate-200">
-              <span className="text-slate-400 text-[11px]">Bản xem trước dự thảo hợp đồng (Chưa có chữ ký chính thức)</span>
-              <button
-                onClick={() => setShowPreviewModal(false)}
-                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg font-semibold cursor-pointer"
-              >
-                Đóng xem trước </button>
-            </div>
+            <ContractDocument contract={previewContract} tenant={selectedTenant} room={selectedRoom} />
           </div>
         </div>
       )}

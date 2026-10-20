@@ -14,6 +14,7 @@ import { HDT05ContractExpiry } from './contracts/HDT05ContractExpiry';
 import { ContractReturnTracking } from './contracts/ContractReturnTracking';
 import { HDT06RenewalContract } from './contracts/HDT06RenewalContract';
 import { DepositSettlementView } from './DepositSettlementView';
+import { ContractDocument } from './contracts/ContractDocument';
 import { getCurrentSettlementSlip, requiresDepositSettlement, isLastContractOfLease, canEditSettlement, canRecordSettlement, terminalSettlementStatuses } from '../../utils/settlementUi';
 import { HDT07ActivateRenewal } from './contracts/HDT07ActivateRenewal';
 
@@ -39,6 +40,7 @@ export const ContractsView: React.FC<{initialContractId?: string; initialRoomCod
     initialPaymentRecords,
     returnInspections,
     rooms,
+    tenants,
     returnPlans
   } = useApp();
 
@@ -50,6 +52,7 @@ export const ContractsView: React.FC<{initialContractId?: string; initialRoomCod
   const [settlementFilter, setSettlementFilter] = useState<'all'|'pending'>('all');
   const [settlementMode, setSettlementMode] = useState<'list'|'create'|'edit'|'result'|'view'>('list');
   const [settlementOpenId, setSettlementOpenId] = useState('');
+  const [largeContractOpen, setLargeContractOpen] = useState(false);
   const [returnFocus, setReturnFocus] = useState<{roomCode?: string; leaseId?: string; contractId?: string}>({});
   const openReturnTracking = (record: {roomCode?: string; leaseId?: string; contractId?: string} = {}) => {
     setReturnFocus(record);
@@ -69,6 +72,8 @@ export const ContractsView: React.FC<{initialContractId?: string; initialRoomCod
     }
   }, [initialContractId, initialRoomCode, initialLeaseId, initialAction]);
   const selectedContract = contracts.find(c => c.id === selectedContractId);
+  const selectedTenant = selectedContract ? tenants.find(t => t.id === selectedContract.tenantId) : undefined;
+  const selectedRoom = selectedContract ? rooms.find(r => r.roomCode === selectedContract.roomCode) : undefined;
   const activeSlip = selectedContract ? getCurrentSettlementSlip(settlementSlips, selectedContract.leaseId, selectedContract.roomCode) : null;
   const needsSettlement = !!selectedContract && requiresDepositSettlement(selectedContract, contracts, returnInspections, settlementSlips);
   const isLatestForSettlement = !!selectedContract && isLastContractOfLease(selectedContract, contracts);
@@ -136,7 +141,7 @@ export const ContractsView: React.FC<{initialContractId?: string; initialRoomCod
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
           <div className="lg:col-span-2 bg-white rounded-xl border p-3 space-y-2 max-h-[650px] overflow-y-auto">
-            {displayedContracts.map(c=><button key={c.id} onClick={()=>setSelectedContractId(c.id)} className={`w-full text-left p-3 border rounded-lg text-sm ${c.id===selectedContractId?'bg-blue-50 border-blue-500':'hover:bg-slate-50 border-slate-200'}`}>
+            {displayedContracts.map(c=><button key={c.id} onClick={()=>{setSelectedContractId(c.id);setLargeContractOpen(false);}} className={`w-full text-left p-3 border rounded-lg text-sm ${c.id===selectedContractId?'bg-blue-50 border-blue-500':'hover:bg-slate-50 border-slate-200'}`}>
               <strong>{c.id}</strong> · {c.roomCode}<div className="text-xs text-slate-600 mt-1">{c.tenantName}</div><div className="text-xs text-slate-500">{c.startDate} → {c.endDate} · {c.status}</div>
               {requiresDepositSettlement(c, contracts, returnInspections, settlementSlips) &&
                <span className="inline-block mt-2 rounded bg-amber-100 text-amber-800 px-2 py-1 text-xs font-semibold">Cần hoàn tất quyết toán cọc</span>}
@@ -145,16 +150,24 @@ export const ContractsView: React.FC<{initialContractId?: string; initialRoomCod
           </div>
           <div className="lg:col-span-3 bg-white rounded-xl border p-4 space-y-4">
             {!selectedContract || !displayedContracts.some(c => c.id === selectedContract.id) ? <p className="text-sm text-slate-500">Chọn một hợp đồng trong danh sách để xem chi tiết.</p> : <>
-              <h2 className="font-bold text-base">Chi tiết hợp đồng {selectedContract.id}</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                <p><span className="text-slate-500">Phòng:</span> {selectedContract.roomCode}</p>
-                <p><span className="text-slate-500">Khách thuê:</span> {selectedContract.tenantName}</p>
-                <p><span className="text-slate-500">Lần thuê:</span> {selectedContract.leaseId}</p>
-                <p><span className="text-slate-500">Trạng thái:</span> {selectedContract.status}</p>
-                <p><span className="text-slate-500">Từ ngày:</span> {selectedContract.startDate}</p>
-                <p><span className="text-slate-500">Đến ngày:</span> {selectedContract.endDate}</p>
-                <p><span className="text-slate-500">Tiền thuê:</span> {selectedContract.monthlyRent.toLocaleString('vi-VN')}đ/tháng</p>
-                <p><span className="text-slate-500">Cọc gốc đã xác nhận:</span> {firstPayment ? `${firstPayment.depositAmount.toLocaleString('vi-VN')}đ` : 'Chưa có chứng cứ thanh toán ban đầu'}</p>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h2 className="font-bold text-base">Chi tiết hợp đồng {selectedContract.id}</h2>
+                  <p className="text-xs text-slate-500">Phòng {selectedContract.roomCode} · {selectedContract.status} · Lần thuê {selectedContract.leaseId}</p>
+                </div>
+                <div className="flex flex-wrap gap-2 text-xs">
+                  <button type="button" onClick={()=>setLargeContractOpen(true)} className="px-3 py-2 bg-blue-600 text-white rounded-lg font-semibold">Xem bản hợp đồng khổ lớn</button>
+                  <button type="button" onClick={()=>window.print()} className="px-3 py-2 border border-slate-300 rounded-lg font-semibold">In / Lưu PDF</button>
+                </div>
+              </div>
+              <div className="rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs p-3">
+                Đây là bản trình bày thông tin hợp đồng từ dữ liệu đang lưu, <strong>không thay thế bản giấy có chữ ký</strong>. Hồ sơ hiện chưa lưu đầy đủ thông tin Bên cho thuê và điều khoản chi tiết; các phần đó được để trống hoặc ghi rõ chưa có dữ liệu.
+              </div>
+              {!largeContractOpen && <ContractDocument contract={selectedContract} tenant={selectedTenant} room={selectedRoom} />}
+              <div className="rounded-lg bg-slate-50 p-3 border text-sm">
+                <p><span className="text-slate-500">Tình trạng ký bản giấy:</span> <strong>{selectedContract.isSignedPaper ? 'Đã ghi nhận ký' : 'Chưa ghi nhận ký'}</strong></p>
+                <p><span className="text-slate-500">Cọc gốc đã xác nhận:</span> {firstPayment ? `${firstPayment.depositAmount.toLocaleString('vi-VN')}đ` : 'Chưa có chứng từ thanh toán ban đầu'}</p>
+                {!!selectedContract.signedProofFiles?.length && <p><span className="text-slate-500">Tên tệp chứng cứ ký được ghi nhận:</span> {selectedContract.signedProofFiles.join(', ')}</p>}
               </div>
               <div className="rounded-xl border border-slate-200 p-3 bg-slate-50 space-y-2">
                 <h3 className="font-semibold text-sm">Quyết toán cọc</h3>
@@ -181,6 +194,20 @@ export const ContractsView: React.FC<{initialContractId?: string; initialRoomCod
           </div>
         </div>
       </div>}
+      {activeTab === 'overview' && largeContractOpen && selectedContract && displayedContracts.some(c => c.id === selectedContract.id) && (
+        <div className="contract-fullscreen-modal fixed inset-0 z-[80] bg-slate-900/80 p-2 sm:p-5 overflow-y-auto" role="dialog" aria-modal="true" aria-label={`Bản hợp đồng ${selectedContract.id}`}>
+          <div className="max-w-[225mm] mx-auto">
+            <div className="contract-toolbar bg-white px-3 py-2 mb-3 rounded-lg flex items-center justify-between gap-2 text-sm shadow-lg">
+              <span className="font-semibold truncate">Hợp đồng {selectedContract.id}</span>
+              <div className="flex gap-2 shrink-0">
+                <button type="button" onClick={()=>window.print()} className="rounded-lg bg-blue-600 text-white px-3 py-2">In / Lưu PDF</button>
+                <button type="button" onClick={()=>setLargeContractOpen(false)} className="rounded-lg border px-3 py-2">Đóng</button>
+              </div>
+            </div>
+            <ContractDocument contract={selectedContract} tenant={selectedTenant} room={selectedRoom} />
+          </div>
+        </div>
+      )}
       {activeTab === 'settlement' && (selectedContract || settlementMode === 'list') && <div className="space-y-3">
         <button onClick={()=>setActiveTab('overview')} className="px-3 py-2 border rounded-lg text-sm bg-white">← Quay lại Chi tiết hợp đồng</button>
         <DepositSettlementView key={`${settlementMode}-${selectedContract?.leaseId || 'all'}-${settlementOpenId}`} leaseId={settlementMode === 'list' ? undefined : selectedContract?.leaseId} contractId={selectedContract?.id} initialMode={settlementMode} initialSlipId={settlementOpenId} />

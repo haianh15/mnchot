@@ -652,6 +652,12 @@ export interface Contract {
   tenantName: string;
   tenantPhone?: string;
   tenantIdNumber?: string;
+  /** Thông tin pháp lý Bên A ghi riêng cho hợp đồng; không suy từ chủ tài khoản ngân hàng. */
+  lessorName?: string;
+  lessorIdNumber?: string;
+  lessorAddress?: string;
+  lessorPhone?: string;
+  propertyAddress?: string;
   batchCode: string;
   startDate: string;
   endDate: string;
