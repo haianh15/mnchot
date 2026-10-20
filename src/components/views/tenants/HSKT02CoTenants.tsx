@@ -7,7 +7,7 @@ import {
   ShieldCheck, ArrowRight, X, Building2, Check, FileCheck, AlertTriangle, Link2
 } from 'lucide-react';
 
-export const HSKT02CoTenants: React.FC<{tenantId?: string}> = ({tenantId}) => {
+export const HSKT02CoTenants: React.FC<{tenantId?: string; roomCode?: string; leaseId?: string}> = ({tenantId, roomCode, leaseId}) => {
   const {
     tenants,
     coTenants,
@@ -21,8 +21,8 @@ export const HSKT02CoTenants: React.FC<{tenantId?: string}> = ({tenantId}) => {
   } = useApp();
 
   // Filters
-  const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [filterRoom, setFilterRoom] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>(roomCode && leaseId ? 'Đang cư trú' : 'all');
+  const [filterRoom, setFilterRoom] = useState<string>(roomCode || 'all');
   const [searchTerm, setSearchTerm] = useState('');
 
   // Add Co-tenant Modal State
@@ -30,7 +30,7 @@ export const HSKT02CoTenants: React.FC<{tenantId?: string}> = ({tenantId}) => {
   const [coTenantMode, setCoTenantMode] = useState<'Nháp' | 'Dự kiến' | 'Đang cư trú'>('Dự kiến');
   const [selectedTenantId, setSelectedTenantId] = useState<string>(tenantId || tenants[0]?.id || '');
   const [incomingTenantName, setIncomingTenantName] = useState<string>('');
-  const [selectedRoomCode, setSelectedRoomCode] = useState<string>(rooms[0]?.roomCode || '');
+  const [selectedRoomCode, setSelectedRoomCode] = useState<string>(roomCode || rooms.find(r => r.currentTenantId === tenantId)?.roomCode || rooms[0]?.roomCode || '');
   const [fullName, setFullName] = useState('');
   const [idNumber, setIdNumber] = useState('');
   const [relationship, setRelationship] = useState('Vợ/Chồng');
@@ -70,6 +70,8 @@ export const HSKT02CoTenants: React.FC<{tenantId?: string}> = ({tenantId}) => {
   // Filter co-tenants
   const filteredList = coTenants.filter(c => {
     if (tenantId && c.tenantId !== tenantId) return false;
+    if (roomCode && c.roomCode !== roomCode) return false;
+    if (leaseId && c.leaseId !== leaseId) return false;
     if (filterStatus !== 'all' && c.status !== filterStatus) return false;
     if (filterRoom !== 'all' && c.roomCode !== filterRoom) return false;
     if (searchTerm.trim()) {
@@ -120,14 +122,20 @@ export const HSKT02CoTenants: React.FC<{tenantId?: string}> = ({tenantId}) => {
   // Submit Add Co-tenant (Bước 6)
   const handleConfirmAddSubmit = () => {
     setModalError(null);
-    const assignedTenant = tenants.find(t => t.id === selectedTenantId);
-    const assignedRoom = rooms.find(r => r.roomCode === selectedRoomCode);
+    const effectiveTenantId = tenantId || selectedTenantId;
+    const effectiveRoomCode = roomCode || selectedRoomCode;
+    const assignedTenant = tenants.find(t => t.id === effectiveTenantId);
+    const assignedRoom = rooms.find(r => r.roomCode === effectiveRoomCode);
 
+    if (leaseId && assignedRoom?.currentLeaseId !== leaseId && coTenantMode === 'Đang cư trú') {
+      setModalError('Không thể thêm người đang cư trú vào lần thuê đã kết thúc hoặc chưa nhận phòng.');
+      return;
+    }
     const res = addCoTenantHSKT02({
-      tenantId: coTenantMode === 'Nháp' && !selectedTenantId ? 'DRAFT': selectedTenantId,
+      tenantId: coTenantMode === 'Nháp' && !effectiveTenantId ? 'DRAFT': effectiveTenantId,
       incomingTenantName: coTenantMode === 'Nháp' ? incomingTenantName || 'Khách đang tiếp nhận': undefined,
-      roomCode: selectedRoomCode || undefined,
-      leaseId: assignedRoom?.currentLeaseId || undefined,
+      roomCode: effectiveRoomCode || undefined,
+      leaseId: assignedRoom?.currentLeaseId || leaseId || undefined,
       contractId: assignedRoom?.currentContractId || undefined,
       fullName: fullName.trim(),
       idNumber: idNumber.trim() || undefined,

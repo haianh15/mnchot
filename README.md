@@ -37,3 +37,9 @@ Danh sách theo dõi trả phòng đã chuyển vào **Quản lý hợp đồng*
 Xem `BAO_CAO_SUA_LUONG_PHONG_BAN_GIAO_20_10_2026.md` để biết các sửa lỗi liên kết đúng hợp đồng/lần thuê, chứng cứ kiểm kê và trả phòng, đồng bộ quyết toán cọc. Chạy `npm run test:handover` để thực hiện các bài kiểm tra hồi quy sau khi cài dependencies.
 
 **Giới hạn:** dự án là bản demo dùng localStorage. Không sử dụng như hệ thống thanh toán/hồ sơ nghiệp vụ thật trước khi hoàn thiện backend, sao lưu và kiểm thử end-to-end.
+
+## Cập nhật liên kết Phòng – Bàn giao (20/10/2026)
+
+Đã rà soát lại liên kết mã phòng/hợp đồng/lần thuê, hồ sơ nhận phòng kế thừa, kết quả trả phòng, xác nhận ký giấy, dữ liệu kiểm kê, hiện trạng và đối chiếu cọc. Xem `BAO_CAO_KIEM_TRA_SUA_LIEN_KET_PHONG_BAN_GIAO_20_10.md`.
+
+Sau khi `npm install`, chạy `npm run test:handover` (có thêm 29 trường hợp kiểm tra), cùng `npm run test:occupancy`, `npm run test:settlement` và `npm run test:contract`.

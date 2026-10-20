@@ -1,5 +1,6 @@
 import { toUserMessage } from '../../utils/userMessages';
 import { resolveRoomContract, resolveRoomTenantId, getLeaseContractChain, getConfirmedRoomHandover } from '../../utils/roomLinks';
+import { getRoomOccupancy } from '../../utils/occupancy';
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Room, ContractExpiryBadge, TenantFeedbackBadge, RoomHistoryLog } from '../../types';
@@ -10,7 +11,7 @@ import {
   History, ArrowLeft, RotateCcw, Building2, FileCheck2
 } from 'lucide-react';
 
-export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | 'handover', target: {roomCode?: string; contractId?: string; tenantId?: string; leaseId?: string; action?: 'create' | 'return-plans'}) => void; initialRoomCode?: string}> = ({onNavigate, initialRoomCode}) => {
+export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | 'handover', target: {roomCode?: string; contractId?: string; tenantId?: string; leaseId?: string; action?: 'create' | 'return-plans'; handoverMode?: 'receive' | 'return' | 'view'}) => void; initialRoomCode?: string}> = ({onNavigate, initialRoomCode}) => {
   const {
     currentUser,
     currentSession,
@@ -138,7 +139,8 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
     closeRoomDetails();
     onNavigate(tab, { roomCode: room.roomCode,
       contractId: handover?.contractId || contract.id, tenantId,
-      leaseId: handover?.leaseId || contract.leaseId });
+      leaseId: handover?.leaseId || contract.leaseId,
+      handoverMode: tab === 'handover' ? (room.status === 'Trống' ? 'receive' : 'view') : undefined });
   };
   // Modals for Actions & Links in Chi tiết phòng
   const [showAddModal, setShowAddModal] = useState(false);
@@ -450,13 +452,16 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
     }
   };
 
+  // Always use the same live residency calculation as Hồ sơ khách thuê.
+  const getOccupancyForRoom = (room: Room) =>
+    getRoomOccupancy(room, contracts, returnInspections, tenants, coTenants);
+  const selectedOccupancy = selectedRoom ? getOccupancyForRoom(selectedRoom) : undefined;
+
   // Find related records for selectedRoom
   const relatedContract = selectedRoom ? getActiveRoomContract(selectedRoom) : undefined;
   const relatedTenantId = selectedRoom ? getActiveRoomTenantId(selectedRoom) : undefined;
   const relatedTenant = relatedTenantId ? tenants.find(t => t.id === relatedTenantId) : undefined;
-  const relatedCoTenants = selectedRoom && relatedTenantId ? coTenants.filter(ct =>
-    ct.roomCode === selectedRoom.roomCode && ct.leaseId === relatedContract?.leaseId &&
-    ct.tenantId === relatedTenantId && ct.status === 'Đang cư trú') : [];
+  const relatedCoTenants = selectedOccupancy?.currentCoTenants ?? [];
   const relatedHandover = selectedRoom ? getCurrentRoomHandover(selectedRoom) : undefined;
   const relatedReturnPlan = selectedRoom ? getCurrentRoomReturnPlan(selectedRoom) : undefined;
   const missingConfirmedCheckIn = Boolean(selectedRoom && selectedRoom.status !== 'Trống' &&
@@ -691,7 +696,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
 
                           {/* 13. Tổng số người */}
                           <td className="py-3 px-3 text-center font-mono font-semibold text-slate-800">
-                            {room.status === 'Trống' ? 0 : room.totalOccupants}
+                            {getOccupancyForRoom(room).total ?? 'Chưa xác định'}
                           </td>
 
                           {/* 14. Ghi chú (chỉ xem, không sửa) */}
@@ -799,7 +804,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
             {checkInStage === 1 && <>
               <div><h3 className="font-semibold text-lg">Kiểm tra bàn giao phòng</h3><p className="text-sm text-slate-500 mt-1">Bản giấy phải được ký và kết quả bàn giao phải được xác nhận.</p></div>
               <div className="rounded-xl bg-slate-50 border p-4 space-y-2 text-sm"><p>Biên bản: <strong>{report?.reportNumber || 'Chưa có'}</strong></p><p>Trạng thái: <strong>{report?.status || 'Chưa xác nhận'}</strong></p><p className={handoverValid?'text-emerald-700':'text-amber-800'}>{handoverValid?'Đã đủ chữ ký và xác nhận':'Cần hoàn thiện hồ sơ bàn giao trước khi tiếp tục'}</p></div>
-              <div className="flex flex-wrap gap-2 justify-between"><button className={`${btn} border`} onClick={()=>setCheckInStage(0)}>Quay lại</button><div className="flex flex-wrap gap-2"><button className={`${btn} border`} onClick={()=>onNavigate?.('handover',{roomCode:room.roomCode,contractId:contract?.id,leaseId:contract?.leaseId})}>Mở hồ sơ bàn giao</button><button disabled={!handoverValid} className={`${btn} ${handoverValid?'bg-blue-600 text-white':'bg-slate-100 text-slate-400 cursor-not-allowed'}`} onClick={()=>setCheckInStage(2)}>Tiếp tục <ArrowRight className="inline w-4 h-4"/></button></div></div>
+              <div className="flex flex-wrap gap-2 justify-between"><button className={`${btn} border`} onClick={()=>setCheckInStage(0)}>Quay lại</button><div className="flex flex-wrap gap-2"><button className={`${btn} border`} onClick={()=>onNavigate?.('handover',{roomCode:room.roomCode,contractId:contract?.id,leaseId:contract?.leaseId,handoverMode:'receive'})}>Mở hồ sơ bàn giao</button><button disabled={!handoverValid} className={`${btn} ${handoverValid?'bg-blue-600 text-white':'bg-slate-100 text-slate-400 cursor-not-allowed'}`} onClick={()=>setCheckInStage(2)}>Tiếp tục <ArrowRight className="inline w-4 h-4"/></button></div></div>
             </>}
             {checkInStage === 2 && <>
               <div><h3 className="font-semibold text-lg">Đối chiếu người nhận phòng</h3><p className="text-sm text-slate-500 mt-1">Xác nhận người đến nhận là người trong hợp đồng và biên bản.</p></div>
@@ -820,8 +825,9 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
 
       {subTab === 'return' && (() => {
         const room=rooms.find(r=>r.roomCode===activeReturnRoomCode);
+        const contract=room ? getActiveRoomContract(room) : undefined;
         const inspection=room && returnInspections.find(i=>i.roomCode===room.roomCode && i.leaseId===room.currentLeaseId);
-        const canVacate=!!inspection && inspection.step304Status==='Đã nhận lại' && !!inspection.step305Confirmed;
+        const canVacate=!!inspection && inspection.step304Status==='Đã nhận lại' && !!inspection.step305Confirmed && inspection.contractId===contract?.id && !!getConfirmedRoomHandover(contract, contracts, handoverReports);
         const btn='rounded-lg px-4 py-2 text-sm font-semibold';
         return <div className="space-y-4">
           <div className="rounded-2xl bg-white border p-5 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
@@ -832,7 +838,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
             {returnStage===0 && <>
               <h3 className="font-semibold text-lg">Kiểm tra kết quả nhận lại phòng</h3>
               <div className="rounded-xl border bg-slate-50 p-4 text-sm space-y-2"><p>Phòng: <strong>{room.roomCode}</strong></p><p>Biên bản nhận lại: <strong>{inspection?.id || 'Chưa có'}</strong></p><p>Thực tế: <strong>{inspection?.step304Status || 'Chưa ghi nhận'}</strong></p><p>Chủ nhà xác nhận: <strong>{inspection?.step305Confirmed?'Đã xác nhận':'Chưa xác nhận'}</strong></p>{!canVacate && <p className="text-amber-800">Chưa đủ điều kiện trả phòng. Vui lòng hoàn thiện biên bản trước.</p>}</div>
-              <div className="flex flex-wrap justify-end gap-2"><button className={`${btn} border`} onClick={()=>onNavigate?.('handover',{roomCode:room.roomCode})}>Mở hồ sơ bàn giao</button><button disabled={!canVacate} className={`${btn} ${canVacate?'bg-blue-600 text-white':'bg-slate-100 text-slate-400 cursor-not-allowed'}`} onClick={()=>setReturnStage(1)}>Tiếp tục <ArrowRight className="inline w-4 h-4"/></button></div>
+              <div className="flex flex-wrap justify-end gap-2"><button className={`${btn} border`} onClick={()=>onNavigate?.('handover',{roomCode:room.roomCode, contractId:contract?.id, leaseId:room.currentLeaseId || contract?.leaseId, handoverMode:'return'})}>Mở hồ sơ bàn giao</button><button disabled={!canVacate} className={`${btn} ${canVacate?'bg-blue-600 text-white':'bg-slate-100 text-slate-400 cursor-not-allowed'}`} onClick={()=>setReturnStage(1)}>Tiếp tục <ArrowRight className="inline w-4 h-4"/></button></div>
             </>}
             {returnStage===1 && <>
               <h3 className="font-semibold text-lg">Xác nhận kết thúc thuê</h3><p className="text-sm text-slate-600">Sau khi nhận lại phòng, hệ thống cập nhật trạng thái Trống; quyết toán cọc được theo dõi riêng trong hồ sơ hợp đồng.</p>
@@ -969,7 +975,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                   <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-100">
                     <span className="text-slate-500 block text-[11px]">Số người ở (Tổng số người):</span>
                     <span className="font-bold text-slate-900 text-sm">
-                      {selectedRoom.status === 'Trống' ? 0 : selectedRoom.totalOccupants} người {selectedRoom.status !== 'Trống' && selectedRoom.totalOccupants > 1 && '(bao gồm khách ở ghép)'}
+                      {selectedOccupancy?.total === null ? 'Chưa xác định (thiếu liên kết hồ sơ)' : `${selectedOccupancy?.total ?? 0} người`} {selectedOccupancy && selectedOccupancy.currentCoTenants.length > 0 && `(gồm ${selectedOccupancy.currentCoTenants.length} người ở cùng)`}
                     </span>
                   </div>
                 </div>
@@ -1544,18 +1550,18 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
               <div className="flex justify-between">
                 <span className="text-slate-500">Số CCCD/CMND:</span>
                 <span className="font-mono font-semibold text-slate-800">
-                  {relatedTenant?.idNumber || '001201018899'}
+                  {relatedTenant?.idNumber || 'Chưa có dữ liệu'}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Số điện thoại liên hệ:</span>
                 <span className="font-mono text-blue-700 font-semibold">
-                  {relatedTenant?.phoneNumber || '0988 123 456'}
+                  {relatedTenant?.phoneNumber || 'Chưa có dữ liệu'}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Địa chỉ thường trú:</span>
-                <span>{relatedTenant?.address || 'TP. Hà Nội'}</span>
+                <span>{relatedTenant?.address || 'Chưa có dữ liệu'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Tình trạng đăng ký tạm trú:</span>
@@ -1563,7 +1569,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Tổng số người ở tại phòng:</span>
-                <span className="font-bold text-slate-900 font-mono">{selectedRoom.totalOccupants} người</span>
+                <span className="font-bold text-slate-900 font-mono">{selectedOccupancy?.total === null ? 'Chưa xác định' : `${selectedOccupancy?.total ?? 0} người`}</span>
               </div>
 
               {/* Danh sách người ở cùng nếu có */}
@@ -1572,7 +1578,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                   <span className="font-semibold text-slate-700 block text-[11px]">Người ở ghép / người ở cùng:</span>
                   {relatedCoTenants.map(ct => (
                     <div key={ct.id} className="p-2 bg-white rounded border border-slate-200 flex justify-between">
-                      <span>{ct.fullName} (CCCD: {ct.idNumber || '001201018898'})</span>
+                      <span>{ct.fullName} (CCCD: {ct.idNumber || 'Chưa có dữ liệu'})</span>
                       <span className="font-semibold text-blue-700">{ct.relationship}</span>
                     </div>
                   ))}
@@ -2157,7 +2163,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                         <div className="p-3 bg-white/90 rounded-lg border border-rose-200 space-y-1.5 text-rose-950">
                           <strong className="block font-semibold">Lý do chi tiết:</strong>
                           <p className="leading-relaxed">
-                            Phòng <strong>{targetRoom.roomCode}</strong> hiện đang Trống nhưng <strong>đã có hợp đồng đã ký ({pendingContract.id})</strong> cam kết giao phòng cho khách <strong>{pendingContract.tenantName}</strong> vào ngày <strong>{pendingContract.startDate}</strong> (đã nộp cọc bảo đảm: {pendingContract.depositAmount.toLocaleString('vi-VN')} đ). </p>
+                            Phòng <strong>{targetRoom.roomCode}</strong> hiện đang Trống nhưng <strong>đã có hợp đồng đã ký ({pendingContract.id})</strong> cam kết giao phòng cho khách <strong>{pendingContract.tenantName}</strong> vào ngày <strong>{pendingContract.startDate}</strong> (tiền cọc theo hợp đồng: {pendingContract.depositAmount.toLocaleString('vi-VN')} đ; tình trạng đã thu được xác định theo chứng từ chuyển khoản). </p>
                           <p className="leading-relaxed text-rose-900">
                             <strong>Căn cứ &amp; </strong> Chỉ kết luận Có thể giới thiệu khi phòng Trống và không có hợp đồng đã ký còn cam kết giao phòng cho khách khác. Hợp đồng đã ký không có chức năng hủy/ký lại trong phần mềm; không tự giải phóng phòng dựa trên đề nghị hủy. </p>
                           <div className="p-2 bg-rose-100/70 rounded border border-rose-300 text-rose-900 font-semibold text-[11px]">
@@ -2241,7 +2247,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                           className="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-emerald-700 border border-slate-300 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
                         >
                           <PackageCheck className="w-3.5 h-3.5 text-emerald-600" />
-                          Xem thông tin bàn giao
+                          {getConfirmedRoomHandover(getActiveRoomContract(targetRoom), contracts, handoverReports) ? 'Xem biên bản nhận phòng' : 'Bổ sung biên bản nhận phòng'}
                         </button>}
 
                         {/* 4. Xem kế hoạch trả (mở, thẻ Kế hoạch trả) */}

@@ -1,6 +1,6 @@
 import { toUserMessage } from '../../utils/userMessages';
 import React, { useState, useEffect } from 'react';
-import { getLeaseContractChain, resolveRoomContract } from '../../utils/roomLinks';
+import { getConfirmedRoomHandover, getLeaseContractChain, resolveRoomContract } from '../../utils/roomLinks';
 import { useApp } from '../../context/AppContext';
 import {
   InventoryRecord,
@@ -49,10 +49,11 @@ import {
   RefreshCw
 } from 'lucide-react';
 
-export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeaseId?: string; initialContractId?: string}> = ({initialRoomCode, initialLeaseId, initialContractId}) => {
+export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeaseId?: string; initialContractId?: string; initialMode?: 'receive' | 'return' | 'view'}> = ({initialRoomCode, initialLeaseId, initialContractId, initialMode}) => {
   const {
     rooms,
     contracts,
+    tenants,
     standardAssets,
     inventoryRecords,
     handoverConditions,
@@ -117,8 +118,9 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
     handleRoomChange(initialRoomCode);
     // From Room Details, open the matching lease's handover form, including when
     // the legacy occupied room is missing a paper report that must be reconciled.
-    if (initialLeaseId) setActiveTab('handover_bg03');
-  }, [initialRoomCode, initialLeaseId, initialContractId]);
+    if (initialMode === 'return') setActiveTab(handoverReturnReports.some(r => r.roomCode === initialRoomCode && r.leaseId === initialLeaseId) ? 'return_room_bg09' : 'init_report_bg08');
+    else if (initialLeaseId || initialMode === 'receive' || initialMode === 'view') setActiveTab('handover_bg03');
+  }, [initialRoomCode, initialLeaseId, initialContractId, initialMode]);
   // Toast feedback
   const [toast, setToast] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
   const showToast = (type: 'success' | 'error' | 'info', message: string) => {
@@ -172,7 +174,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
       !permittedRenewalChain.some(c => c.leaseId === initialLeaseId)) ||
     (initialContractId && !contracts.some(c => c.roomCode === selectedRoomCode &&
       c.leaseId === initialLeaseId && c.id === initialContractId))));
-  const currentInitialPayment = initialPaymentRecords.find(p => p.roomCode === selectedRoomCode && p.leaseId === selectedLeaseId);
+  const currentInitialPayment = initialPaymentRecords.find(p => p.roomCode === selectedRoomCode && p.leaseId === selectedLeaseId && p.contractId === targetContract?.id);
   const returnInspectionTarget = returnInspections.find(r => r.roomCode === selectedRoomCode && r.leaseId === selectedLeaseId);
   const [comparisonItems, setComparisonItems] = useState<{
     assetName: string;
@@ -185,8 +187,14 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
   }[]>([]);
 
   // ==================== STATE : KIỂM KÊ TÀI SẢN PHÒNG ====================
+  // If a continuing contract inherited the signed paper handover, display
+  // inventory from the original contract in that same lease (read-only).
+  const originalReceiveContractId = getLeaseContractChain(targetContract, contracts)
+    .map(c => handoverReports.find(r => r.roomCode === selectedRoomCode && r.leaseId === selectedLeaseId && r.contractId === c.id &&
+      r.status === 'Đã xác nhận'))
+    .find(Boolean)?.contractId || targetContract?.id;
   const existingInventory = inventoryRecords.find(i => i.roomCode === selectedRoomCode &&
-    i.linkedLeaseId === selectedLeaseId && i.linkedContractId === targetContract?.id);
+    i.linkedLeaseId === selectedLeaseId && i.linkedContractId === originalReceiveContractId);
   const [inventoryReviewed, setInventoryReviewed] = useState(false);
   const [inventoryItems, setInventoryItems] = useState<RoomAssetItem[]>(() => {
     if (existingInventory && existingInventory.items.length > 0) {
@@ -219,9 +227,10 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
 
   // ==================== STATE : GHI NHẬN HIỆN TRẠNG TÀI SẢN ====================
   const existingCondition = handoverConditions.find(c => c.roomCode === selectedRoomCode &&
-    c.linkedLeaseId === selectedLeaseId && c.linkedContractId === targetContract?.id);
+    c.linkedLeaseId === selectedLeaseId && c.linkedContractId === originalReceiveContractId && c.status === 'Đã hoàn tất' && c.meterPhotos?.length > 0) ||
+    handoverConditions.find(c => c.roomCode === selectedRoomCode && c.linkedLeaseId === selectedLeaseId && c.linkedContractId === originalReceiveContractId);
   const [condScope, setCondScope] = useState<'Tài sản cụ thể' | 'Hiện trạng chung của phòng'>('Hiện trạng chung của phòng');
-  const [condAssetName, setCondAssetName] = useState<string>(standardAssets[0]?.name || 'Điều hòa Daikin');
+  const [condAssetName, setCondAssetName] = useState<string>(standardAssets[0]?.name || '');
   const [condDesc, setCondDesc] = useState<string>(existingCondition?.description || '');
   const [condPhotos, setCondPhotos] = useState<string[]>(existingCondition?.photos || []);
   const [condVideoUrl, setCondVideoUrl] = useState<string>(existingCondition?.videoUrl || '');
@@ -240,11 +249,17 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
   const [supplementNote, setSupplementNote] = useState<string>(existingCondition?.supplementNote || '');
 
   // ==================== STATE : LẬP BIÊN BẢN NHẬN PHÒNG ====================
-  const existingReport = handoverReports.find(r => r.roomCode === selectedRoomCode && r.leaseId === selectedLeaseId);
+  // A renewed contract reads its original signed handover; it must not modify
+  // that report or relabel it with the renewing contract's identifier.
+  const handoverContractChain = getLeaseContractChain(targetContract, contracts);
+  const existingReport = handoverContractChain.map(c => handoverReports.find(r =>
+    r.roomCode === selectedRoomCode && r.leaseId === selectedLeaseId && r.contractId === c.id)).find(Boolean);
+  const isInheritedReceiveReport = Boolean(existingReport && existingReport.contractId !== targetContract?.id);
+  const matchingTenant = tenants.find(t => t.id === targetContract?.tenantId);
   const [showSignPaperModal, setShowSignPaperModal] = useState(false);
   const [signPaperTenant, setSignPaperTenant] = useState<boolean>(existingReport?.tenantSignedPaper === 'Đã ký giấy');
   const [signPaperOwner, setSignPaperOwner] = useState<boolean>(existingReport?.ownerSignedPaper === 'Đã ký giấy');
-  const [paperLocation, setPaperLocation] = useState<string>(existingReport?.paperLocation || 'Tủ hồ sơ tầng 1 - Kẹp P.' + selectedRoomCode.replace(/\D/g, ''));
+  const [paperLocation, setPaperLocation] = useState<string>(existingReport?.paperLocation || '');
   const [signedDocumentScanUrl, setSignedDocumentScanUrl] = useState<string>(existingReport?.signedDocumentScanUrl || '');
   // Never carry signature indicators or evidence from another room/lease.
   useEffect(() => {
@@ -257,7 +272,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
 
   // ==================== STATE : GHI NHẬN SỰ CỐ TÀI SẢN ====================
   const [incScope, setIncScope] = useState<'Tài sản cụ thể' | 'Hiện trạng chung'>('Tài sản cụ thể');
-  const [incAsset, setIncAsset] = useState<string>(standardAssets[0]?.name || 'Điều hòa Daikin');
+  const [incAsset, setIncAsset] = useState<string>(standardAssets[0]?.name || '');
   const [incDesc, setIncDesc] = useState('');
   const [incCause, setIncCause] = useState('');
   const [incRespStatus, setIncRespStatus] = useState<'Chưa xác định' | 'Đã xác định'>('Chưa xác định');
@@ -320,7 +335,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
   const [bg08Giver, setBg08Giver] = useState(selectedRoom?.currentTenantName || '');
   const [bg08Receiver, setBg08Receiver] = useState(currentUser?.fullName || 'Chủ nhà');
   const [bg08Place, setBg08Place] = useState('Tại phòng ' + selectedRoomCode);
-  const [bg08Notes, setBg08Notes] = useState('Biên bản lập căn cứ vào kết quả bàn giao nhận phòng và kiểm tra thực tế.');
+  const [bg08Notes, setBg08Notes] = useState('');
 
   // ==================== STATE : GHI NHẬN KẾT QUẢ NHẬN LẠI PHÒNG ( & ) ====================
   const existingInspection = returnInspections.find(i => i.roomCode === selectedRoomCode && i.leaseId === selectedLeaseId);
@@ -385,8 +400,11 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
     const nextContract = room ? resolveRoomContract(room, contracts, returnInspections) : undefined;
     const nextLeaseId = initialRoomCode === roomCode && initialLeaseId
       ? initialLeaseId : (room?.currentLeaseId || room?.pendingLeaseId);
+    const receiveContractId = getLeaseContractChain(nextContract, contracts)
+      .map(c => handoverReports.find(r => r.roomCode === roomCode && r.leaseId === nextLeaseId && r.contractId === c.id &&
+        r.status === 'Đã xác nhận')).find(Boolean)?.contractId || nextContract?.id;
     const existing = inventoryRecords.find(i => i.roomCode === roomCode &&
-      i.linkedLeaseId === nextLeaseId && i.linkedContractId === nextContract?.id);
+      i.linkedLeaseId === nextLeaseId && i.linkedContractId === receiveContractId);
     if (existing && existing.items.length > 0) {
       setInventoryItems(existing.items);
     } else {
@@ -420,13 +438,29 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
       setBg07SolutionPlan('');
       setBg07OwnerOpinion('');
       setBg07TenantOpinion('');
-      setBg07TenantFeedbackStatus('Đã phản hồi');
-      setBg07UnanimousStatus('Đã thống nhất');
+      setBg07TenantFeedbackStatus('Chưa phản hồi');
+      setBg07UnanimousStatus('Chưa xác định');
       setBg07CompensationAmount(0);
       setStep318Transferred(false);
     }
+    // Clear unsaved inputs before moving from one room to another.
+    setComparisonItems([]);
+    setCondScope('Hiện trạng chung của phòng');
+    setCondAssetName(standardAssets[0]?.name || '');
+    setTenantCheckOption('Không cần bổ sung');
+    setIncDesc(''); setIncCause(''); setIncRespNote(''); setIncSolutionPlan('');
+    setIncActualResult(''); setIncExternalPaymentNote(''); setIncPhotos([]); setIncVideoUrl('');
+    setSelectedIncidentDetail(null);
+    setShowAddAssetModal(false); setShowLinkContractModal(false);
+    setShowSignPaperModal(false); setShowCorrectionModal(false);
+    setShowSettlementDetailModal(false); setShowAF03SettlementModal(false);
+    setShowAddContactModal(false); setShowConfirm324Modal(false);
+    setMismatchNoticeSent(false);
     const matchingCondition = handoverConditions.find(cond => cond.roomCode === roomCode &&
-      cond.linkedContractId === nextContract?.id && cond.linkedLeaseId === nextLeaseId);
+      cond.linkedContractId === receiveContractId && cond.linkedLeaseId === nextLeaseId &&
+      cond.status === 'Đã hoàn tất' && cond.meterPhotos?.length > 0) ||
+      handoverConditions.find(cond => cond.roomCode === roomCode &&
+        cond.linkedContractId === receiveContractId && cond.linkedLeaseId === nextLeaseId);
     setCondDesc(matchingCondition?.description || '');
     setCondPhotos(matchingCondition?.photos || []);
     setCondVideoUrl(matchingCondition?.videoUrl || '');
@@ -463,7 +497,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
       setBg08Giver(rmContract?.tenantName || '');
       setBg08Receiver(currentUser?.fullName || 'Chủ nhà');
       setBg08Place('Tại phòng ' + roomCode);
-      setBg08Notes('Biên bản lập căn cứ vào kết quả bàn giao nhận phòng và kiểm tra thực tế.');
+      setBg08Notes('');
       setBg11TenantSigned('Chưa ký');
       setBg11NotSignReason('Không cung cấp lý do');
       setBg11NotSignExchangeInfo('');
@@ -476,7 +510,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
     const insp = returnInspections.find(i => i.roomCode === roomCode && i.leaseId === nextLeaseId);
     if (insp) {
       setBg09InspectionDate(insp.inspectionDate || new Date().toISOString().substring(0, 10));
-      setBg09Step304Status(insp.step304Status || 'Đã nhận lại');
+      setBg09Step304Status(insp.step304Status || 'Chưa có kết quả');
       setBg09IncompleteReason(insp.incompleteReason || '');
       setBg09FinalElec(insp.finalElectricityKwh ?? '');
       setBg09FinalWater(insp.finalWaterM3 ?? '');
@@ -585,7 +619,8 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
             const activeGroup = tab==='inventory_bg01' ? ['inventory_bg01','condition_bg02','handover_bg03'].includes(activeTab) :
               tab==='init_report_bg08' ? ['compare_bg06','result_bg07','init_report_bg08','return_room_bg09','deposit_check_bg10','final_report_bg11'].includes(activeTab) :
               ['incident_add_bg04','incident_search_bg05'].includes(activeTab);
-            return <button key={tab} onClick={()=>setActiveTab(tab)} className={`rounded-lg px-4 py-2 text-sm font-semibold ${activeGroup?'bg-blue-600 text-white':'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>{label}</button>
+            const notApplicable = tab === 'init_report_bg08' && (!selectedRoom || selectedRoom.status === 'Trống');
+            return <button key={tab} disabled={notApplicable} title={notApplicable ? 'Phòng chưa có người nhận ở; không có lượt thuê đang trả' : undefined} onClick={()=>setActiveTab(tab)} className={`rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed ${activeGroup?'bg-blue-600 text-white':'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>{label}</button>
           })}
         </div>
         <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-900" aria-live="polite">
@@ -594,12 +629,15 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
         </div>
       </div>
 
+      {selectedRoomCode && !targetContract && !linkedRoomMismatch && <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+        Phòng này chưa có hợp đồng đã ký đang chờ nhận hoặc lần thuê hiện tại. Không có hồ sơ bàn giao hợp lệ để mở hoặc lập. Hãy lập và ghi nhận hợp đồng trước.
+      </div>}
       {!selectedRoomCode && <div className="bg-amber-50 border border-amber-200 text-amber-900 text-sm rounded-xl p-4">Vui lòng chọn phòng cụ thể để mở hồ sơ bàn giao, tài sản và biên bản nguồn.</div>}
 
       {/* =========================================================================
           TAB 1: KIỂM KÊ TÀI SẢN PHÒNG 
       ========================================================================= */}
-      {selectedRoomCode && !linkedRoomMismatch && activeTab === 'inventory_bg01' && (
+      {selectedRoomCode && !linkedRoomMismatch && targetContract && activeTab === 'inventory_bg01' && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-4 text-xs">
           {/* Header Card */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-3">
@@ -825,7 +863,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
       {/* =========================================================================
           TAB 2: GHI NHẬN HIỆN TRẠNG TÀI SẢN 
       ========================================================================= */}
-      {selectedRoomCode && !linkedRoomMismatch && activeTab === 'condition_bg02' && (
+      {selectedRoomCode && !linkedRoomMismatch && targetContract && activeTab === 'condition_bg02' && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-4 text-xs">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-3">
             <div>
@@ -1173,18 +1211,18 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
       {/* =========================================================================
           TAB 3: LẬP BIÊN BẢN NHẬN PHÒNG 
       ========================================================================= */}
-      {selectedRoomCode && !linkedRoomMismatch && activeTab === 'handover_bg03' && (() => {
+      {selectedRoomCode && !linkedRoomMismatch && targetContract && activeTab === 'handover_bg03' && (() => {
         // Evaluate Mandatory Prerequisites for 1.06 Lưu Đã lập
         const cond1ContractValid = Boolean(targetContract && (targetContract.status === 'Hiệu lực' || targetContract.isSignedPaper));
-        const cond2DepositPaid = Boolean((currentInitialPayment && currentInitialPayment.depositAmount > 0) || selectedRoom.hasDeposit);
-        const cond3FirstRentPaid = Boolean((currentInitialPayment && currentInitialPayment.firstMonthRentAmount > 0) || selectedRoom.firstMonthRentPaid);
+        const cond2DepositPaid = Boolean(currentInitialPayment && currentInitialPayment.depositAmount >= targetContract!.depositAmount && targetContract!.depositAmount > 0);
+        const cond3FirstRentPaid = Boolean(currentInitialPayment && currentInitialPayment.firstMonthRentAmount >= targetContract!.firstMonthRentAmount && targetContract!.firstMonthRentAmount > 0);
         const cond4InventoryReady = Boolean(existingInventory?.inventoryStatus === 'Đã hoàn tất' &&
           existingInventory?.linkedLeaseId === selectedLeaseId && existingInventory?.linkedContractId === targetContract?.id);
         const cond5MetersReady = Boolean(existingCondition && existingCondition.linkedLeaseId === selectedLeaseId &&
           existingCondition.linkedContractId === targetContract?.id && existingCondition.status === 'Đã hoàn tất' &&
           existingCondition.meterPhotos.length > 0 && existingCondition.initialElectricityKwh >= 0 && existingCondition.initialWaterM3 >= 0);
 
-        const canSaveOfficially106 = cond1ContractValid && cond2DepositPaid && cond3FirstRentPaid && cond4InventoryReady && cond5MetersReady;
+        const canSaveOfficially106 = !isInheritedReceiveReport && targetContract?.contractType !== 'Hợp đồng nối tiếp' && cond1ContractValid && cond2DepositPaid && cond3FirstRentPaid && cond4InventoryReady && cond5MetersReady;
 
         return (
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-4 text-xs">
@@ -1253,7 +1291,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                 <div className="flex justify-center items-center gap-3 text-[11px] font-mono text-slate-500">
                   <span>Số BB: <strong>{existingReport?.reportNumber || (targetContract ? 'BB-' + selectedRoomCode.replace(/\W/g, '') + '-' + targetContract.leaseId.replace(/\W/g, '') : 'Chưa lập biên bản')}</strong></span>
                   <span>·</span>
-                  <span>Mã HĐ: <strong>{targetContract?.id || 'HD-' + selectedRoomCode.replace(/\D/g, '') + '-2026'}</strong></span>
+                  <span>Mã HĐ biên bản: <strong>{existingReport?.contractId || targetContract?.id || 'Chưa có hợp đồng'}</strong></span>
                   <span>·</span>
                   <span>Phiên bản nội dung: <strong>v{existingReport?.version || 1}</strong></span>
                 </div>
@@ -1264,12 +1302,12 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                 <div>
                   <span className="font-bold text-slate-900 block mb-1">BÊN GIAO (Đại diện Quản lý/Chủ nhà):</span>
                   <div>Họ tên: <strong>{existingReport?.giverName || currentUser?.fullName || 'Chủ nhà'}</strong></div>
-                  <div>Điện thoại: <strong>0912 345 678</strong></div>
+                  <div>Điện thoại: <strong>{targetContract?.lessorPhone || 'Chưa có dữ liệu'}</strong></div>
                 </div>
                 <div>
                   <span className="font-bold text-slate-900 block mb-1">BÊN NHẬN (Khách thuê phòng {selectedRoom.roomCode}):</span>
                   <div>Họ tên: <strong>{existingReport?.receiverName || targetContract?.tenantName || selectedRoom.currentTenantName || 'Chưa có thông tin khách'}</strong></div>
-                  <div>CCCD: <strong>001095012345</strong></div>
+                  <div>CCCD: <strong>{targetContract?.tenantIdNumber || matchingTenant?.idNumber || 'Chưa có dữ liệu'}</strong></div>
                 </div>
               </div>
 
@@ -1369,17 +1407,17 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                       initialElectricityKwh: meterElecKwh,
                       initialWaterM3: meterWaterM3
                     };
-                    saveHandoverReportBG03(draft);
-                    showToast('info', 'Đã lưu nháp biên bản nhận phòng.');
+                    const res = saveHandoverReportBG03(draft);
+                    showToast(res.success ? 'success' : 'error', res.message);
                   }}
-                  disabled={existingReport?.status === 'Đã xác nhận'}
+                  disabled={isInheritedReceiveReport || targetContract?.contractType === 'Hợp đồng nối tiếp' || existingReport?.status === 'Đã xác nhận'}
                   className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Lưu nháp biên bản </button>
 
                 {/* Bước 5: Lưu Đã lập (1.06) */}
                 <button
-                  disabled={!canSaveOfficially106 || existingReport?.status === 'Đã xác nhận'}
+                  disabled={!canSaveOfficially106 || isInheritedReceiveReport || existingReport?.status === 'Đã xác nhận'}
                   onClick={() => {
                     if (!targetContract || !canSaveOfficially106) {
                       showToast('error', 'Chưa có hợp đồng hợp lệ hoặc chưa đủ điều kiện để lưu biên bản.');
@@ -1402,8 +1440,8 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                       initialElectricityKwh: meterElecKwh,
                       initialWaterM3: meterWaterM3
                     };
-                    saveHandoverReportBG03(officialReport);
-                    showToast('success', "Đã lưu biên bản nhận phòng ở trạng thái ĐÃ LẬP! Sẵn sàng ký giấy ngoài hệ thống.");
+                    const res = saveHandoverReportBG03(officialReport);
+                    showToast(res.success ? 'success' : 'error', res.message);
                   }}
                   className={`px-4 py-2 rounded-lg font-semibold cursor-pointer shadow-xs ${
                     canSaveOfficially106
@@ -1415,6 +1453,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
 
                 {/* Ghi nhận kết quả ký giấy (Bước 7) */}
                 <button
+                  disabled={!existingReport || isInheritedReceiveReport || existingReport.status !== 'Đã lập'}
                   onClick={() => setShowSignPaperModal(true)}
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold cursor-pointer shadow-xs flex items-center gap-1.5"
                 >
@@ -1430,7 +1469,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
       {/* =========================================================================
           TAB 4: GHI NHẬN SỰ CỐ TÀI SẢN 
       ========================================================================= */}
-      {selectedRoomCode && !linkedRoomMismatch && activeTab === 'incident_add_bg04' && (
+      {selectedRoomCode && !linkedRoomMismatch && targetContract && activeTab === 'incident_add_bg04' && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-4 text-xs">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-3">
             <div>
@@ -1635,8 +1674,9 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                   loggedBy: currentUser?.fullName || 'Chủ nhà',
                   loggedAt: new Date().toISOString()
                 };
-                recordIncidentBG04(newIncident);
-                showToast('success', "Đã lưu ghi nhận sự cố tài sản thành công!");
+                const saved = recordIncidentBG04(newIncident);
+                if (!saved.success) { showToast('error', saved.message); return; }
+                showToast('success', saved.message);
                 setIncDesc('');
                 setIncCause('');
                 setIncSolutionPlan('');
@@ -1654,7 +1694,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
       {/* =========================================================================
           TAB 5: TRA CỨU LỊCH SỬ SỰ CỐ TÀI SẢN 
       ========================================================================= */}
-      {selectedRoomCode && !linkedRoomMismatch && activeTab === 'incident_search_bg05' && (() => {
+      {selectedRoomCode && !linkedRoomMismatch && targetContract && activeTab === 'incident_search_bg05' && (() => {
         // Filter incidents according to room and criteria
         const roomIncidents = incidents.filter(i => {
           if (i.roomCode !== selectedRoomCode || (selectedLeaseId && i.leaseId !== selectedLeaseId)) return false;
@@ -1881,7 +1921,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
       {/* =========================================================================
           TAB 6: ĐỐI CHIẾU TÀI SẢN KHI TRẢ PHÒNG 
       ========================================================================= */}
-      {selectedRoomCode && !linkedRoomMismatch && activeTab === 'compare_bg06' && (() => {
+      {selectedRoomCode && !linkedRoomMismatch && targetContract && activeTab === 'compare_bg06' && (() => {
         // Evaluate Prerequisites for 
         const step305Confirmed = Boolean(returnInspectionTarget?.step305Confirmed);
         const reportConfirmedBG03 = Boolean(existingReport && existingReport.status === 'Đã xác nhận');
@@ -2055,17 +2095,18 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                       id: 'comp_' + selectedRoomCode.replace(/\D/g, '') + '_' + Date.now().toString().slice(-4),
                       roomCode: selectedRoomCode,
                       leaseId: targetContract?.leaseId || '',
+                      contractId: targetContract?.id,
                       hasDifference: hasDiff,
                       hasPendingWork: hasDiff,
-                      pendingWorkNote: hasDiff ? 'Có chênh lệch tài sản cần thống nhất giải quyết tại ' : 'Tất cả tài sản đúng như bàn giao ban đầu',
-                      tenantFeedbackStatus: 'Đã phản hồi',
-                      unanimousStatus: hasDiff ? 'Chưa thống nhất' : 'Đã thống nhất',
+                      pendingWorkNote: hasDiff ? 'Có chênh lệch tài sản cần xử lý' : 'Không phát hiện chênh lệch khi kiểm tra',
+                      tenantFeedbackStatus: 'Chưa phản hồi',
+                      unanimousStatus: 'Chưa xác định',
                       transferredToSettlement318: false,
                       version: 1,
                       loggedAt: new Date().toISOString()
                     };
-                    saveAssetComparisonResultBG07(compResult);
-                    showToast('success', "Đã lưu kết quả đối chiếu tài sản thành công!");
+                    const res = saveAssetComparisonResultBG07(compResult);
+                    showToast(res.success ? 'success' : 'error', res.message);
                   }}
                   className={`px-4 py-2 rounded-lg font-semibold cursor-pointer shadow-xs ${
                     canPerformOfficialComparison
@@ -2095,7 +2136,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
       {/* =========================================================================
           TAB 7: GHI NHẬN KẾT QUẢ ĐỐI CHIẾU TÀI SẢN 
       ========================================================================= */}
-      {selectedRoomCode && !linkedRoomMismatch && activeTab === 'result_bg07' && (() => {
+      {selectedRoomCode && !linkedRoomMismatch && targetContract && activeTab === 'result_bg07' && (() => {
         // Evaluate sources from BG06 and BG05
         const hasDiffFromBG06 = comparisonItems.length > 0
           ? comparisonItems.some((i: { diffResult: string }) => i.diffResult === 'Khác biệt')
@@ -2155,7 +2196,8 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
               loggedAt: new Date().toISOString()
             };
 
-            saveAssetComparisonResultBG07(result);
+            const saved = saveAssetComparisonResultBG07(result);
+            if (!saved.success) { setBg07SaveError(saved.message); showToast('error', saved.message); return; }
             setBg07SaveError(null);
             if (step318Transferred) {
               showToast('success', "Đã lưu kết quả đối chiếu tài sản và ghi nhận chuyển thông tin Thao tác!");
@@ -2288,7 +2330,6 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                     <button
                       onClick={() => {
                         setBg07SaveError(null);
-                        setBg07SimulateSaveFailure(false);
                         handleSaveBG07();
                       }}
                       className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold cursor-pointer flex items-center gap-1.5 shadow-xs"
@@ -2583,11 +2624,11 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
       {/* =========================================================================
           TAB 8: KHỞI TẠO BIÊN BẢN TRẢ PHÒNG 
       ========================================================================= */}
-      {selectedRoomCode && !linkedRoomMismatch && activeTab === 'init_report_bg08' && (() => {
+      {selectedRoomCode && !linkedRoomMismatch && targetContract && activeTab === 'init_report_bg08' && (() => {
         const hasReceiveReport = Boolean(existingReport);
-        const isReceiveReportConfirmed = Boolean(existingReport && existingReport.status === 'Đã xác nhận');
+        const isReceiveReportConfirmed = Boolean(getConfirmedRoomHandover(targetContract, contracts, handoverReports));
 
-        const selectedContract = contracts.find(c => c.id === bg08SelectedContractId) || targetContract;
+        const selectedContract = contracts.find(c => c.id === bg08SelectedContractId && c.roomCode === selectedRoomCode && c.leaseId === selectedLeaseId) || targetContract;
         const isHistoricContractConflict = Boolean(
           selectedContract &&
           selectedContract.status === 'Kết thúc' &&
@@ -2714,7 +2755,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                     }}
                     className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white font-mono font-medium text-xs text-slate-800"
                   >
-                    {contracts.filter(c => c.roomCode === selectedRoomCode).map(c => (
+                    {contracts.filter(c => c.roomCode === selectedRoomCode && c.leaseId === selectedLeaseId && c.isSignedPaper).map(c => (
                       <option key={c.id} value={c.id}>
                         {c.id} · {c.tenantName} ({c.status}) [Lần thuê: {c.leaseId}] </option>
                     ))}
@@ -2848,7 +2889,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
 
                       const newRep: HandoverReturnReport = {
                         id: 'ret_rep_' + selectedRoomCode.replace(/\D/g, '') + '_' + Date.now().toString().slice(-4),
-                        reportNumber: 'BB-TRA-' + selectedRoomCode.replace(/\D/g, '') + '-2026',
+                        reportNumber: 'BB-TRA-' + selectedRoomCode.replace(/\W/g, '') + '-' + (selectedContract?.leaseId || targetContract?.leaseId || ''),
                         roomCode: selectedRoomCode,
                         leaseId: selectedContract?.leaseId || targetContract?.leaseId || '',
                         contractId: selectedContract?.id || targetContract?.id || '',
@@ -2898,7 +2939,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
       {/* =========================================================================
           TAB 9: GHI NHẬN KẾT QUẢ NHẬN LẠI PHÒNG 
       ========================================================================= */}
-      {selectedRoomCode && !linkedRoomMismatch && activeTab === 'return_room_bg09' && (() => {
+      {selectedRoomCode && !linkedRoomMismatch && targetContract && activeTab === 'return_room_bg09' && (() => {
         // Evaluate completeness of 
         const allItemsChecked = bg09Items.every(i => i.inspected);
         const hasMissingReason = bg09Items.filter(i => !i.inspected).every(i => Boolean(i.reasonIfNotInspected && i.reasonIfNotInspected.trim()));
@@ -3292,7 +3333,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
       {/* =========================================================================
           TAB 10: THEO DÕI ĐỐI SOÁT CỌC 
       ========================================================================= */}
-      {selectedRoomCode && !linkedRoomMismatch && activeTab === 'deposit_check_bg10' && (() => {
+      {selectedRoomCode && !linkedRoomMismatch && targetContract && activeTab === 'deposit_check_bg10' && (() => {
         // Evaluate quyết toán cọc settlement slip status
         const slip = matchingSettlementSlip;
         const initialDeposit = slip?.initialDepositAmount ?? currentInitialPayment?.depositAmount ?? 0;
@@ -3440,13 +3481,12 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                 {!is58Valid && (
                   <button
                     onClick={() => {
-                      if (existingReturnReport) {
-                        saveHandoverReturnReportBG11({
-                          ...existingReturnReport,
-                          waitingReason: bg10WaitingReason || 'Chờ kết quả đối soát cọc từ quyết toán cọc kết quả quyết toán'
-                        });
-                      }
-                      showToast('info', "Đã lưu biên bản để chờ kết quả quyết toán cọc (Thao tác). Biên bản giữ trạng thái Nháp.");
+                      if (!existingReturnReport) { showToast('error', 'Chưa có biên bản trả phòng để lưu.'); return; }
+                      const saved = saveHandoverReturnReportBG11({
+                        ...existingReturnReport,
+                        waitingReason: bg10WaitingReason.trim() || 'Chờ kết quả quyết toán cọc'
+                      });
+                      showToast(saved.success ? 'info' : 'error', saved.message);
                     }}
                     className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg font-semibold cursor-pointer"
                   >
@@ -3462,7 +3502,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                       return;
                     }
                     const repId = existingReturnReport!.id;
-                    syncDepositSettlementBG10(repId, {
+                    const result = syncDepositSettlementBG10(repId, {
                       depositSettlementId: slip!.id,
                       depositSettlementVersion: slip!.version,
                       depositSettlementAmount: initialDeposit,
@@ -3470,9 +3510,9 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                       depositDeductionAmount: deductionTotal,
                       depositAdditionalDue: calculatedResult < 0 ? Math.abs(calculatedResult) : 0,
                       depositTrackingStatus: '5.8 hợp lệ – Đã thống nhất',
-                      depositTrackingReason: 'Hai bên đã thống nhất phương án hoàn cọc ' + calculatedResult.toLocaleString('vi-VN') + 'đ'
+                      depositTrackingReason: 'Phương án đã được khách đồng ý đúng phiên bản'
                     });
-                    showToast('success', 'Đã ghi kết quả đối soát cọc hợp lệ từ quyết toán cọc vào biên bản trả phòng (Thao tác)!');
+                    showToast(result.success ? 'success' : 'error', result.message);
                   }}
                   className={`px-4 py-2 rounded-lg font-semibold cursor-pointer shadow-xs ${
                     is58Valid
@@ -3501,7 +3541,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
       {/* =========================================================================
           TAB 11: HOÀN THIỆN BIÊN BẢN TRẢ PHÒNG 
       ========================================================================= */}
-      {selectedRoomCode && !linkedRoomMismatch && activeTab === 'final_report_bg11' && (() => {
+      {selectedRoomCode && !linkedRoomMismatch && targetContract && activeTab === 'final_report_bg11' && (() => {
         // Evaluate the 3 distinct thresholds
         // Threshold A: Mở / Xem / Lưu nháp -> always true
         // Threshold B: Điều kiện Lưu Đã lập (Bước 2):
@@ -4184,14 +4224,15 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                     showToast('error', 'Vui lòng nhập lý do và bằng chứng đính chính.');
                     return;
                   }
-                  correctReturnInspectionStep305(
+                  const result = correctReturnInspectionStep305(
                     selectedRoomCode,
                     targetContract?.leaseId || '',
                     correctionNewStatus,
                     correctionReason,
                     correctionEvidence
                   );
-                  showToast('success', "Đã ghi nhận phiên bản đính chính mới có lịch sử và phát thông báo sai lệch cần xử lý!");
+                  if (!result.success) { showToast('error', result.message); return; }
+                  showToast('success', result.message);
                   setShowCorrectionModal(false);
                 }}
                 className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-semibold cursor-pointer"
@@ -4349,7 +4390,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                 onChange={(e) => setLinkContractId(e.target.value)}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white font-mono font-bold text-slate-800"
               >
-                {contracts.filter(c => c.roomCode === selectedRoomCode).map(c => (
+                {contracts.filter(c => c.roomCode === selectedRoomCode && c.leaseId === selectedLeaseId && c.isSignedPaper).map(c => (
                   <option key={c.id} value={c.id}>
                     {c.id} - {c.tenantName} ({c.status}) </option>
                 ))}
@@ -4478,7 +4519,8 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                 Hủy </button>
               <button
                 onClick={() => {
-                  confirmHandoverSignaturesBG03(existingReport.id, signPaperTenant, signPaperOwner, paperLocation, signedDocumentScanUrl);
+                  const res = confirmHandoverSignaturesBG03(existingReport.id, signPaperTenant, signPaperOwner, paperLocation, signedDocumentScanUrl);
+                  if (!res.success) { showToast('error', res.message); return; }
                   if (signPaperTenant && signPaperOwner) {
                     showToast('success', 'Đã ghi nhận cả 2 bên đã ký tay! Biên bản chuyển sang trạng thái ĐÃ XÁC NHẬN.');
                   } else {

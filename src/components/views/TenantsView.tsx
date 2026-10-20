@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, FileText, ShieldCheck, Users, UserRound, Pencil } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { getRoomOccupancy } from '../../utils/occupancy';
 import { HSKT01RegisterTenant } from './tenants/HSKT01RegisterTenant';
 import { HSKT02CoTenants } from './tenants/HSKT02CoTenants';
 import { HSKT03VerifyChanges } from './tenants/HSKT03VerifyChanges';
@@ -10,15 +11,28 @@ import { HSKT04UpdateTenant } from './tenants/HSKT04UpdateTenant';
 export type TenantTabKey = 'tenants' | 'co_tenants' | 'verify' | 'update' | 'history';
 type TenantScreen = TenantTabKey | 'detail';
 
-export const TenantsView: React.FC<{initialTenantId?: string}> = ({initialTenantId}) => {
-  const { tenants, coTenants, contracts } = useApp();
+export const TenantsView: React.FC<{initialTenantId?: string; initialRoomCode?: string; initialLeaseId?: string}> = ({initialTenantId, initialRoomCode, initialLeaseId}) => {
+  const { tenants, coTenants, contracts, rooms, returnInspections } = useApp();
   const [screen, setScreen] = useState<TenantScreen>('tenants');
   const [selectedTenantId, setSelectedTenantId] = useState<string | undefined>(initialTenantId);
   const [selectedProposalId, setSelectedProposalId] = useState<string | undefined>();
   const [detailSection, setDetailSection] = useState<'information' | 'co_tenants'>('information');
   const selectedTenant = tenants.find(t => t.id === selectedTenantId);
+  const linkedRoomCode = selectedTenantId === initialTenantId ? initialRoomCode : undefined;
+  const linkedLeaseId = selectedTenantId === initialTenantId ? initialLeaseId : undefined;
   const relatedContracts = contracts.filter(c => c.tenantId === selectedTenantId);
-  const latestContract = relatedContracts.find(c => ['Hiệu lực','Chờ hiệu lực','Đã ký'].includes(c.status)) || relatedContracts[0];
+  const latestContract = relatedContracts.find(c => c.roomCode === linkedRoomCode &&
+    (!linkedLeaseId || c.leaseId === linkedLeaseId)) ||
+    relatedContracts.find(c => ['Hiệu lực','Chờ hiệu lực','Đã ký'].includes(c.status)) || relatedContracts[0];
+  // A tenant record is historical; count only people in an occupied room's current lease.
+  const currentTenantRoom = rooms.find(r => r.status !== 'Trống' &&
+    r.currentTenantId === selectedTenantId &&
+    (!linkedRoomCode || r.roomCode === linkedRoomCode) &&
+    (!linkedLeaseId || r.currentLeaseId === linkedLeaseId));
+  const currentOccupancy = currentTenantRoom
+    ? getRoomOccupancy(currentTenantRoom, contracts, returnInspections, tenants, coTenants)
+    : undefined;
+  const activeCoTenantCount = currentOccupancy?.currentCoTenants.length ?? 0;
 
   useEffect(() => {
     if (initialTenantId) {
@@ -89,7 +103,7 @@ export const TenantsView: React.FC<{initialTenantId?: string}> = ({initialTenant
             <div className="flex gap-2 border-b border-slate-200 overflow-x-auto" role="tablist" aria-label="Chi tiết khách thuê">
               {([
                 ['information','Thông tin hồ sơ',FileText],
-                ['co_tenants',`Người ở cùng (${coTenants.filter(t=>t.tenantId===selectedTenantId).length})`,Users]
+                ['co_tenants',`Người ở cùng đang cư trú (${activeCoTenantCount})`,Users]
               ] as const).map(([tab,label,Icon]) => <button key={tab} role="tab" aria-selected={detailSection===tab} onClick={()=>setDetailSection(tab)} className={`inline-flex shrink-0 gap-2 items-center text-xs sm:text-sm font-semibold px-3 py-3 border-b-2 ${detailSection===tab?'text-blue-700 border-blue-600':'border-transparent text-slate-600 hover:text-blue-700'}`}><Icon className="w-4 h-4"/>{label}</button>)}
             </div>
             {detailSection === 'information' && <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
@@ -103,15 +117,16 @@ export const TenantsView: React.FC<{initialTenantId?: string}> = ({initialTenant
                 ['Phòng (theo hợp đồng)',latestContract?.roomCode || 'Chưa có hợp đồng'],
                 ['Hợp đồng',latestContract?.id || 'Chưa có'],
                 ['Trạng thái hợp đồng',latestContract?.status || 'Chưa có'],
+                ['Số người đang ở tại phòng',currentOccupancy?.total === null ? 'Chưa xác định (thiếu liên kết hồ sơ)' : currentOccupancy ? `${currentOccupancy.total} người (1 khách chính + ${activeCoTenantCount} người ở cùng)` : 'Không có lần thuê đang cư trú'],
                 ['Ghi chú',selectedTenant.notes || '—'],
               ] as const).map(([label,val]) => <div className="p-3 bg-slate-50 rounded-lg border border-slate-100" key={label}><div className="text-xs text-slate-500 mb-1">{label}</div><div className="font-medium break-words">{val}</div></div>)}
             </div>}
           </div>
-          {detailSection === 'co_tenants' && <HSKT02CoTenants tenantId={selectedTenant.id}/>}
+          {detailSection === 'co_tenants' && <HSKT02CoTenants tenantId={selectedTenant.id} roomCode={currentTenantRoom?.roomCode || linkedRoomCode} leaseId={currentTenantRoom?.currentLeaseId || linkedLeaseId}/>}
         </div>
       )}
 
-      {screen === 'co_tenants' && <HSKT02CoTenants tenantId={selectedTenantId}/>}
+      {screen === 'co_tenants' && <HSKT02CoTenants tenantId={selectedTenantId} roomCode={currentTenantRoom?.roomCode || linkedRoomCode} leaseId={currentTenantRoom?.currentLeaseId || linkedLeaseId}/>}
       {screen === 'verify' && <HSKT03VerifyChanges initialTenantId={selectedTenantId} onNavigateToTab={goToWorkflow} onSelectProposalForUpdate={openProposal}/>}
       {screen === 'update' && <HSKT04UpdateTenant initialTenantId={selectedTenantId} initialProposalId={selectedProposalId} onNavigateToTab={goToWorkflow}/>}
     </section>

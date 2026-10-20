@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getConfirmedRoomHandover } from '../utils/roomLinks';
+import { getRoomOccupancy } from '../utils/occupancy';
 import { hasValidHandoverSource, validateReturnConfirmation } from '../utils/handoverValidation';
 import {
   UserAccount,
@@ -193,13 +194,13 @@ interface AppContextType {
   handoverReturnReports: HandoverReturnReport[];
   saveInventoryBG01: (record: InventoryRecord) => { success: boolean; message: string };
   saveHandoverConditionBG02: (condition: HandoverCondition) => { success: boolean; message: string };
-  saveHandoverReportBG03: (report: HandoverReport) => void;
-  confirmHandoverSignaturesBG03: (reportId: string, tenantSigned: boolean, ownerSigned: boolean, paperLocation?: string, scanUrl?: string) => void;
-  recordIncidentBG04: (incident: AssetIncident) => void;
+  saveHandoverReportBG03: (report: HandoverReport) => { success: boolean; message: string };
+  confirmHandoverSignaturesBG03: (reportId: string, tenantSigned: boolean, ownerSigned: boolean, paperLocation?: string, scanUrl?: string) => { success: boolean; message: string };
+  recordIncidentBG04: (incident: AssetIncident) => { success: boolean; message: string };
   recordReturnInspectionBG09: (inspection: ReturnInspection) => { success: boolean; message: string };
   confirmReturnInspectionStep305: (roomCode: string, leaseId: string, evidence: string, photos?: string[], videoUrl?: string) => { success: boolean; message: string };
-  correctReturnInspectionStep305: (roomCode: string, leaseId: string, newStatus: 'Đã nhận lại' | 'Chưa nhận lại', reason: string, evidence: string) => void;
-  saveAssetComparisonResultBG07: (result: AssetComparisonResult) => void;
+  correctReturnInspectionStep305: (roomCode: string, leaseId: string, newStatus: 'Đã nhận lại' | 'Chưa nhận lại', reason: string, evidence: string) => { success: boolean; message: string };
+  saveAssetComparisonResultBG07: (result: AssetComparisonResult) => { success: boolean; message: string };
   initHandoverReturnReportDraftBG08: (report: HandoverReturnReport) => { success: boolean; message: string; report: HandoverReturnReport };
   syncDepositSettlementBG10: (reportId: string, settlementData: {
     depositSettlementId: string;
@@ -210,7 +211,7 @@ interface AppContextType {
     depositAdditionalDue?: number;
     depositTrackingStatus: '5.8 hợp lệ – Đã thống nhất' | 'Chưa có 5.8/Chờ quyết toán' | 'Chưa thống nhất – Chờ xác nhận của khách' | 'Tranh chấp – Chờ xử lý' | 'Cần rà soát phiên bản';
     depositTrackingReason?: string;
-  }) => void;
+  }) => { success: boolean; message: string };
   saveHandoverReturnReportBG11: (report: HandoverReturnReport) => { success: boolean; message: string };
   confirmFinalReturnReportBG11: (reportId: string, tenantSignedStatus: 'Khách đã ký' | 'Khách không ký', notSignReason?: string, notSignExchangeInfo?: string, paperLocation?: string, scanUrl?: string) => { success: boolean; message: string };
 
@@ -512,6 +513,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return changed ? next : prev;
     });
   }, [contracts, leaseStartEvents]);
+
+  // Keep the persisted total aligned with actual residents. This also repairs
+  // stale counts in older localStorage data after a co-tenant arrives/departs.
+  // Missing source links stay unchanged in storage but are shown as unknown in UI.
+  useEffect(() => {
+    setRooms(prev => {
+      let changed = false;
+      const next = prev.map(room => {
+        const { total } = getRoomOccupancy(room, contracts, returnInspections, tenants, coTenants);
+        if (total === null || room.totalOccupants === total) return room;
+        changed = true;
+        return { ...room, totalOccupants: total };
+      });
+      return changed ? next : prev;
+    });
+  }, [contracts, returnInspections, tenants, coTenants]);
 
   useEffect(() => { setStored('rooms', rooms); }, [rooms]);
   useEffect(() => { setStored('roomHistory', roomHistory); }, [roomHistory]);
@@ -1167,7 +1184,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       currentLeaseId: contract.leaseId,
       pendingContractId: undefined,
       pendingLeaseId: undefined,
-      totalOccupants: Math.max(1, r.totalOccupants),
+      totalOccupants: 1 + coTenants.filter(c => c.roomCode === roomCode &&
+        c.leaseId === leaseId && c.tenantId === contract.tenantId && c.status === 'Đang cư trú').length,
       firstMonthPeriod: `Từ ${actualCheckInDate} đến cuối kỳ`
     } : r));
 
@@ -1475,7 +1493,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!room || room.status === 'Trống' || room.currentLeaseId !== leaseId) {
       return { success: false, message: 'Không thể trả phòng: phòng trống hoặc lần thuê không trùng hồ sơ hiện tại.' };
     }
-    const inspection = returnInspections.find(i => i.roomCode === roomCode && i.leaseId === leaseId);
+    const occupiedContract = contracts.find(c => c.id === room.currentContractId && c.roomCode === roomCode && c.leaseId === leaseId);
+    if (!getConfirmedRoomHandover(occupiedContract, contracts, handoverReports))
+      return { success: false, message: 'Thiếu biên bản nhận phòng gốc đã xác nhận đúng lần thuê. Cần đối chiếu trước khi trả phòng.' };
+    const inspection = returnInspections.find(i => i.roomCode === roomCode && i.leaseId === leaseId &&
+      contracts.some(c => c.id === i.contractId && c.roomCode === roomCode && c.leaseId === leaseId));
     if (!inspection || inspection.step304Status !== 'Đã nhận lại') {
       return { success: false, message: 'EF-01: Chưa có kết quả nhận lại thực tế tại ASIS-02 bước 3.04 (3.04 != Đã nhận lại). Giữ trạng thái phòng hiện tại.' };
     }
@@ -1620,6 +1642,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const saveInventoryBG01 = (record: InventoryRecord) => {
     if (!verifyHandoverSource(record.roomCode, record.linkedLeaseId, record.linkedContractId))
       return { success: false, message: 'Cần chọn hợp đồng đã ký đúng phòng và lần thuê trước khi lưu kiểm kê.' };
+    if (handoverReports.some(r => r.roomCode === record.roomCode && r.leaseId === record.linkedLeaseId &&
+        r.status === 'Đã xác nhận' && r.tenantSignedPaper === 'Đã ký giấy' && r.ownerSignedPaper === 'Đã ký giấy'))
+      return { success: false, message: 'Không thể thay kiểm kê nguồn sau khi biên bản nhận phòng đã xác nhận.' };
     setInventoryRecords(prev => {
       const idx = prev.findIndex(r => r.roomCode === record.roomCode &&
         r.linkedLeaseId === record.linkedLeaseId && r.linkedContractId === record.linkedContractId);
@@ -1637,6 +1662,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const saveHandoverConditionBG02 = (condition: HandoverCondition) => {
     if (!verifyHandoverSource(condition.roomCode, condition.linkedLeaseId, condition.linkedContractId))
       return { success: false, message: 'Cần chọn hợp đồng đã ký đúng phòng và lần thuê trước khi lưu hiện trạng.' };
+    if (handoverReports.some(r => r.roomCode === condition.roomCode && r.leaseId === condition.linkedLeaseId &&
+        r.status === 'Đã xác nhận' && r.tenantSignedPaper === 'Đã ký giấy' && r.ownerSignedPaper === 'Đã ký giấy'))
+      return { success: false, message: 'Không thể thay hiện trạng nguồn sau khi biên bản nhận phòng đã xác nhận.' };
     setHandoverConditions(prev => {
       const idx = prev.findIndex(c => c.roomCode === condition.roomCode &&
         c.linkedLeaseId === condition.linkedLeaseId && c.linkedContractId === condition.linkedContractId &&
@@ -1653,34 +1681,71 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const saveHandoverReportBG03 = (report: HandoverReport) => {
+    if (!verifyHandoverSource(report.roomCode, report.leaseId, report.contractId))
+      return { success: false, message: 'Biên bản phải liên kết với hợp đồng đã ký, đúng phòng và lần thuê hiện tại.' };
+    const contract = contracts.find(c => c.id === report.contractId && c.roomCode === report.roomCode && c.leaseId === report.leaseId);
+    if (!contract || contract.contractType === 'Hợp đồng nối tiếp')
+      return { success: false, message: 'Hợp đồng nối tiếp sử dụng biên bản nhận phòng gốc; không được tạo biên bản mới.' };
+    const existing = handoverReports.find(r => r.id === report.id ||
+      (r.roomCode === report.roomCode && r.leaseId === report.leaseId));
+    if (existing && (existing.roomCode !== report.roomCode || existing.leaseId !== report.leaseId || existing.contractId !== report.contractId))
+      return { success: false, message: 'Mã biên bản đã thuộc một hợp đồng hoặc lần thuê khác.' };
+    if (existing?.status === 'Đã xác nhận')
+      return { success: false, message: 'Biên bản đã xác nhận đủ chữ ký không thể ghi đè.' };
+    if (report.status === 'Đã xác nhận')
+      return { success: false, message: 'Phải ghi nhận đủ chữ ký giấy bằng chức năng xác nhận riêng.' };
+    if (report.status === 'Đã lập') {
+      const payment = initialPaymentRecords.find(p => p.roomCode === report.roomCode && p.leaseId === report.leaseId && p.contractId === contract.id &&
+        p.depositAmount >= contract.depositAmount && p.firstMonthRentAmount >= contract.firstMonthRentAmount);
+      const inventory = inventoryRecords.find(i => i.roomCode === report.roomCode && i.linkedLeaseId === report.leaseId &&
+        i.linkedContractId === contract.id && i.inventoryStatus === 'Đã hoàn tất');
+      const condition = handoverConditions.find(c => c.roomCode === report.roomCode && c.linkedLeaseId === report.leaseId &&
+        c.linkedContractId === contract.id && c.status === 'Đã hoàn tất' && c.meterPhotos.length > 0 &&
+        Number.isFinite(c.initialElectricityKwh) && Number.isFinite(c.initialWaterM3) &&
+        c.initialElectricityKwh >= 0 && c.initialWaterM3 >= 0);
+      if (!payment || !inventory || !condition)
+        return { success: false, message: 'Chưa đủ tiền đầu, kiểm kê hoặc hiện trạng công tơ của đúng hợp đồng để lập biên bản.' };
+      if (report.initialElectricityKwh !== condition.initialElectricityKwh || report.initialWaterM3 !== condition.initialWaterM3)
+        return { success: false, message: 'Chỉ số trên biên bản không khớp hiện trạng công tơ đã lưu.' };
+    }
     setHandoverReports(prev => {
-      const idx = prev.findIndex(r => r.id === report.id);
+      const idx = prev.findIndex(r => r.id === report.id || (r.roomCode === report.roomCode && r.leaseId === report.leaseId));
       if (idx >= 0) {
         const updated = [...prev];
-        updated[idx] = report;
+        updated[idx] = { ...report, id: updated[idx].id, reportNumber: updated[idx].reportNumber };
         return updated;
       }
       return [report, ...prev];
     });
+    return { success: true, message: report.status === 'Đã lập' ? 'Đã lưu biên bản nhận phòng chờ ký giấy.' : 'Đã lưu nháp biên bản nhận phòng.' };
   };
 
   const confirmHandoverSignaturesBG03 = (reportId: string, tenantSigned: boolean, ownerSigned: boolean, paperLocation?: string, scanUrl?: string) => {
-    setHandoverReports(prev => prev.map(r => {
-      if (r.id !== reportId) return r;
-      const bothSigned = tenantSigned && ownerSigned;
-      return {
-        ...r,
-        tenantSignedPaper: tenantSigned ? 'Đã ký giấy' : 'Chưa ký',
-        ownerSignedPaper: ownerSigned ? 'Đã ký giấy' : 'Chưa ký',
-        status: bothSigned ? 'Đã xác nhận' : (r.status === 'Đã xác nhận' ? 'Đã lập' : r.status),
-        paperLocation: paperLocation || r.paperLocation,
-        signedDocumentScanUrl: scanUrl?.trim() || r.signedDocumentScanUrl,
-        confirmedAt: bothSigned ? new Date().toISOString() : undefined
-      };
-    }));
+    const report = handoverReports.find(r => r.id === reportId);
+    if (!report || !verifyHandoverSource(report.roomCode, report.leaseId, report.contractId))
+      return { success: false, message: 'Không tìm thấy biên bản thuộc hợp đồng/lần thuê hợp lệ.' };
+    if (report.status !== 'Đã lập')
+      return { success: false, message: 'Chỉ biên bản Đã lập mới được ghi nhận ký giấy; hồ sơ đã xác nhận phải giữ nguyên.' };
+    if (tenantSigned && ownerSigned && !(paperLocation || report.paperLocation)?.trim())
+      return { success: false, message: 'Cần nhập nơi lưu bản giấy đã được hai bên ký.' };
+    setHandoverReports(prev => prev.map(r => r.id !== reportId ? r : ({
+      ...r,
+      tenantSignedPaper: tenantSigned ? 'Đã ký giấy' : 'Chưa ký',
+      ownerSignedPaper: ownerSigned ? 'Đã ký giấy' : 'Chưa ký',
+      status: tenantSigned && ownerSigned ? 'Đã xác nhận' : 'Đã lập',
+      paperLocation: paperLocation?.trim() || r.paperLocation,
+      signedDocumentScanUrl: scanUrl?.trim() || r.signedDocumentScanUrl,
+      confirmedAt: tenantSigned && ownerSigned ? new Date().toISOString() : undefined
+    })));
+    return { success: true, message: tenantSigned && ownerSigned ? 'Đã xác nhận biên bản nhận phòng đủ chữ ký.' : 'Đã lưu tình trạng ký giấy hiện tại.' };
   };
 
   const recordIncidentBG04 = (incident: AssetIncident) => {
+    const room = rooms.find(r => r.roomCode === incident.roomCode);
+    const contract = contracts.find(c => c.roomCode === incident.roomCode && c.leaseId === incident.leaseId &&
+      c.id === room?.currentContractId && c.isSignedPaper);
+    if (!room || room.status === 'Trống' || room.currentLeaseId !== incident.leaseId || !contract || !incident.description?.trim())
+      return { success: false, message: 'Sự cố phải thuộc đúng phòng đang có khách và lần thuê hiện tại.' };
     setIncidents(prev => {
       const idx = prev.findIndex(i => i.id === incident.id);
       if (idx >= 0) {
@@ -1690,6 +1755,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       return [incident, ...prev];
     });
+    return { success: true, message: 'Đã lưu sự cố đúng phòng và lần thuê.' };
   };
 
   const recordReturnInspectionBG09 = (inspection: ReturnInspection) => {
@@ -1724,6 +1790,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const room = rooms.find(r => r.roomCode === roomCode);
     if (!inspection || !verifyHandoverSource(roomCode, leaseId, inspection.contractId) || room?.currentLeaseId !== leaseId)
       return { success: false, message: 'Chưa có hồ sơ kiểm tra đã lưu cho đúng phòng và lần thuê.' };
+    const activeContract = contracts.find(c => c.id === room.currentContractId && c.roomCode === roomCode && c.leaseId === leaseId);
+    if (!getConfirmedRoomHandover(activeContract, contracts, handoverReports))
+      return { success: false, message: 'Thiếu biên bản nhận phòng đủ chữ ký đúng lần thuê. Cần bổ sung trước khi xác nhận nhận lại.' };
     const validationError = validateReturnConfirmation(inspection, evidence);
     if (validationError) return { success: false, message: validationError };
     setReturnInspections(prev => prev.map(i => {
@@ -1748,42 +1817,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const correctReturnInspectionStep305 = (
-    roomCode: string,
-    leaseId: string,
-    newStatus: 'Đã nhận lại' | 'Chưa nhận lại',
-    reason: string,
-    evidence: string
+    roomCode: string, leaseId: string, newStatus: 'Đã nhận lại' | 'Chưa nhận lại', reason: string, evidence: string
   ) => {
-    setReturnInspections(prev => prev.map(i => {
-      if (i.roomCode === roomCode && i.leaseId === leaseId) {
-        const nextVer = (i.version || 1) + 1;
-        return {
-          ...i,
-          step304Status: newStatus,
-          step305Confirmed: newStatus === 'Đã nhận lại',
-          step305ConfirmedAt: newStatus === 'Đã nhận lại' ? new Date().toISOString() : undefined,
-          step305ConfirmedBy: currentUser?.fullName || 'Chủ nhà',
-          step305Evidence: evidence,
-          correctionStatus: 'Sai lệch cần xử lý',
-          correctionNote: reason,
-          version: nextVer
-        };
-      }
-      return i;
-    }));
-    logSecurity('BG09_STEP305_CORRECTED', `3.05 correction recorded for room ${roomCode}`);
+    const inspection = returnInspections.find(i => i.roomCode === roomCode && i.leaseId === leaseId);
+    const room = rooms.find(r => r.roomCode === roomCode);
+    if (!inspection?.step305Confirmed || !room || (room.currentLeaseId && room.currentLeaseId !== leaseId) ||
+        !verifyHandoverSource(roomCode, leaseId, inspection.contractId) || !reason.trim() || !evidence.trim())
+      return { success: false, message: 'Chỉ đính chính kết quả đã xác nhận, có lý do và chứng cứ, đúng lần thuê.' };
+    setReturnInspections(prev => prev.map(i => i.roomCode !== roomCode || i.leaseId !== leaseId ? i : ({
+      ...i,
+      step304Status: newStatus,
+      step305Confirmed: newStatus === 'Đã nhận lại',
+      step305ConfirmedAt: newStatus === 'Đã nhận lại' ? new Date().toISOString() : undefined,
+      step305ConfirmedBy: currentUser?.fullName || 'Chủ nhà',
+      step305Evidence: evidence,
+      correctionStatus: 'Sai lệch cần xử lý', correctionNote: reason,
+      version: (i.version || 1) + 1
+    })));
+    logSecurity('BG09_STEP305_CORRECTED', `Correction ${roomCode}/${leaseId}: ${reason}`);
+    return { success: true, message: 'Đã lưu đính chính có lý do và phiên bản mới.' };
   };
 
   const saveAssetComparisonResultBG07 = (result: AssetComparisonResult) => {
+    const room = rooms.find(r => r.roomCode === result.roomCode);
+    if (!room || room.status === 'Trống' || room.currentLeaseId !== result.leaseId ||
+        !verifyHandoverSource(result.roomCode, result.leaseId, result.contractId))
+      return { success: false, message: 'Kết quả đối chiếu phải thuộc hợp đồng và lần thuê đang trả phòng.' };
+    const prior = assetComparisonResults.find(r => r.id === result.id || (r.roomCode === result.roomCode && r.leaseId === result.leaseId));
+    if (prior && (prior.roomCode !== result.roomCode || prior.leaseId !== result.leaseId))
+      return { success: false, message: 'Mã kết quả đối chiếu đã thuộc phòng hoặc lần thuê khác.' };
     setAssetComparisonResults(prev => {
       const idx = prev.findIndex(r => r.id === result.id || (r.roomCode === result.roomCode && r.leaseId === result.leaseId));
       if (idx >= 0) {
         const updated = [...prev];
-        updated[idx] = result;
+        updated[idx] = { ...result, id: updated[idx].id };
         return updated;
       }
       return [result, ...prev];
     });
+    return { success: true, message: 'Đã lưu kết quả đối chiếu đúng phòng và lần thuê.' };
   };
 
   const initHandoverReturnReportDraftBG08 = (report: HandoverReturnReport) => {
@@ -1821,7 +1893,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const slip = settlementSlips.find(s => s.id === settlementData.depositSettlementId &&
       s.roomCode === report?.roomCode && s.leaseId === report?.leaseId &&
       s.version === settlementData.depositSettlementVersion && !s.reviewRequired);
-    if (!report || !slip) return;
+    if (!report || !slip || !verifyHandoverSource(report.roomCode, report.leaseId, report.contractId))
+      return { success: false, message: 'Không tìm thấy biên bản và phiên bản quyết toán cọc của đúng lần thuê.' };
     setHandoverReturnReports(prev => prev.map(r => {
       if (r.id !== reportId) return r;
       return {
@@ -1837,6 +1910,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         waitingReason: settlementData.depositTrackingStatus === '5.8 hợp lệ – Đã thống nhất' ? undefined : settlementData.depositTrackingReason
       };
     }));
+    return { success: true, message: 'Đã liên kết quyết toán cọc đúng phiên bản vào biên bản trả phòng.' };
   };
 
   const saveHandoverReturnReportBG11 = (report: HandoverReturnReport) => {
@@ -1845,6 +1919,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const prior = handoverReturnReports.find(r => r.roomCode === report.roomCode && r.leaseId === report.leaseId);
     if (prior?.status === 'Đã xác nhận')
       return { success: false, message: 'Biên bản đã xác nhận, không thể ghi đè bằng bản nháp.' };
+    if (prior && prior.id !== report.id)
+      return { success: false, message: 'Lần thuê này đã có biên bản trả phòng; hãy mở hồ sơ hiện có.' };
     if (report.status !== 'Nháp') {
       const insp = returnInspections.find(i => i.roomCode === report.roomCode && i.leaseId === report.leaseId && i.step305Confirmed);
       const comp = assetComparisonResults.find(r => r.roomCode === report.roomCode && r.leaseId === report.leaseId && !r.hasPendingWork);
@@ -2138,6 +2214,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, message: 'EF-02: Quan hệ với khách chính là trường bắt buộc.' };
     }
 
+    // A resident can only be counted against an occupied room's current lease.
+    if (coTenant.status === 'Đang cư trú') {
+      const assignedRoom = rooms.find(r => r.roomCode === coTenant.roomCode);
+      if (!assignedRoom || assignedRoom.status === 'Trống' ||
+          !assignedRoom.currentLeaseId || assignedRoom.currentLeaseId !== coTenant.leaseId ||
+          !assignedRoom.currentTenantId || assignedRoom.currentTenantId !== coTenant.tenantId) {
+        return { success: false, message: 'Chỉ xác nhận Đang cư trú cho đúng phòng, khách chính và lần thuê đã nhận phòng.' };
+      }
+    }
+
     // Đang cư trú: kiểm tra ngày đến thực tế & căn cứ (EF-02, EF-07)
     if (coTenant.status === 'Đang cư trú') {
       if (!coTenant.actualArrivalDate) {
@@ -2197,6 +2283,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!target) return { success: false, message: 'Không tìm thấy người ở cùng.' };
 
     if (status === 'Đang cư trú') {
+      const assignedRoom = rooms.find(r => r.roomCode === target.roomCode);
+      if (!assignedRoom || assignedRoom.status === 'Trống' ||
+          !assignedRoom.currentLeaseId || assignedRoom.currentLeaseId !== target.leaseId ||
+          !assignedRoom.currentTenantId || assignedRoom.currentTenantId !== target.tenantId) {
+        return { success: false, message: 'Chỉ xác nhận Đang cư trú cho đúng phòng, khách chính và lần thuê đã nhận phòng.' };
+      }
       if (!actualDate && !target.actualArrivalDate) {
         return { success: false, message: 'EF-07: Chuyển Đang cư trú bắt buộc phải nhập Ngày đến thực tế.' };
       }
