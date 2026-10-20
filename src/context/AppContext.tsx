@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getConfirmedRoomHandover } from '../utils/roomLinks';
+import { validateMeterReadingSave } from '../utils/meterReadings';
 import { getRoomOccupancy } from '../utils/occupancy';
 import { hasValidHandoverSource, validateReturnConfirmation } from '../utils/handoverValidation';
 import {
@@ -327,9 +328,9 @@ interface AppContextType {
   // Billing (QT06)
   meterReadings: MeterReading[];
   periodBills: PeriodBill[];
-  saveMeterReadingTT01: (reading: MeterReading) => void;
+  saveMeterReadingTT01: (reading: MeterReading) => { success: boolean; message: string };
   updateMeterReadingTT02: (readingId: string, updates: Partial<MeterReading>, reason: string) => void;
-  generatePeriodBillTT03: (roomCode: string, periodCode: string) => { success: boolean; billId?: string; message: string };
+  generatePeriodBillTT03: (roomCode: string, periodCode: string, leaseId?: string) => { success: boolean; billId?: string; message: string };
   confirmPeriodBillTT03: (billId: string) => { success: boolean; message: string };
 
   // Payment Notices (QT07)
@@ -3842,15 +3843,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // ==================== BILLING (QT06) ====================
   const saveMeterReadingTT01 = (reading: MeterReading) => {
-    setMeterReadings(prev => {
-      const idx = prev.findIndex(m => m.id === reading.id);
-      if (idx >= 0) {
-        const u = [...prev];
-        u[idx] = reading;
-        return u;
-      }
-      return [reading, ...prev];
+    if (periodBills.some(b => b.roomCode === reading.roomCode && b.leaseId === reading.leaseId &&
+      b.periodCode.trim() === reading.periodCode.trim()))
+      return { success: false, message: 'Kỳ này đã có bảng tính tiền. Không thay đổi chỉ số nguồn ở bước ghi mới; hãy kiểm tra hoặc sửa qua quy trình sửa chỉ số.' };
+    const validation = validateMeterReadingSave({
+      reading, rooms, meterReadings, contracts, handoverReports, handoverConditions
     });
+    if (!validation.success) return validation;
+    setMeterReadings(prev => {
+      // Second guard inside the state updater, including two writes in one React batch.
+      // Never replace another lease, a confirmed reading, or a duplicate period/date.
+      const old = prev.find(m => m.id === reading.id);
+      if (old && (old.roomCode !== reading.roomCode || old.leaseId !== reading.leaseId ||
+        old.periodCode.trim() !== reading.periodCode.trim() || !['Nháp', 'Nháp – điều chỉnh'].includes(old.status))) return prev;
+      if (prev.some(m => m.id !== reading.id && m.roomCode === reading.roomCode && m.leaseId === reading.leaseId &&
+        (m.periodCode.trim() === reading.periodCode.trim() || m.readingDate === reading.readingDate))) return prev;
+      return old ? prev.map(m => m.id === reading.id ? reading : m) : [reading, ...prev];
+    });
+    return validation;
   };
 
   const updateMeterReadingTT02 = (readingId: string, updates: Partial<MeterReading>, reason: string) => {
@@ -3863,11 +3873,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logSecurity('METER_READING_UPDATED_TT02', `Reading ${readingId} updated: ${reason}`);
   };
 
-  const generatePeriodBillTT03 = (roomCode: string, periodCode: string) => {
+  const generatePeriodBillTT03 = (roomCode: string, periodCode: string, leaseId?: string) => {
     const room = rooms.find(r => r.roomCode === roomCode);
     if (!room) return { success: false, message: 'Không tìm thấy phòng.' };
 
-    const reading = meterReadings.find(m => m.roomCode === roomCode && m.periodCode === periodCode);
+    const reading = meterReadings.find(m => m.roomCode === roomCode && m.periodCode === periodCode && (!leaseId || m.leaseId === leaseId));
     if (!reading) {
       return { success: false, message: `Chưa có chỉ số điện nước cho ${periodCode}.` };
     }
@@ -3896,9 +3906,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       .filter(x => {const eff=parseMonth(x.effectivePeriod);return eff!==null && eff<=monthKey;})
       .sort((a,b)=>(parseMonth(b.effectivePeriod)||0)-(parseMonth(a.effectivePeriod)||0))[0];
     if (!price) return {success:false, message:`Chưa có đơn giá điện, nước và dịch vụ có hiệu lực cho ${periodCode}. Vui lòng thiết lập tại Cài đặt.`};
-    if (reading.status !== 'Đã xác nhận') return {success:false, message:'Chỉ số điện nước chưa được xác nhận.'};
-    if (reading.needsRecalculateFlag) return {success:false, message:'Chỉ số vừa điều chỉnh; cần kiểm tra lại trước khi tính tiền.'};
-    if (periodBills.some(b=>b.roomCode===roomCode && b.leaseId===reading.leaseId && b.periodCode===periodCode && b.isConfirmed)) return {success:false, message:'Đã có bảng tính tiền xác nhận cho lần thuê và kỳ này. Không tạo bảng tính trùng.'};
+    if (!['Nháp', 'Nháp – điều chỉnh', 'Đã xác nhận'].includes(reading.status)) return {success:false, message:'Trạng thái chỉ số không hợp lệ để tính tiền.'};
+    if (reading.needsRecalculateFlag || reading.status === 'Nháp – điều chỉnh') return {success:false, message:'Chỉ số vừa điều chỉnh; cần kiểm tra lại trước khi tính tiền.'};
+    const existingBill = periodBills.find(b=>b.roomCode===roomCode && b.leaseId===reading.leaseId && b.periodCode===periodCode);
+    if (existingBill?.isConfirmed) return {success:false, message:'Đã có bảng tính tiền xác nhận cho lần thuê và kỳ này. Không tạo bảng tính trùng.'};
+    if (existingBill) return {success:false, message:'Đã có bảng tính nháp cho phòng/lần thuê và kỳ này. Hãy mở bảng tính từ lịch sử để tiếp tục, không tạo bảng tính trùng.'};
 
     const elecUsage = reading.verifiedElectricKwh !== undefined ? reading.verifiedElectricKwh : Math.max(0, reading.finalElectricKwh - reading.initialElectricKwh);
     const waterUsage = reading.verifiedWaterM3 !== undefined ? reading.verifiedWaterM3 : Math.max(0, reading.finalWaterM3 - reading.initialWaterM3);
@@ -3913,10 +3925,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const totalSrv = srvFees.reduce((sum, s) => sum + s.amount, 0);
 
-    // Tiền thuê kỳ tiếp theo
-    const contract = contracts.find(c => c.leaseId === reading.leaseId && c.roomCode === roomCode && ['Hiệu lực','Đã ký','Chờ hiệu lực'].includes(c.status));
-    if (room.status !== 'Trống' && !contract) return {success:false, message:'Không tìm thấy hợp đồng hợp lệ của lần thuê. Không được tự dùng giá thuê mẫu.'};
+    // Tiền thuê kỳ tiếp theo phải căn cứ đúng lần thuê của dòng chỉ số.
     const rentEnded = room.status === 'Trống' || reading.isFinalPeriodForLease === true;
+    const contract = contracts.find(c => c.leaseId === reading.leaseId && c.roomCode === roomCode && ['Hiệu lực','Đã ký','Chờ hiệu lực'].includes(c.status));
+    if (!rentEnded && !contract) return {success:false, message:'Không tìm thấy hợp đồng hợp lệ của lần thuê. Không được tự dùng giá thuê mẫu.'};
     const nextRent = rentEnded ? 0 : (contract?.monthlyRent ?? 0);
 
     const totalAmount = nextRent + elecAmount + waterAmount + totalSrv;
@@ -3952,12 +3964,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const bill = periodBills.find(b => b.id === billId);
     if (!bill) return { success: false, message: 'EF-01: Không tìm thấy bảng tính tiền.' };
 
-    // Kiểm tra cờ Chờ xác minh của chỉ số điện nước theo UC-TT-01 Bước 6
-    const reading = meterReadings.find(m => m.roomCode === bill.roomCode && m.periodCode === bill.periodCode);
-    if (reading && reading.pendingVerificationFlag) {
+    // Kiểm tra đúng dòng chỉ số theo phòng/lần thuê/kỳ trước khi xác nhận bảng tính.
+    const reading = meterReadings.find(m => m.roomCode === bill.roomCode && m.leaseId === bill.leaseId && m.periodCode === bill.periodCode);
+    if (!reading) return { success: false, message: 'Không tìm thấy dòng chỉ số nguồn đúng phòng/lần thuê/kỳ. Chưa thể xác nhận bảng tính.' };
+    if (reading.pendingVerificationFlag || reading.needsRecalculateFlag || reading.status === 'Nháp – điều chỉnh') {
       return {
         success: false,
-        message: 'Chỉ số điện nước của phòng đang gắn cờ "Chờ xác minh" bất thường. Chưa thể xác nhận bảng tính tiền cho đến khi kiểm tra và xác minh xong.'
+        message: 'Chỉ số điện nước đang chờ xác minh hoặc cần tính lại. Chưa thể xác nhận bảng tính cho đến khi xử lý xong.'
       };
     }
 
@@ -3966,6 +3979,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       isConfirmed: true,
       confirmedAt: new Date().toISOString()
     } : b));
+    setMeterReadings(prev => prev.map(m => m.id === reading.id ? {
+      ...m,
+      status: 'Đã xác nhận',
+      needsRecalculateFlag: false
+    } : m));
     return { success: true, message: 'Đã xác nhận bảng tính tiền thành công !' };
   };
 

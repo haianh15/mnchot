@@ -82,6 +82,16 @@ export const ContractsView: React.FC<{initialContractId?: string; initialRoomCod
     setSettlementOpenId(slipId);
     setActiveTab('settlement');
   };
+
+  // Khi đóng quy trình quyết toán được mở từ hợp đồng, quay về danh sách hợp đồng
+  // thay vì để người dùng mắc lại ở màn hình danh sách phiếu quyết toán.
+  const returnToContractList = () => {
+    setSettlementMode('list');
+    setSettlementOpenId('');
+    setSelectedContractId('');
+    setLargeContractOpen(false);
+    setActiveTab('overview');
+  };
   const displayedContracts = contracts.filter(c =>
     [c.id, c.roomCode, c.tenantName].join(' ').toLowerCase().includes(searchContract.toLowerCase()) &&
     (settlementFilter === 'all' || requiresDepositSettlement(c, contracts, returnInspections, settlementSlips))
@@ -132,7 +142,7 @@ export const ContractsView: React.FC<{initialContractId?: string; initialRoomCod
                 <option value="pending">Cần hoàn tất quyết toán cọc</option>
               </select>
             </label>
-            <button onClick={()=>{setSelectedContractId('');openSettlement('list');}} className="px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">Danh sách phiếu quyết toán</button>
+            <button onClick={()=>{setSelectedContractId('');openSettlement('list');}} className="px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">Quản lý quyết toán cọc</button>
             <button onClick={()=>setActiveTab('schedules')} className="px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">Lịch hợp đồng chung</button>
             <button onClick={()=>openReturnTracking()} className="px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">Theo dõi trả phòng</button>
             <button onClick={()=>setActiveTab('expiry')} className="px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">Theo dõi hạn hợp đồng</button>
@@ -209,8 +219,8 @@ export const ContractsView: React.FC<{initialContractId?: string; initialRoomCod
         </div>
       )}
       {activeTab === 'settlement' && (selectedContract || settlementMode === 'list') && <div className="space-y-3">
-        <button onClick={()=>setActiveTab('overview')} className="px-3 py-2 border rounded-lg text-sm bg-white">← Quay lại Chi tiết hợp đồng</button>
-        <DepositSettlementView key={`${settlementMode}-${selectedContract?.leaseId || 'all'}-${settlementOpenId}`} leaseId={settlementMode === 'list' ? undefined : selectedContract?.leaseId} contractId={selectedContract?.id} initialMode={settlementMode} initialSlipId={settlementOpenId} />
+        <button type="button" onClick={returnToContractList} className="px-3 py-2 border rounded-lg text-sm bg-white">← Danh sách hợp đồng</button>
+        <DepositSettlementView key={`${settlementMode}-${selectedContract?.leaseId || 'all'}-${settlementOpenId}`} leaseId={settlementMode === 'list' ? undefined : selectedContract?.leaseId} contractId={selectedContract?.id} initialMode={settlementMode} initialSlipId={settlementOpenId} onCreateClose={returnToContractList} />
       </div>}
       {/* Action screens are contextual. The page no longer exposes every UC as a navigation tab. */}
       {activeTab !== 'overview' && activeTab !== 'settlement' && activeTab !== 'returns' && <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-wrap gap-3 items-center justify-between">

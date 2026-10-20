@@ -14,7 +14,8 @@
     "test:handover": "node tests/roomLinks.test.cjs && node tests/returnTracking.test.cjs && node tests/handoverIntegrity.test.cjs && node tests/handoverValidation.test.cjs && node tests/roomHandoverLinkage.test.cjs",
     "test:settlement": "node tests/settlementUi.test.cjs",
     "test:contract": "node tests/contractDocument.test.cjs",
-    "test:occupancy": "node tests/occupancyCount.test.cjs"
+    "test:occupancy": "node tests/occupancyCount.test.cjs",
+    "test:meters": "node tests/meterReadings.test.cjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
@@ -36,7 +37,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "autoprefixer": "^10.4.21",
-    "esbuild": "^0.25.0",
+    "esbuild": "^0.28.2",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.21.0",
     "typescript": "^7.0.2"

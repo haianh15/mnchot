@@ -1,6 +1,7 @@
 import { toUserMessage } from '../../utils/userMessages';
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
+import { resolveMeterBaseline } from '../../utils/meterReadings';
 import { MeterReading, PeriodBill, Room } from '../../types';
 import {
   Zap, Droplets, Plus, CheckCircle2, AlertCircle, Edit, Calculator,
@@ -9,15 +10,13 @@ import {
   ExternalLink, Layers, ArrowDownRight, Eye
 } from 'lucide-react';
 
-interface BillingViewProps {
-  onNavigateToNotices?: (billId: string) => void;
-}
-
-export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices }) => {
+export const BillingView: React.FC = () => {
   const {
     rooms,
     meterReadings,
     periodBills,
+    handoverReports,
+    handoverConditions,
     saveMeterReadingTT01,
     updateMeterReadingTT02,
     generatePeriodBillTT03,
@@ -29,6 +28,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
 
   // Filter for room list in UC-TT-01 (Điều kiện trước 2: Đang thuê, Sắp trả, hoặc Đã trả nhưng chưa chốt kỳ cuối)
   const [roomFilterTab, setRoomFilterTab] = useState<'ALL' | 'RENTING' | 'EXPIRING' | 'RETURNED_PENDING'>('ALL');
+  const [readingStatusFilter, setReadingStatusFilter] = useState<'ALL' | 'RECORDED' | 'VERIFY'>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
 
   // UC-TT-01 Reading Modal State
@@ -41,21 +41,22 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
 
   // Meters and Readings (Bước 3)
   const [elecMeterCode, setElecMeterCode] = useState('');
-  const [initElec, setInitElec] = useState<number>(0);
-  const [finalElec, setFinalElec] = useState<number>(0);
+  const [initElec, setInitElec] = useState<number | ''>('');
+  const [finalElec, setFinalElec] = useState<number | ''>('');
   const [waterMeterCode, setWaterMeterCode] = useState('');
-  const [initWater, setInitWater] = useState<number>(0);
-  const [finalWater, setFinalWater] = useState<number>(0);
+  const [initWater, setInitWater] = useState<number | ''>('');
+  const [finalWater, setFinalWater] = useState<number | ''>('');
 
   // Bất thường chỉ số State (Bước 4)
   const [isAbnormal, setIsAbnormal] = useState(false);
   const [abnormalReason, setAbnormalReason] = useState<'Nhập sai' | 'Quay vòng' | 'Thay công tơ' | 'Công tơ hỏng' | 'Khác'>('Quay vòng');
-  const [verifiedElec, setVerifiedElec] = useState<number>(0);
-  const [verifiedWater, setVerifiedWater] = useState<number>(0);
+  const [verifiedElec, setVerifiedElec] = useState<number | ''>('');
+  const [verifiedWater, setVerifiedWater] = useState<number | ''>('');
   const [abnormalProof, setAbnormalProof] = useState('');
 
   // Chốt ngoài kỳ chung date validation warning
   const [readingDateError, setReadingDateError] = useState<string | null>(null);
+  const [editingDraftReadingId, setEditingDraftReadingId] = useState<string | null>(null);
 
   // Edit reading modal (TT-02)
   const [showEditModal, setShowEditModal] = useState(false);
@@ -66,9 +67,14 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
 
   // Generate Bill Modal (TT-03)
   const [showGenBillModal, setShowGenBillModal] = useState(false);
-  const [billRoom, setBillRoom] = useState('');
   const [billPeriod, setBillPeriod] = useState(() => `Kỳ ${String(new Date().getMonth()+1).padStart(2,'0')}/${new Date().getFullYear()}`);
   const [billConfirmError, setBillConfirmError] = useState<string | null>(null);
+  const [billSearchTerm, setBillSearchTerm] = useState('');
+  const [billPeriodFilter, setBillPeriodFilter] = useState('ALL');
+  const [billStatusFilter, setBillStatusFilter] = useState<'ALL' | 'DRAFT' | 'CONFIRMED'>('ALL');
+  const [selectedBillRoomKeys, setSelectedBillRoomKeys] = useState<string[]>([]);
+  const [billGenerationFeedback, setBillGenerationFeedback] = useState<string | null>(null);
+  const [selectedBillDetail, setSelectedBillDetail] = useState<PeriodBill | null>(null);
 
   // Detail Modal for Reading / Abnormal Verification
   const [inspectReading, setInspectReading] = useState<MeterReading | null>(null);
@@ -84,57 +90,175 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
     });
   }, [rooms]);
 
-  const filteredEligibleRooms = useMemo(() => {
-    return eligibleRooms.filter(r => {
-      if (roomFilterTab === 'RENTING' && r.status !== 'Đang thuê') return false;
-      if (roomFilterTab === 'EXPIRING' && r.status !== 'Sắp trả') return false;
-      if (roomFilterTab === 'RETURNED_PENDING' && !r.isReturnedPending) return false;
-      if (searchTerm && !r.roomCode.toLowerCase().includes(searchTerm.toLowerCase())) return false;
-      return true;
+  // Chỉ cho tạo bản ghi mới nếu đúng lần thuê chưa có chỉ số trong phạm vi kỳ/ngày đang chọn.
+  // Chỉ số đã ghi (kể cả Cần xác minh) được xử lý từ danh sách bằng Sửa/Xác minh, không tạo dòng mới.
+  const availableReadingRooms = useMemo(() => eligibleRooms.filter(room => {
+    const isInScope = ['Đang thuê', 'Sắp trả'].includes(room.status) || room.isReturnedPending;
+    if (!isInScope || !room.currentLeaseId) return false;
+    const hasReadingInScope = meterReadings.some(reading => {
+      if (reading.roomCode !== room.roomCode || reading.leaseId !== room.currentLeaseId) return false;
+      const samePeriod = reading.periodCode.trim() === readPeriod.trim();
+      const sameDate = reading.readingDate === readingDate;
+      return samePeriod || sameDate;
     });
-  }, [eligibleRooms, roomFilterTab, searchTerm]);
+    return !hasReadingInScope;
+  }), [eligibleRooms, meterReadings, readPeriod, readType, readingDate]);
 
-  // When selected room in modal changes, automatically fetch previous initial readings
+  // Shared with AppContext save validation: no implicit 0 or previous tenant's meter.
+  const selectedMeterBaseline = useMemo(() => {
+    if (!readRoom) return null;
+    const room = rooms.find(r => r.roomCode === readRoom);
+    if (!room?.currentLeaseId) return { ok: false as const, message: 'Phòng chưa có lần thuê hiện tại hợp lệ.' };
+    return resolveMeterBaseline({
+      roomCode: room.roomCode, leaseId: room.currentLeaseId, readingDate,
+      meterReadings, contracts, handoverReports, handoverConditions,
+      excludeReadingId: editingDraftReadingId || undefined
+    });
+  }, [readRoom, readingDate, rooms, meterReadings, contracts, handoverReports, handoverConditions, editingDraftReadingId]);
+
+  const filteredMeterReadings = useMemo(() => meterReadings.filter(m => {
+    const room = rooms.find(r => r.roomCode === m.roomCode);
+    if (roomFilterTab === 'RENTING' && room?.status !== 'Đang thuê') return false;
+    if (roomFilterTab === 'EXPIRING' && room?.status !== 'Sắp trả') return false;
+    if (roomFilterTab === 'RETURNED_PENDING' && !(room?.status === 'Trống' && room.currentLeaseId)) return false;
+    if (readingStatusFilter === 'VERIFY' && !m.pendingVerificationFlag) return false;
+    if (readingStatusFilter === 'RECORDED' && m.pendingVerificationFlag) return false;
+    if (searchTerm && !m.roomCode.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+    return true;
+  }), [meterReadings, rooms, roomFilterTab, readingStatusFilter, searchTerm]);
+
+  // Only show rooms/leases with a recorded reading for the selected period in the "new bill" flow.
+  const billCandidateReadings = useMemo(() => {
+    const latestByLease = new Map<string, MeterReading>();
+    meterReadings.filter(m => m.periodCode.trim() === billPeriod.trim()).forEach(m => {
+      const key = `${m.roomCode}::${m.leaseId}`;
+      const old = latestByLease.get(key);
+      if (!old || m.readingDate > old.readingDate) latestByLease.set(key, m);
+    });
+    return Array.from(latestByLease.entries()).map(([key, reading]) => {
+      const existingBill = periodBills.find(b => b.roomCode === reading.roomCode && b.leaseId === reading.leaseId && b.periodCode === reading.periodCode);
+      let unavailableReason = '';
+      if (existingBill?.isConfirmed) unavailableReason = 'Đã có bảng tính được xác nhận';
+      else if (existingBill) unavailableReason = 'Đã có bảng tính nháp — mở từ lịch sử để tiếp tục';
+      else if (reading.pendingVerificationFlag) unavailableReason = 'Cần xác minh chỉ số';
+      else if (reading.needsRecalculateFlag || reading.status === 'Nháp – điều chỉnh') unavailableReason = 'Chỉ số cần được kiểm tra lại';
+      return { key, reading, existingBill, selectable: !unavailableReason, unavailableReason };
+    });
+  }, [meterReadings, periodBills, billPeriod]);
+
+  const billPeriods = useMemo(() => Array.from(new Set<string>(periodBills.map((b: PeriodBill) => b.periodCode)))
+    .sort((a: string, b: string) => {
+      const pa = a.match(/(\d{1,2})\s*\/\s*(\d{4})/);
+      const pb = b.match(/(\d{1,2})\s*\/\s*(\d{4})/);
+      const ka = pa ? Number(pa[2]) * 12 + Number(pa[1]) : 0;
+      const kb = pb ? Number(pb[2]) * 12 + Number(pb[1]) : 0;
+      return kb - ka;
+    }), [periodBills]);
+
+  const filteredPeriodBills = useMemo(() => periodBills.filter(b => {
+    if (billPeriodFilter !== 'ALL' && b.periodCode !== billPeriodFilter) return false;
+    if (billStatusFilter === 'DRAFT' && b.isConfirmed) return false;
+    if (billStatusFilter === 'CONFIRMED' && !b.isConfirmed) return false;
+    const q = billSearchTerm.trim().toLowerCase();
+    if (q && !b.roomCode.toLowerCase().includes(q) && !b.leaseId.toLowerCase().includes(q) && !b.periodCode.toLowerCase().includes(q)) return false;
+    return true;
+  }), [periodBills, billPeriodFilter, billStatusFilter, billSearchTerm]);
+
+  const groupedPeriodBills = useMemo(() => {
+    const grouped = new Map<string, PeriodBill[]>();
+    filteredPeriodBills.forEach(b => {
+      if (!grouped.has(b.periodCode)) grouped.set(b.periodCode, []);
+      grouped.get(b.periodCode)!.push(b);
+    });
+    return Array.from(grouped.entries());
+  }, [filteredPeriodBills]);
+
+  const currentDetailBill = selectedBillDetail
+    ? (periodBills.find(b => b.id === selectedBillDetail.id) || selectedBillDetail)
+    : null;
+
+  // Only confirmed readings of this lease or a signed move-in handover establish meter openings.
   const handleSelectRoomForReading = (roomCode: string) => {
+    setEditingDraftReadingId(null);
     setReadRoom(roomCode);
+    setIsAbnormal(false);
+    setVerifiedElec('');
+    setVerifiedWater('');
+    setAbnormalProof('');
+    setReadingDateError(null);
+    setInitElec('');
+    setFinalElec('');
+    setInitWater('');
+    setFinalWater('');
+    setElecMeterCode('');
+    setWaterMeterCode('');
     if (!roomCode) return;
     const room = rooms.find(r => r.roomCode === roomCode);
-    const prevReading = meterReadings.find(m => m.roomCode === roomCode);
-    
-    // Auto-fill initial readings from previous record or room standard defaults
-    const prevElec = prevReading ? prevReading.finalElectricKwh : 0;
-    const prevWater = prevReading ? prevReading.finalWaterM3 : 0;
-    setInitElec(prevElec);
-    setFinalElec(prevElec);
-    setInitWater(prevWater);
-    setFinalWater(prevWater);
-    setElecMeterCode(prevReading?.electricMeterCode || '');
-    setWaterMeterCode(prevReading?.waterMeterCode || '');
-
-    // Check if room is returned
-    if (room?.status === 'Trống') {
-      setReadType('Ngoài kỳ chung');
+    if (room?.status === 'Trống') setReadType('Ngoài kỳ chung');
+    if (!room?.currentLeaseId) return;
+    const baseline = resolveMeterBaseline({
+      roomCode, leaseId: room.currentLeaseId, readingDate,
+      meterReadings, contracts, handoverReports, handoverConditions
+    });
+    if (baseline.ok === false) {
+      setReadingDateError(baseline.message);
+      return;
     }
+    setInitElec(baseline.electric);
+    setFinalElec(baseline.electric);
+    setInitWater(baseline.water);
+    setFinalWater(baseline.water);
+    setElecMeterCode(baseline.electricMeterCode);
+    setWaterMeterCode(baseline.waterMeterCode);
+  };
+
+  const handleContinueDraftReading = (reading: MeterReading) => {
+    setEditingDraftReadingId(reading.id);
+    setReadRoom(reading.roomCode);
+    setReadPeriod(reading.periodCode);
+    setReadType(reading.readingType);
+    setReadingDate(reading.readingDate);
+    setElecMeterCode(reading.electricMeterCode);
+    setInitElec(reading.initialElectricKwh);
+    setFinalElec(reading.finalElectricKwh);
+    setWaterMeterCode(reading.waterMeterCode);
+    setInitWater(reading.initialWaterM3);
+    setFinalWater(reading.finalWaterM3);
+    setIsAbnormal(Boolean(reading.isAbnormal));
+    setAbnormalReason(reading.abnormalReason || 'Quay vòng');
+    setVerifiedElec(reading.verifiedElectricKwh ?? '');
+    setVerifiedWater(reading.verifiedWaterM3 ?? '');
+    setAbnormalProof(reading.abnormalEvidence || '');
+    setReadingDateError(null);
+    setReadingStage(1);
+    setShowReadingModal(true);
   };
 
   // Real-time calculation of electricity and water consumption
-  const currentElecUsage = finalElec - initElec;
-  const currentWaterUsage = finalWater - initWater;
+  const currentElecUsage = typeof finalElec === 'number' && typeof initElec === 'number' ? finalElec - initElec : 0;
+  const currentWaterUsage = typeof finalWater === 'number' && typeof initWater === 'number' ? finalWater - initWater : 0;
 
   // Auto detect abnormality in real-time
   const autoElecAbnormal = currentElecUsage < 0 || currentElecUsage === 0 || currentElecUsage > 450;
   const autoWaterAbnormal = currentWaterUsage < 0 || currentWaterUsage === 0 || currentWaterUsage > 30;
   const detectedAbnormal = autoElecAbnormal || autoWaterAbnormal;
 
-  // Step 5 in UC-TT-01: Save Readings (handles both normal save and partial/draft save)
-  const handleSaveReadingSubmit = (isDraftOnly: boolean = false) => {
+  // UC-TT-01: lưu chỉ số cho một phòng/lần thuê. Bản ghi bất thường vẫn được lưu nhưng gắn cờ Cần xác minh.
+  const handleSaveReadingSubmit = () => {
     setReadingDateError(null);
     if (!readRoom || !readPeriod.trim()) { setReadingDateError('Chọn đúng phòng và kỳ cần ghi chỉ số.'); return; }
     if (!elecMeterCode.trim() || !waterMeterCode.trim()) { setReadingDateError('Cần ghi đúng mã công tơ điện và nước từ hồ sơ nguồn; không được tự điền mã giả.'); return; }
+    if (![initElec, finalElec, initWater, finalWater].every(v => typeof v === 'number' && Number.isFinite(v) && v >= 0)) {
+      setReadingDateError('Chỉ số đầu/cuối điện nước phải là số hợp lệ và không âm.');
+      return;
+    }
 
     // Validation for ngoài kỳ chung
     if (readType === 'Ngoài kỳ chung') {
-      const recentReading = meterReadings.find(m => m.roomCode === readRoom);
+      const selectedRoom = rooms.find(r => r.roomCode === readRoom);
+      const recentReading = meterReadings
+        .filter(m => m.roomCode === readRoom && (!selectedRoom?.currentLeaseId || m.leaseId === selectedRoom.currentLeaseId) && m.periodCode !== readPeriod.trim())
+        .sort((a, b) => b.readingDate.localeCompare(a.readingDate))[0];
       if (recentReading && readingDate < recentReading.readingDate) {
         setReadingDateError(`Ngày chốt ngoài kỳ (${readingDate}) phải sau ngày chốt gần nhất (${recentReading.readingDate}).`);
         return;
@@ -144,22 +268,29 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
     // Step 4 check: Check abnormal
     const hasAbnormal = isAbnormal || detectedAbnormal;
 
-    // Check mandatory proof if abnormal
-    if (hasAbnormal && !abnormalProof.trim() && !isDraftOnly) {
-      alert('Chỉ số có dấu hiệu bất thường. Vui lòng bổ sung ảnh công tơ hoặc biên bản xác minh.');
-      setIsAbnormal(true);
+    const room = rooms.find(r => r.roomCode === readRoom);
+    const existingDraft = editingDraftReadingId ? meterReadings.find(m => m.id === editingDraftReadingId) : undefined;
+    const leaseId = existingDraft?.leaseId || room?.currentLeaseId;
+    if (!leaseId) { setReadingDateError('Không tìm thấy mã lần thuê của phòng được chọn; cần kiểm tra hồ sơ nguồn.'); return; }
+    if (!selectedMeterBaseline) { setReadingDateError('Chưa có chỉ số đầu kỳ được xác minh.'); return; }
+    if (selectedMeterBaseline.ok === false) { setReadingDateError(selectedMeterBaseline.message); return; }
+
+    // Nếu đã có bản ghi cùng phòng/lần thuê/kỳ, không tạo dòng trùng.
+    // Có thể tiếp tục lưu trên chính bản ghi nếu đó là Nháp; bản ghi đã xác nhận
+    // phải đi qua UC-TT-02 (Sửa chỉ số) để giữ đúng lịch sử nghiệp vụ.
+    const duplicateReading = meterReadings.find(m => m.id !== editingDraftReadingId && m.roomCode === readRoom && m.leaseId === leaseId && (m.periodCode.trim() === readPeriod.trim() || (readType === 'Ngoài kỳ chung' && m.readingDate === readingDate)));
+    const reusableDraft = duplicateReading && (duplicateReading.status === 'Nháp' || duplicateReading.status === 'Nháp – điều chỉnh') ? duplicateReading : undefined;
+    if (duplicateReading && !reusableDraft) {
+      setReadingDateError(`Đã có bản ghi chỉ số ${duplicateReading.status} cho ${readRoom}, lần thuê ${leaseId}, ${readPeriod}. Không tạo bản ghi trùng. Hãy đóng cửa sổ này và bấm “Sửa” ở dòng chỉ số hiện có để điều chỉnh theo UC-TT-02.`);
       return;
     }
-
-    const room = rooms.find(r => r.roomCode === readRoom);
-    const leaseId = room?.currentLeaseId;
-    if (!leaseId) { setReadingDateError('Không tìm thấy mã lần thuê của phòng được chọn; cần kiểm tra hồ sơ nguồn.'); return; }
+    const recordToUpdate = existingDraft || reusableDraft;
 
     const newReading: MeterReading = {
-      id: 'mr_' + readRoom.replace(/\D/g, '') + '_' + Date.now().toString().slice(-4),
+      id: recordToUpdate?.id || ('mr_' + readRoom.replace(/\D/g, '') + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8)),
       roomCode: readRoom,
       leaseId,
-      periodCode: readPeriod,
+      periodCode: readPeriod.trim(),
       readingType: readType,
       readingDate,
       electricMeterCode: elecMeterCode,
@@ -170,25 +301,28 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
       finalWaterM3: Number(finalWater),
       isAbnormal: hasAbnormal,
       abnormalReason: hasAbnormal ? abnormalReason: undefined,
-      verifiedElectricKwh: hasAbnormal ? Number(verifiedElec): undefined,
-      verifiedWaterM3: hasAbnormal ? Number(verifiedWater): undefined,
+      verifiedElectricKwh: hasAbnormal && verifiedElec !== '' ? Number(verifiedElec) : undefined,
+      verifiedWaterM3: hasAbnormal && verifiedWater !== '' ? Number(verifiedWater) : undefined,
       abnormalEvidence: hasAbnormal ? abnormalProof.trim(): undefined,
-      status: isDraftOnly
-        ? 'Nháp': (hasAbnormal && !abnormalProof ? 'Nháp': 'Đã xác nhận'),
-      pendingVerificationFlag: hasAbnormal && (!abnormalProof || !verifiedElec),
+      // TT-01 stores a draft. TT-03 confirms the reading together with the bill.
+      status: 'Nháp',
+      pendingVerificationFlag: hasAbnormal && (!editingDraftReadingId || !abnormalProof.trim() || verifiedElec === '' || verifiedWater === '' || Number(verifiedElec) < 0 || Number(verifiedWater) < 0),
       needsRecalculateFlag: false,
-      isFinalPeriodForLease: room?.status === 'Trống'
+      isFinalPeriodForLease: recordToUpdate?.isFinalPeriodForLease ?? (room?.status === 'Trống')
     };
 
-    saveMeterReadingTT01(newReading);
+    const saveResult = saveMeterReadingTT01(newReading);
+    if (!saveResult.success) {
+      setReadingDateError(saveResult.message);
+      return;
+    }
     setShowReadingModal(false);
+    setEditingDraftReadingId(null);
 
-    if (isDraftOnly) {
-      alert('Đã lưu dở dang ở trạng thái "Nháp"! Bạn có thể quay lại điền tiếp bất kỳ lúc nào.');
-    } else if (newReading.pendingVerificationFlag) {
-      alert("Đã lưu chỉ số nhưng gắn cờ \"Chờ xác minh\" do có bất thường chưa đủ chứng cứ. sẽ tạm khóa xác nhận bảng tính cho phòng này.");
+    if (newReading.pendingVerificationFlag) {
+      alert('Đã ghi nhận chỉ số với trạng thái Cần xác minh. Vào danh sách chỉ số và chọn “Xác minh” để bổ sung sản lượng thực tế, lý do và chứng cứ trước khi tính tiền.');
     } else {
-      alert("Ghi nhận và lưu chỉ số điện nước thành công! Đã sẵn sàng làm nguồn tính tiền cho.");
+      alert('Đã ghi nhận chỉ số thành công. Bản ghi sẵn sàng cho bước tính tiền theo kỳ; việc xác nhận tiền vẫn thực hiện tại bảng tính.');
     }
   };
 
@@ -209,17 +343,33 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
     alert('Sửa chỉ số thành công! Dòng đã chuyển sang trạng thái "Nháp – điều chỉnh", vui lòng tính lại tiền phòng.');
   };
 
-  // UC-TT-03: Generate Bill
-  const handleGenerateBill = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!billRoom || !billPeriod.trim()) { alert('Chọn phòng và kỳ tính tiền trước khi lập bảng tính.'); return; }
-    const res = generatePeriodBillTT03(billRoom, billPeriod);
-    if (!res.success) {
-      alert(toUserMessage(res.message));
-    } else {
+  // UC-TT-03: Generate bills for the selected rooms/leases with valid meter readings.
+  const handleGenerateBill = () => {
+    if (!billPeriod.trim()) {
+      setBillGenerationFeedback('Vui lòng chọn kỳ tính tiền.');
+      return;
+    }
+    const selectedCandidates = billCandidateReadings.filter(c => selectedBillRoomKeys.includes(c.key) && c.selectable);
+    if (selectedCandidates.length === 0) {
+      setBillGenerationFeedback('Chọn ít nhất một phòng/lần thuê đủ điều kiện tính tiền.');
+      return;
+    }
+
+    const results = selectedCandidates.map(({ reading }) => ({
+      roomCode: reading.roomCode,
+      result: generatePeriodBillTT03(reading.roomCode, billPeriod.trim(), reading.leaseId)
+    }));
+    const succeeded = results.filter(x => x.result.success);
+    const failed = results.filter(x => !x.result.success);
+    setSelectedBillRoomKeys([]);
+    if (succeeded.length > 0) {
       setShowGenBillModal(false);
       setActiveTab('bills');
-      alert(toUserMessage(res.message));
+      setBillGenerationFeedback(`Đã tạo ${succeeded.length} bảng tính nháp${failed.length ? `; ${failed.length} phòng chưa tính được` : ''}.`);
+    }
+    if (failed.length > 0) {
+      const details = failed.map(x => `${x.roomCode}: ${x.result.message}`).join('\n');
+      setBillGenerationFeedback(`${succeeded.length ? `Đã tạo ${succeeded.length} bảng tính. ` : ''}Không thể tính ${failed.length} phòng: ${details}`);
     }
   };
 
@@ -230,8 +380,11 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
     if (!res.success) {
       setBillConfirmError(res.message);
       alert(toUserMessage(res.message));
+      return false;
     } else {
+      setBillConfirmError(null);
       alert(toUserMessage(res.message));
+      return true;
     }
   };
 
@@ -281,13 +434,22 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                 <span>Lưu ý ghi nhận chỉ số:</span>
               </div>
               <p className="text-blue-800 text-[11px]">
-                Áp dụng cho phòng <strong>Đang thuê</strong>, <strong>Sắp trả phòng</strong>, và <strong>Đã trả phòng chờ chốt kỳ cuối</strong>. Tự động kiểm tra quay vòng / công tơ thay mới / sản lượng 0 bất thường. Hỗ trợ lưu nháp dở dang và chốt ngoài kỳ chung. </p>
+                Áp dụng cho phòng <strong>Đang thuê</strong>, <strong>Sắp trả phòng</strong>, và <strong>Đã trả phòng chờ chốt kỳ cuối</strong>. Chỉ hiển thị phòng/lần thuê chưa ghi chỉ số cho kỳ/ngày đã chọn. Nếu có bất thường, hệ thống lưu trạng thái Cần xác minh để xử lý sau. </p>
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={() => {
                   handleSelectRoomForReading('');
+                  setReadPeriod(`Kỳ ${String(new Date().getMonth()+1).padStart(2,'0')}/${new Date().getFullYear()}`);
+                  setReadType('Theo kỳ chung');
+                  setReadingDate(new Date().toISOString().split('T')[0]);
+                  setIsAbnormal(false);
+                  setAbnormalReason('Quay vòng');
+                  setVerifiedElec('');
+                  setVerifiedWater('');
+                  setAbnormalProof('');
+                  setReadingDateError(null);
                   setReadingStage(0);
                   setShowReadingModal(true);
                 }}
@@ -322,6 +484,22 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
               ))}
             </div>
 
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-xs font-semibold text-slate-500 mr-1">Trạng thái chỉ số:</span>
+              {[
+                { id: 'ALL', label: 'Tất cả' },
+                { id: 'RECORDED', label: 'Đã ghi nhận' },
+                { id: 'VERIFY', label: 'Cần xác minh' }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setReadingStatusFilter(tab.id as any)}
+                  className={`px-3 py-1 rounded-lg text-xs font-medium cursor-pointer transition-colors ${readingStatusFilter === tab.id ? 'bg-blue-100 text-blue-800 font-bold' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                >{tab.label}</button>
+              ))}
+            </div>
+
             <div className="relative w-full sm:w-56">
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
               <input
@@ -341,16 +519,16 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                 <span className="font-bold text-xs uppercase tracking-wider text-slate-700">
                   Danh sách chỉ số đã ghi nhận </span>
                 <span className="px-2 py-0.5 bg-slate-100 rounded-full font-mono text-[11px] text-slate-600 font-semibold">
-                  {meterReadings.length} bản ghi </span>
+                  {filteredMeterReadings.length} bản ghi </span>
               </div>
 
               <div className="flex items-center gap-3 text-[11px] text-slate-500">
                 <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Đã xác nhận </span>
+                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Đã xác nhận (qua tính tiền) </span>
                 <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-amber-500"></span> Nháp (Lưu dở) </span>
+                  <span className="w-2 h-2 rounded-full bg-amber-500"></span> Đã ghi nhận </span>
                 <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-red-500"></span> Chờ xác minh </span>
+                  <span className="w-2 h-2 rounded-full bg-red-500"></span> Cần xác minh </span>
               </div>
             </div>
 
@@ -371,7 +549,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {meterReadings.map((m) => {
+                  {filteredMeterReadings.map((m) => {
                     const elecDiff = m.verifiedElectricKwh !== undefined
                       ? m.verifiedElectricKwh: Math.max(0, m.finalElectricKwh - m.initialElectricKwh);
                     const waterDiff = m.verifiedWaterM3 !== undefined
@@ -422,13 +600,13 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                         <td className="py-3 px-3">
                           {m.pendingVerificationFlag ? (
                             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-800 border border-red-200 block text-center">
-                              Chờ xác minh </span>
+                              Cần xác minh </span>
                           ): m.status === 'Đã xác nhận' ? (
                             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 block text-center">
                               Đã xác nhận </span>
                           ): (
                             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 block text-center">
-                              {m.status}
+                              {m.status === 'Nháp' ? 'Đã ghi nhận' : m.status}
                             </span>
                           )}
                         </td>
@@ -441,17 +619,27 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                             >
                               <Eye className="w-3.5 h-3.5" />
                             </button>
-                            <button
-                              onClick={() => {
-                                setSelectedReading(m);
-                                setEditFinalElec(m.finalElectricKwh);
-                                setEditFinalWater(m.finalWaterM3);
-                                setEditReason('');
-                                setShowEditModal(true);
-                              }}
-                              className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded text-[11px] font-medium cursor-pointer"
-                            >
-                              Sửa </button>
+                            {m.status === 'Nháp' ? (
+                              <button
+                                onClick={() => handleContinueDraftReading(m)}
+                                className={`px-2.5 py-1 rounded text-[11px] font-medium cursor-pointer ${m.pendingVerificationFlag ? 'bg-red-50 hover:bg-red-100 text-red-800' : 'bg-blue-50 hover:bg-blue-100 text-blue-700'}`}
+                              >
+                                {m.pendingVerificationFlag ? 'Xác minh' : 'Sửa'}
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => {
+                                  setSelectedReading(m);
+                                  setEditFinalElec(m.finalElectricKwh);
+                                  setEditFinalWater(m.finalWaterM3);
+                                  setEditReason('');
+                                  setShowEditModal(true);
+                                }}
+                                className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded text-[11px] font-medium cursor-pointer"
+                              >
+                                Sửa
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -473,11 +661,15 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
             <div className="text-xs text-slate-600">
               <span className="font-bold text-slate-800">Công thức chuẩn hóa: </span>
               <strong>Tiền thuê kỳ tiếp theo (Trả trước)</strong> + <strong>Điện/nước & phí dịch vụ vừa sử dụng (Trả sau)</strong>. <span className="text-blue-800 block mt-0.5">
-                * Dòng chỉ số còn cờ &quot;Chờ xác minh&quot; sẽ không được xác nhận cho đến khi hoàn tất. </span>
+                * Dòng chỉ số còn cờ &quot;Cần xác minh&quot; sẽ không được xác nhận cho đến khi hoàn tất. </span>
             </div>
 
             <button
-              onClick={() => setShowGenBillModal(true)}
+              onClick={() => {
+                setSelectedBillRoomKeys([]);
+                setBillGenerationFeedback(null);
+                setShowGenBillModal(true);
+              }}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer"
             >
               <Calculator className="w-4 h-4" />
@@ -491,128 +683,100 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
             </div>
           )}
 
+          {billGenerationFeedback && (
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-blue-900 text-xs flex items-start justify-between gap-3">
+              <span className="whitespace-pre-line">{billGenerationFeedback}</span>
+              <button type="button" onClick={() => setBillGenerationFeedback(null)} className="text-blue-700 hover:text-blue-900" aria-label="Đóng thông báo"><X className="w-4 h-4"/></button>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="p-3 rounded-xl border border-slate-200 bg-white">
+              <div className="text-xs text-slate-500">Tổng bảng tính</div>
+              <div className="text-xl font-bold text-slate-900">{periodBills.length}</div>
+            </div>
+            <div className="p-3 rounded-xl border border-amber-200 bg-amber-50">
+              <div className="text-xs text-amber-800">Đang nháp</div>
+              <div className="text-xl font-bold text-amber-900">{periodBills.filter(b => !b.isConfirmed).length}</div>
+            </div>
+            <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50">
+              <div className="text-xs text-emerald-800">Đã xác nhận</div>
+              <div className="text-xl font-bold text-emerald-900">{periodBills.filter(b => b.isConfirmed).length}</div>
+            </div>
+          </div>
+
+          <div className="p-3 bg-white border border-slate-200 rounded-xl flex flex-col lg:flex-row gap-2 lg:items-center">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5"/>
+              <input value={billSearchTerm} onChange={e => setBillSearchTerm(e.target.value)} placeholder="Tìm theo phòng, lần thuê hoặc kỳ..." className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-xs"/>
+            </div>
+            <select value={billPeriodFilter} onChange={e => setBillPeriodFilter(e.target.value)} className="px-3 py-2 border border-slate-200 rounded-lg bg-white text-xs" aria-label="Lọc theo kỳ">
+              <option value="ALL">Tất cả các kỳ</option>
+              {billPeriods.map(period => <option key={period} value={period}>{period}</option>)}
+            </select>
+            <select value={billStatusFilter} onChange={e => setBillStatusFilter(e.target.value as 'ALL' | 'DRAFT' | 'CONFIRMED')} className="px-3 py-2 border border-slate-200 rounded-lg bg-white text-xs" aria-label="Lọc trạng thái bảng tính">
+              <option value="ALL">Tất cả trạng thái</option>
+              <option value="DRAFT">Nháp – Chờ xác nhận</option>
+              <option value="CONFIRMED">Đã xác nhận</option>
+            </select>
+          </div>
+
           <div className="space-y-4">
-            {periodBills.map((bill) => {
-              const reading = meterReadings.find(m => m.roomCode === bill.roomCode && m.periodCode === bill.periodCode);
-              const hasPendingReading = reading?.pendingVerificationFlag;
-
-              return (
-                <div key={bill.id} className="p-5 border border-slate-200 rounded-2xl bg-white shadow-sm space-y-4 text-xs">
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-base text-slate-900">Bảng tính tiền: Phòng {bill.roomCode}</span>
-                      <span className="font-mono text-xs px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 font-bold border border-blue-200">
-                        {bill.periodCode}
-                      </span>
-                      <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
-                        bill.isConfirmed
-                          ? 'bg-emerald-100 text-emerald-800': 'bg-amber-100 text-amber-800'
-                      }`}>
-                        {bill.isConfirmed ? 'Đã xác nhận bảng tính': 'Nháp – Chờ xác nhận'}
-                      </span>
-                      <span className="font-mono text-[11px] text-slate-400">Phiên bản {bill.version}</span>
-                    </div>
-
-                    <div className="text-right">
-                      <span className="text-xs text-slate-400 block">Tổng tiền kỳ:</span>
-                      <span className="font-mono font-bold text-base text-blue-700">
-                        {bill.totalAmount.toLocaleString('vi-VN')} đ </span>
-                    </div>
+            {groupedPeriodBills.length === 0 ? (
+              <div className="p-10 bg-white border border-slate-200 rounded-2xl text-center text-sm text-slate-500">
+                <History className="w-8 h-8 mx-auto mb-2 text-slate-300"/>
+                Không có bảng tính nào phù hợp bộ lọc. Bấm “Tính tiền kỳ mới” để lập bảng tính từ các phòng đã có chỉ số.
+              </div>
+            ) : groupedPeriodBills.map(([period, bills]) => (
+              <section key={period} className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h3 className="font-bold text-sm text-slate-900">{period}</h3>
+                    <p className="text-[11px] text-slate-500 mt-0.5">{bills.length} bảng tính theo phòng/lần thuê</p>
                   </div>
-
-                  {/* 2 separate periods */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Group A: Next Rent */}
-                    <div className="p-4 rounded-xl border border-blue-200 bg-blue-50/30 space-y-2">
-                      <div className="flex items-center justify-between border-b border-blue-100 pb-1.5">
-                        <span className="font-bold text-blue-950 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
-                          <span className="w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px]">1</span>
-                          Nhóm 1: Tiền thuê kỳ tiếp theo (Trả trước) </span>
-                        <span className="font-mono font-bold text-blue-900">
-                          {bill.isRentPeriodEnded ? '0 đ': `${bill.nextMonthRentAmount.toLocaleString('vi-VN')} đ`}
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-slate-600">
-                        <span>Khoảng thời gian:</span>
-                        <span className="font-mono font-medium">{bill.nextRentPeriodFrom} → {bill.nextRentPeriodTo}</span>
-                      </div>
-                      {bill.isRentPeriodEnded && (
-                        <div className="p-2 bg-purple-50 text-purple-800 rounded-lg text-[11px] border border-purple-200">
-                          Phòng đã nhận lại thực tế, đã ngừng sinh tiền thuê kỳ tiếp theo. </div>
-                      )}
-                    </div>
-
-                    {/* Group B: Services */}
-                    <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-2">
-                      <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
-                        <span className="font-bold text-slate-900 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
-                          <span className="w-4 h-4 rounded-full bg-slate-700 text-white flex items-center justify-center text-[10px]">2</span>
-                          Nhóm 2: Điện, nước & dịch vụ vừa dùng (Trả sau) </span>
-                        <span className="font-mono font-bold text-slate-800">
-                          {(bill.totalAmount - (bill.isRentPeriodEnded ? 0: bill.nextMonthRentAmount)).toLocaleString('vi-VN')} đ </span>
-                      </div>
-                      <div className="flex justify-between text-slate-600">
-                        <span>Kỳ sử dụng dịch vụ:</span>
-                        <span className="font-mono">{bill.servicePeriodFrom} → {bill.servicePeriodTo}</span>
-                      </div>
-                      <div className="flex justify-between text-slate-600">
-                        <span>Điện năng tiêu thụ ({bill.electricityUsage} kWh × {bill.electricityRate} đ):</span>
-                        <span className="font-mono font-bold text-amber-800">{bill.electricityAmount.toLocaleString('vi-VN')} đ</span>
-                      </div>
-                      <div className="flex justify-between text-slate-600">
-                        <span>Nước sinh hoạt ({bill.waterUsage} m³ × {bill.waterRate} đ):</span>
-                        <span className="font-mono font-bold text-blue-800">{bill.waterAmount.toLocaleString('vi-VN')} đ</span>
-                      </div>
-                      <div className="flex justify-between pt-1 border-t border-slate-200 text-slate-600">
-                        <span>Tổng phí dịch vụ chung ({bill.serviceFees.length} dịch vụ):</span>
-                        <span className="font-mono font-semibold text-slate-800">
-                          {bill.serviceFees.reduce((s, f) => s + f.amount, 0).toLocaleString('vi-VN')} đ </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Warning if reading is pending */}
-                  {hasPendingReading && (
-                    <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-900 text-xs flex items-center gap-2">
-                      <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
-                      <span>
-                        <strong>Cảnh báo:</strong> Chỉ số điện nước của phòng này đang gắn cờ &quot;Chờ xác minh&quot;. Bạn không thể xác nhận bảng tính cho đến khi xử lý bất thường tại tab Ghi/Sửa chỉ số. </span>
-                    </div>
-                  )}
-
-                  {/* Confirm actions */}
-                  <div className="flex justify-between items-center pt-2 border-t border-slate-100">
-                    <span className="text-slate-400 text-[11px]">
-                      Vui lòng xác nhận bảng tính tiền trước khi chuyển sang đối chiếu khoản phải thu. </span>
-
-                    <div className="flex items-center gap-2">
-                      {!bill.isConfirmed ? (
-                        <button
-                          onClick={() => handleConfirmBillAction(bill.id)}
-                          disabled={Boolean(hasPendingReading)}
-                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs"
-                        >
-                          <CheckCircle2 className="w-4 h-4" />
-                          Xác nhận bảng tính </button>
-                      ): (
-                        <div className="flex items-center gap-3">
-                          <span className="text-emerald-700 font-semibold flex items-center gap-1 text-xs">
-                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                            Đã xác nhận bảng tính nguồn </span>
-                          {onNavigateToNotices && (
-                            <button
-                              onClick={() => onNavigateToNotices(bill.id)}
-                              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold cursor-pointer flex items-center gap-1.5 shadow-xs"
-                            >
-                              Chuyển sang Đối chiếu khoản phải thu → </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                  <div className="text-right">
+                    <span className="block text-[10px] text-slate-500">Tổng giá trị các bảng tính</span>
+                    <span className="font-mono font-bold text-blue-700">{bills.reduce((sum, b) => sum + b.totalAmount, 0).toLocaleString('vi-VN')} đ</span>
                   </div>
                 </div>
-              );
-            })}
+                <div className="divide-y divide-slate-100">
+                  {bills.map(bill => {
+                    const reading = meterReadings.find(m => m.roomCode === bill.roomCode && m.leaseId === bill.leaseId && m.periodCode === bill.periodCode);
+                    const hasPendingReading = !reading || Boolean(reading.pendingVerificationFlag || reading.needsRecalculateFlag);
+                    return (
+                      <div key={bill.id} className="p-4 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-bold text-sm text-slate-900">Phòng {bill.roomCode}</span>
+                            <span className="text-[10px] text-slate-500 font-mono">{bill.leaseId}</span>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${bill.isConfirmed ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                              {bill.isConfirmed ? 'Đã xác nhận' : 'Nháp – Chờ xác nhận'}
+                            </span>
+                            <span className="text-[10px] text-slate-400">Phiên bản {bill.version}</span>
+                          </div>
+                          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
+                            <span>Điện: {bill.electricityUsage} kWh · {bill.electricityAmount.toLocaleString('vi-VN')} đ</span>
+                            <span>Nước: {bill.waterUsage} m³ · {bill.waterAmount.toLocaleString('vi-VN')} đ</span>
+                            <span>Tổng: <strong className="text-blue-700">{bill.totalAmount.toLocaleString('vi-VN')} đ</strong></span>
+                          </div>
+                          {hasPendingReading && <p className="text-[11px] text-amber-800 mt-1">Cần kiểm tra chỉ số hoặc cờ xác minh trước khi xác nhận bảng tính.</p>}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button type="button" onClick={() => setSelectedBillDetail(bill)} className="px-3 py-2 border border-slate-300 rounded-lg text-xs font-semibold hover:bg-slate-50">
+                            <Eye className="w-3.5 h-3.5 inline mr-1"/> Xem chi tiết
+                          </button>
+                          {!bill.isConfirmed ? (
+                            <button type="button" onClick={() => handleConfirmBillAction(bill.id)} disabled={hasPendingReading} className="px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold">
+                              <CheckCircle2 className="w-3.5 h-3.5 inline mr-1"/> Xác nhận bảng tính
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
           </div>
         </div>
       )}
@@ -621,20 +785,20 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
       {/* MODAL: 6-STEP GHI NHẬN CHỈ SỐ MỚI                               */}
       {/* ========================================================================= */}
       {showReadingModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-2xl w-full p-6 space-y-4 text-xs my-8 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto pointer-events-auto">
+          <div className="relative z-[101] pointer-events-auto bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-2xl w-full p-6 space-y-4 text-xs my-8 max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="flex justify-between items-start border-b border-slate-200 pb-3">
               <div>
                 <div className="flex items-center gap-2">
                   
-                  <h3 className="font-bold text-slate-900 text-base">Ghi nhận chỉ số điện và nước</h3>
+                  <h3 className="font-bold text-slate-900 text-base">{editingDraftReadingId ? 'Tiếp tục ghi nhận chỉ số điện và nước' : 'Ghi nhận chỉ số điện và nước'}</h3>
                 </div>
                 <p className="text-slate-500 text-[11px] mt-0.5">
                   Chọn đúng phòng và kỳ cần ghi nhận. </p>
               </div>
               <button
-                onClick={() => setShowReadingModal(false)}
+                onClick={() => { setShowReadingModal(false); setEditingDraftReadingId(null); }}
                 className="p-1 rounded-lg text-slate-400 hover:text-slate-600 cursor-pointer"
               >
                 <X className="w-5 h-5" />
@@ -653,15 +817,22 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                   onChange={(e) => handleSelectRoomForReading(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-300 rounded-xl bg-white font-mono font-bold text-xs"
                 >
-                  <option value="">-- Chọn phòng --</option>
-                  {rooms.map(r => (
-                    <option key={r.id} value={r.roomCode}>
-                      {r.roomCode} ({r.status} {r.status === 'Trống' ? '– Đã trả phòng': ''}) </option>
+                  <option value="">-- Chọn phòng chưa ghi chỉ số --</option>
+                  {availableReadingRooms.map(r => (
+                    <option key={`${r.id}-${r.currentLeaseId}`} value={r.roomCode}>
+                      {r.roomCode} ({r.status}{r.isReturnedPending ? ' – Chờ chốt kỳ cuối' : ''})
+                    </option>
                   ))}
+                  {availableReadingRooms.length === 0 && <option value="" disabled>Không còn phòng chưa ghi chỉ số cho kỳ/ngày này</option>}
                 </select>
                 <span className="text-[10px] text-slate-500 mt-1 block">
                   Căn cứ lần thuê: {rooms.find(r => r.roomCode === readRoom)?.currentLeaseId || 'Chưa có — cần kiểm tra'}
                 </span>
+                {readRoom && selectedMeterBaseline && (
+                  <p className={`mt-2 text-[11px] ${selectedMeterBaseline.ok ? 'text-emerald-700' : 'text-red-700'}`}>
+                    {selectedMeterBaseline.ok === true ? `Nguồn chỉ số đầu: ${selectedMeterBaseline.source}` : selectedMeterBaseline.message}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -671,7 +842,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setReadType('Theo kỳ chung')}
+                    onClick={() => { setReadType('Theo kỳ chung'); if (!editingDraftReadingId) setReadRoom(''); }}
                     className={`flex-1 py-1.5 px-2.5 rounded-lg border text-xs font-semibold cursor-pointer text-center ${
                       readType === 'Theo kỳ chung'
                         ? 'bg-blue-600 text-white border-blue-600 shadow-xs': 'bg-white text-slate-700 border-slate-200'
@@ -680,7 +851,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                     Theo kỳ chung </button>
                   <button
                     type="button"
-                    onClick={() => setReadType('Ngoài kỳ chung')}
+                    onClick={() => { setReadType('Ngoài kỳ chung'); if (!editingDraftReadingId) setReadRoom(''); }}
                     className={`flex-1 py-1.5 px-2.5 rounded-lg border text-xs font-semibold cursor-pointer text-center ${
                       readType === 'Ngoài kỳ chung'
                         ? 'bg-purple-600 text-white border-purple-600 shadow-xs': 'bg-white text-slate-700 border-slate-200'
@@ -695,7 +866,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                     <input
                       type="text"
                       value={readPeriod}
-                      onChange={(e) => setReadPeriod(e.target.value)}
+                      onChange={(e) => { setReadPeriod(e.target.value); if (!editingDraftReadingId) setReadRoom(''); }}
                       className="w-full px-2 py-1 border border-slate-300 rounded bg-white font-medium"
                     />
                   </div>
@@ -704,7 +875,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                     <input
                       type="date"
                       value={readingDate}
-                      onChange={(e) => setReadingDate(e.target.value)}
+                      onChange={(e) => { setReadingDate(e.target.value); if (!editingDraftReadingId) setReadRoom(''); }}
                       className="w-full px-2 py-1 border border-slate-300 rounded bg-white font-mono"
                     />
                   </div>
@@ -716,7 +887,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
               </div>
             </div>
 
-              <div className="flex justify-end"><button type="button" disabled={!readRoom || !readPeriod.trim() || !readingDate} onClick={()=>setReadingStage(1)} className="rounded-lg bg-blue-600 px-4 py-2 text-white font-semibold disabled:bg-slate-200 disabled:text-slate-500">Tiếp tục <ArrowRight className="inline h-4 w-4"/></button></div>
+              <div className="flex justify-end"><button type="button" disabled={!readRoom || !readPeriod.trim() || !readingDate || !selectedMeterBaseline?.ok} onClick={()=>setReadingStage(1)} className="rounded-lg bg-blue-600 px-4 py-2 text-white font-semibold disabled:bg-slate-200 disabled:text-slate-500">Tiếp tục <ArrowRight className="inline h-4 w-4"/></button></div>
             </>}
 
             {readingStage === 1 && <>
@@ -724,6 +895,14 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
             <div className="p-4 bg-slate-50/70 border border-slate-200 rounded-2xl space-y-4">
               <span className="font-bold text-slate-800 text-xs block">
                  Nhập chỉ số & kiểm tra định dạng hợp lệ </span>
+
+              {selectedMeterBaseline && (
+                <p className={`text-xs ${selectedMeterBaseline.ok ? 'text-emerald-700' : 'text-red-700'}`}>
+                  {selectedMeterBaseline.ok === true
+                    ? `Chỉ số đầu kỳ khóa theo: ${selectedMeterBaseline.source}. Nếu có thay công tơ/sai lệch, cần xử lý tại hồ sơ nguồn hoặc quy trình xác minh.`
+                    : selectedMeterBaseline.message}
+                </p>
+              )}
 
               {/* Điện */}
               <div className="p-3 bg-white border border-amber-200 rounded-xl space-y-2">
@@ -743,7 +922,8 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                     <input
                       type="number"
                       value={initElec}
-                      onChange={(e) => setInitElec(Number(e.target.value))}
+                      readOnly
+                      title="Được lấy từ biên bản nhận phòng đã xác nhận hoặc chỉ số kỳ trước đã xác nhận"
                       className="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-mono bg-slate-50"
                     />
                   </div>
@@ -753,7 +933,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                     <input
                       type="number"
                       value={finalElec}
-                      onChange={(e) => setFinalElec(Number(e.target.value))}
+                      onChange={(e) => setFinalElec(e.target.value === '' ? '' : Number(e.target.value))}
                       className="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-mono font-bold text-amber-800"
                     />
                   </div>
@@ -778,7 +958,8 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                     <input
                       type="number"
                       value={initWater}
-                      onChange={(e) => setInitWater(Number(e.target.value))}
+                      readOnly
+                      title="Được lấy từ biên bản nhận phòng đã xác nhận hoặc chỉ số kỳ trước đã xác nhận"
                       className="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-mono bg-slate-50"
                     />
                   </div>
@@ -788,7 +969,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                     <input
                       type="number"
                       value={finalWater}
-                      onChange={(e) => setFinalWater(Number(e.target.value))}
+                      onChange={(e) => setFinalWater(e.target.value === '' ? '' : Number(e.target.value))}
                       className="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-mono font-bold text-blue-800"
                     />
                   </div>
@@ -796,10 +977,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
               </div>
             </div>
 
-              <div className="flex items-center justify-between gap-3"><button type="button" onClick={()=>setReadingStage(0)} className="rounded-lg border px-4 py-2 font-semibold">Quay lại</button><button type="button" disabled={!elecMeterCode.trim() || !waterMeterCode.trim() || !Number.isFinite(finalElec) || !Number.isFinite(finalWater)} onClick={()=>setReadingStage(2)} className="rounded-lg bg-blue-600 px-4 py-2 text-white font-semibold disabled:bg-slate-200 disabled:text-slate-500">Tiếp tục <ArrowRight className="inline h-4 w-4"/></button></div>
-            </>}
-
-            {readingStage === 2 && <>
+              
             {/* Bước 4: Kiểm tra bất thường & */}
             <div className={`p-4 rounded-2xl border transition-all ${
               detectedAbnormal || isAbnormal
@@ -848,8 +1026,20 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                       <input
                         type="number"
                         value={verifiedElec}
-                        onChange={(e) => setVerifiedElec(Number(e.target.value))}
+                        onChange={(e) => setVerifiedElec(e.target.value === '' ? '' : Number(e.target.value))}
                         className="w-full px-3 py-2 border border-slate-300 rounded-xl bg-white font-mono font-bold text-amber-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">
+                        Sản lượng nước thực tế đã xác minh (m³) <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={verifiedWater}
+                        onChange={(e) => setVerifiedWater(e.target.value === '' ? '' : Number(e.target.value))}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-xl bg-white font-mono font-bold text-blue-900"
                       />
                     </div>
                   </div>
@@ -869,41 +1059,42 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                       />
                     </div>
                     <span className="text-[10px] text-amber-800 mt-1 block">
-                      * Dòng chỉ số thiếu chứng cứ sẽ bị gắn cờ &quot;Chờ xác minh&quot; và sẽ không thể xác nhận bảng tính. </span>
+                      * Dòng chỉ số thiếu chứng cứ sẽ bị gắn cờ &quot;Cần xác minh&quot; và sẽ không thể xác nhận bảng tính. </span>
                   </div>
                 </div>
               )}
             </div>
 
-              <button type="button" onClick={()=>setReadingStage(1)} className="rounded-lg border px-4 py-2 font-semibold">Quay lại chỉ số</button>
-            {/* Bước 5: Nút Lưu chỉ số & Lưu dở dang */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-200">
-              <span className="text-slate-400 text-[11px]">
-                 Bạn có thể lưu nháp hoặc hoàn tất thông tin. </span>
+            {/* Hiển thị lỗi kiểm tra ngay tại bước nhập chỉ số; trước đây lỗi được đặt ở bước chọn phòng nên người dùng tưởng nút Lưu không hoạt động. */}
+            {readingDateError && readingStage === 1 && (
+              <div role="alert" aria-live="assertive" className="relative z-20 pointer-events-auto rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+                {readingDateError}
+              </div>
+            )}
+
+            {/* Bước 5: Lưu chỉ số của phòng/lần thuê đang chọn */}
+            <div className="sticky bottom-0 relative z-30 pointer-events-auto flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 pb-1 border-t border-slate-200 bg-white shadow-[0_-8px_14px_-12px_rgba(15,23,42,0.45)]">
+              <span className="text-slate-500 text-[11px]">
+                 Lưu chỉ số sẽ ghi nhận một phòng/lần thuê. Dữ liệu bất thường được gắn cờ Cần xác minh. </span>
 
               <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
                 <button
                   type="button"
-                  onClick={() => setShowReadingModal(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-medium cursor-pointer"
+                  onClick={() => { setShowReadingModal(false); setEditingDraftReadingId(null); }}
+                  className="relative z-10 pointer-events-auto px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-medium cursor-pointer"
                 >
                   Hủy </button>
                 <button
                   type="button"
-                  onClick={() => handleSaveReadingSubmit(true)}
-                  className="px-4 py-2 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-xl font-semibold cursor-pointer"
-                  title="Giữ ở trạng thái Nháp để tiếp tục hoàn thiện sau"
+                  onClick={handleSaveReadingSubmit}
+                  className="relative z-10 pointer-events-auto px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold cursor-pointer shadow-xs"
                 >
-                  Lưu dở (Nháp - ) </button>
-                <button
-                  type="button"
-                  onClick={() => handleSaveReadingSubmit(false)}
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold cursor-pointer shadow-xs"
-                >
-                  Lưu hoàn tất </button>
+                  Lưu chỉ số </button>
               </div>
             </div>
             </>}
+
+            
           </div>
         </div>
       )}
@@ -986,29 +1177,15 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
       {/* ========================================================================= */}
       {showGenBillModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-md w-full p-6 space-y-4 text-xs">
-            <div className="flex justify-between items-center border-b border-slate-200 pb-3">
-              <h3 className="font-bold text-slate-900 text-base">Tính tiền theo kỳ </h3>
-              <button
-                onClick={() => setShowGenBillModal(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 cursor-pointer"
-              >
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-2xl w-full p-6 space-y-4 text-xs max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-start border-b border-slate-200 pb-3">
+              <div>
+                <h3 className="font-bold text-slate-900 text-base">Tính tiền kỳ mới</h3>
+                <p className="text-slate-500 mt-1">Chỉ hiển thị phòng/lần thuê đã có chỉ số ghi nhận cho kỳ được chọn.</p>
+              </div>
+              <button type="button" onClick={() => setShowGenBillModal(false)} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 cursor-pointer" aria-label="Đóng">
                 <X className="w-5 h-5" />
               </button>
-            </div>
-
-            <div>
-              <label className="block font-semibold text-slate-700 mb-1">Phòng cần tính tiền</label>
-              <select
-                value={billRoom}
-                onChange={(e) => setBillRoom(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-xl font-mono font-bold"
-              >
-                <option value="">-- Chọn phòng --</option>
-                {rooms.map(r => (
-                  <option key={r.id} value={r.roomCode}>{r.roomCode} ({r.status})</option>
-                ))}
-              </select>
             </div>
 
             <div>
@@ -1016,24 +1193,126 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
               <input
                 type="text"
                 value={billPeriod}
-                onChange={(e) => setBillPeriod(e.target.value)}
+                onChange={(e) => { setBillPeriod(e.target.value); setSelectedBillRoomKeys([]); setBillGenerationFeedback(null); }}
+                placeholder="Kỳ MM/YYYY"
                 className="w-full px-3 py-2 border border-slate-300 rounded-xl"
               />
+              <p className="text-[10px] text-slate-500 mt-1">Ví dụ: Kỳ 10/2026. Chỉ chọn phòng có chỉ số đúng kỳ này.</p>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setShowGenBillModal(false)}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-medium cursor-pointer"
-              >
-                Hủy </button>
-              <button
-                type="button"
-                onClick={handleGenerateBill}
-                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold cursor-pointer shadow-xs"
-              >
-                Tính tiền kỳ </button>
+            <div className="rounded-xl border border-slate-200 overflow-hidden">
+              <div className="flex items-center justify-between gap-3 p-3 bg-slate-50 border-b border-slate-200">
+                <label className="flex items-center gap-2 font-bold text-slate-800">
+                  <input
+                    type="checkbox"
+                    checked={billCandidateReadings.some(c => c.selectable) && billCandidateReadings.filter(c => c.selectable).every(c => selectedBillRoomKeys.includes(c.key))}
+                    disabled={!billCandidateReadings.some(c => c.selectable)}
+                    onChange={(e) => setSelectedBillRoomKeys(e.target.checked ? billCandidateReadings.filter(c => c.selectable).map(c => c.key) : [])}
+                    className="rounded border-slate-300"
+                  />
+                  Chọn tất cả phòng đủ điều kiện
+                </label>
+                <span className="text-slate-500">{billCandidateReadings.filter(c => c.selectable).length} phòng có thể chọn</span>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {billCandidateReadings.length === 0 ? (
+                  <div className="p-8 text-center text-slate-500">
+                    <AlertCircle className="w-7 h-7 mx-auto mb-2 text-slate-300"/>
+                    Chưa có phòng/lần thuê nào ghi nhận chỉ số cho {billPeriod || 'kỳ đã chọn'}.
+                    <p className="text-[10px] mt-1">Hãy ghi nhận chỉ số trước khi tính tiền.</p>
+                  </div>
+                ) : billCandidateReadings.map(({key, reading, selectable, unavailableReason}) => (
+                  <label key={key} className={`flex items-start gap-3 p-3 ${selectable ? 'cursor-pointer hover:bg-blue-50/50' : 'bg-slate-50 opacity-80'}`}>
+                    <input
+                      type="checkbox"
+                      checked={selectedBillRoomKeys.includes(key)}
+                      disabled={!selectable}
+                      onChange={(e) => setSelectedBillRoomKeys(old => e.target.checked ? [...old, key] : old.filter(x => x !== key))}
+                      className="mt-1 rounded border-slate-300"
+                    />
+                    <span className="flex-1 min-w-0">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <strong className="text-slate-900">{reading.roomCode}</strong>
+                        <span className="text-[10px] text-slate-500 font-mono">{reading.leaseId}</span>
+                        {selectable ? (
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-semibold">Đủ điều kiện sơ bộ</span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-semibold">{unavailableReason}</span>
+                        )}
+                      </span>
+                      <span className="block text-[11px] text-slate-500 mt-1">
+                        Điện {reading.initialElectricKwh} → {reading.finalElectricKwh}; Nước {reading.initialWaterM3} → {reading.finalWaterM3}
+                      </span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {billGenerationFeedback && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 whitespace-pre-line">{billGenerationFeedback}</div>
+            )}
+
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 pt-3 border-t border-slate-100">
+              <span className="text-slate-500">Đã chọn {selectedBillRoomKeys.filter(key => billCandidateReadings.some(c => c.key === key && c.selectable)).length} phòng. Kết quả sẽ được lưu thành bảng tính nháp riêng cho từng phòng/lần thuê.</span>
+              <div className="flex justify-end gap-2 shrink-0">
+                <button type="button" onClick={() => setShowGenBillModal(false)} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-medium">Hủy</button>
+                <button type="button" onClick={handleGenerateBill} disabled={!selectedBillRoomKeys.some(key => billCandidateReadings.some(c => c.key === key && c.selectable))} className="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl font-bold shadow-xs">
+                  <Calculator className="w-4 h-4 inline mr-1"/> Tính tiền các phòng đã chọn
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+            {currentDetailBill && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-2xl w-full p-6 space-y-4 text-xs max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-200 pb-3">
+              <div>
+                <h3 className="font-bold text-slate-900 text-base">Chi tiết bảng tính — Phòng {currentDetailBill.roomCode}</h3>
+                <p className="text-slate-500 mt-1">Lần thuê {currentDetailBill.leaseId} · {currentDetailBill.periodCode} · Phiên bản {currentDetailBill.version}</p>
+              </div>
+              <button type="button" onClick={() => setSelectedBillDetail(null)} className="p-1 rounded-lg text-slate-400 hover:text-slate-600" aria-label="Đóng"><X className="w-5 h-5"/></button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="p-3 border border-blue-200 bg-blue-50/50 rounded-xl space-y-2">
+                <h4 className="font-bold text-blue-950">1. Tiền thuê kỳ tiếp theo (trả trước)</h4>
+                <div className="flex justify-between gap-3"><span className="text-slate-600">Khoảng thời gian</span><span className="font-mono text-right">{currentDetailBill.nextRentPeriodFrom} → {currentDetailBill.nextRentPeriodTo}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-slate-600">Tiền thuê</span><strong>{(currentDetailBill.isRentPeriodEnded ? 0 : currentDetailBill.nextMonthRentAmount).toLocaleString('vi-VN')} đ</strong></div>
+                {currentDetailBill.isRentPeriodEnded && <p className="text-purple-800 bg-purple-50 border border-purple-200 rounded p-2">Đã nhận lại phòng thực tế; không phát sinh tiền thuê kỳ tiếp theo.</p>}
+              </div>
+              <div className="p-3 border border-slate-200 bg-slate-50 rounded-xl space-y-2">
+                <h4 className="font-bold text-slate-900">2. Dịch vụ kỳ vừa sử dụng (trả sau)</h4>
+                <div className="flex justify-between gap-3"><span className="text-slate-600">Khoảng thời gian</span><span className="font-mono text-right">{currentDetailBill.servicePeriodFrom} → {currentDetailBill.servicePeriodTo}</span></div>
+                <div className="flex justify-between gap-3"><span>Điện ({currentDetailBill.electricityUsage} kWh × {currentDetailBill.electricityRate.toLocaleString('vi-VN')} đ)</span><strong>{currentDetailBill.electricityAmount.toLocaleString('vi-VN')} đ</strong></div>
+                <div className="flex justify-between gap-3"><span>Nước ({currentDetailBill.waterUsage} m³ × {currentDetailBill.waterRate.toLocaleString('vi-VN')} đ)</span><strong>{currentDetailBill.waterAmount.toLocaleString('vi-VN')} đ</strong></div>
+                {currentDetailBill.serviceFees.map((fee, index) => (
+                  <div key={`${fee.name}-${index}`} className="flex justify-between gap-3"><span>{fee.name}</span><strong>{fee.amount.toLocaleString('vi-VN')} đ</strong></div>
+                ))}
+                {(currentDetailBill.adjustmentAmount || 0) !== 0 && <div className="flex justify-between gap-3"><span>Điều chỉnh {currentDetailBill.adjustmentReason ? `(${currentDetailBill.adjustmentReason})` : ''}</span><strong>{(currentDetailBill.adjustmentAmount || 0).toLocaleString('vi-VN')} đ</strong></div>}
+              </div>
+            </div>
+
+            <div className="p-4 rounded-xl bg-slate-900 text-white flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-slate-300">Tổng tiền bảng tính</p>
+                <p className="text-2xl font-bold">{currentDetailBill.totalAmount.toLocaleString('vi-VN')} đ</p>
+              </div>
+              <span className={`px-3 py-1.5 rounded-full text-xs font-bold ${currentDetailBill.isConfirmed ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'}`}>
+                {currentDetailBill.isConfirmed ? 'Đã xác nhận' : 'Nháp – Chờ xác nhận'}
+              </span>
+            </div>
+
+            <div className="flex flex-wrap justify-end gap-2 pt-2 border-t border-slate-200">
+              <button type="button" onClick={() => setSelectedBillDetail(null)} className="px-4 py-2 border border-slate-300 rounded-lg font-semibold">Đóng</button>
+              {!currentDetailBill.isConfirmed ? (
+                <button type="button" onClick={() => { if (handleConfirmBillAction(currentDetailBill.id)) setSelectedBillDetail(null); }} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold">
+                  <CheckCircle2 className="w-4 h-4 inline mr-1"/> Xác nhận bảng tính
+                </button>
+              ) : null}
             </div>
           </div>
         </div>

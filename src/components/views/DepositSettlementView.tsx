@@ -10,7 +10,7 @@ import {
   ExternalLink, PhoneCall, Paperclip, Upload, Eye, RefreshCw, Info, DollarSign
 } from 'lucide-react';
 
-export const DepositSettlementView: React.FC<{leaseId?: string; contractId?: string; initialMode?: 'list'|'create'|'edit'|'result'|'view'; initialSlipId?: string}> = ({leaseId, contractId, initialMode='list', initialSlipId=''}) => {
+export const DepositSettlementView: React.FC<{leaseId?: string; contractId?: string; initialMode?: 'list'|'create'|'edit'|'result'|'view'; initialSlipId?: string; onCreateClose?: () => void}> = ({leaseId, contractId, initialMode='list', initialSlipId='', onCreateClose}) => {
   const {
     settlementSlips,
     rooms,
@@ -110,13 +110,8 @@ export const DepositSettlementView: React.FC<{leaseId?: string; contractId?: str
       if (!matchSearch) return false;
 
       if (statusFilter === 'all') return true;
-      if (statusFilter === 'pending') {
-        return ['Đang lập', 'Không đồng ý', 'Không liên hệ được'].includes(slip.status);
-      }
-      if (statusFilter === 'agreed') return slip.status === 'Khách đồng ý';
-      if (statusFilter === 'dispute') return slip.status === 'Tranh chấp';
-      if (statusFilter === 'published') return terminalSettlementStatuses.includes(slip.status);
-      if (statusFilter === 'cancelled') return slip.status === 'Đã hủy';
+      // The dropdown exposes only the seven agreed business statuses.
+      if (statusFilter === 'Hoàn tất') return slip.status === 'Hoàn tất';
       return slip.status === statusFilter;
     });
   }, [settlementSlips, searchQuery, statusFilter, leaseId, contractId, contracts]);
@@ -287,6 +282,11 @@ export const DepositSettlementView: React.FC<{leaseId?: string; contractId?: str
     return { deductions, totalDeductions, result };
   }, [roomCandidateData, earlyTerminationAmount, earlyTerminationClause, earlyTerminationReason, earlyTerminationEvidence, createCustomDeductions]);
 
+  const handleCloseCreateModal = () => {
+    setShowCreateModal(false);
+    onCreateClose?.();
+  };
+
   // -------------------------------------------------------------
   // UC-QTC-01: Submit create slip (Bước 7 & 8)
   // -------------------------------------------------------------
@@ -311,6 +311,8 @@ export const DepositSettlementView: React.FC<{leaseId?: string; contractId?: str
     if (roomCandidateData.existingDraftSlip) {
       const proceed = confirm(`Phòng ${createSelectedRoom} đã có phiếu quyết toán (${roomCandidateData.existingDraftSlip.id}). Bạn có muốn xem phiếu này không?`);
       if (proceed) {
+        // Đóng form tạo mới và hiển thị phiếu hiện có ngay trong màn quản lý quyết toán.
+        // Không gọi onCreateClose ở nhánh này vì người dùng chọn xem phiếu, không rời phân hệ.
         setSelectedSlipId(roomCandidateData.existingDraftSlip.id);
         setShowCreateModal(false);
       }
@@ -381,6 +383,7 @@ export const DepositSettlementView: React.FC<{leaseId?: string; contractId?: str
       setSelectedSlipId(newSlip.id);
       setShowCreateModal(false);
       alert(toUserMessage(res.message));
+      onCreateClose?.();
     } else {
       alert('Lỗi: ' + res.message);
     }
@@ -749,11 +752,13 @@ export const DepositSettlementView: React.FC<{leaseId?: string; contractId?: str
 
           <select aria-label="Lọc trạng thái phiếu quyết toán" value={statusFilter} onChange={e=>setStatusFilter(e.target.value)} className="w-full rounded-lg border border-slate-300 p-2 text-xs bg-white">
             <option value="all">Tất cả trạng thái</option>
-            <option value="pending">Đang lập / cần điều chỉnh</option>
-            <option value="agreed">Khách đồng ý</option>
-            <option value="dispute">Tranh chấp</option>
-            <option value="published">Đã có kết quả / hoàn tất</option>
-            <option value="cancelled">Đã hủy</option>
+            <option value="Đang lập">Đang lập</option>
+            <option value="Không đồng ý">Không đồng ý</option>
+            <option value="Khách đồng ý">Khách đồng ý</option>
+            <option value="Không liên hệ được">Không liên hệ được</option>
+            <option value="Tranh chấp">Tranh chấp</option>
+            <option value="Hoàn tất">Hoàn tất</option>
+            <option value="Đã hủy">Đã hủy</option>
           </select>
           {/* Slips Cards */}
           <div className="space-y-2 max-h-[680px] overflow-y-auto pr-1">
@@ -1290,7 +1295,7 @@ export const DepositSettlementView: React.FC<{leaseId?: string; contractId?: str
                 <p className="text-slate-500 text-[11px]">
                   Lấy cọc gốc từ hợp đồng đầu tiên trong chuỗi thuê liên tục, tổng hợp khấu trừ từ &. </p>
               </div>
-              <button onClick={() => setShowCreateModal(false)} className="text-slate-400 hover:text-slate-600 p-1">
+              <button type="button" onClick={handleCloseCreateModal} className="text-slate-400 hover:text-slate-600 p-1">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1447,7 +1452,7 @@ export const DepositSettlementView: React.FC<{leaseId?: string; contractId?: str
               <button type="button" onClick={handleCalculateQTC01} className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-semibold">Tính kết quả</button>
               <button
                 type="button"
-                onClick={() => setShowCreateModal(false)}
+                onClick={handleCloseCreateModal}
                 className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer"
               >
                 Hủy </button>
