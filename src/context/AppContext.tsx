@@ -89,6 +89,7 @@ import {
   INITIAL_TENANT_HISTORY
 } from '../data/seedData';
 import { verifyPassword, hashPassword } from '../utils/authDemo';
+import { completeDemoOccupiedFixtures } from '../data/demoOccupiedFixtures';
 
 interface AppContextType {
   // Auth
@@ -362,6 +363,9 @@ interface AppContextType {
   // Management Reports (QT10)
   reportSnapshots: ManagementReportSnapshot[];
   saveReportSnapshot: (snapshot: ManagementReportSnapshot) => void;
+
+  // Chỉ thêm hồ sơ DEMO thiếu cho các phòng mẫu, không đụng dữ liệu thật.
+  completeDemoOccupiedRooms: () => { success: boolean; added: number; corrected: number; skipped: string[]; message: string };
 
   // Quick reset for demo/testing
   resetAllToSeedData: () => void;
@@ -4595,6 +4599,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { success: true, message: 'Ghi nhận phản hồi và ngày hẹn thanh toán thành công !', record: newProm };
   };
 
+  const completeDemoOccupiedRooms = () => {
+    const result = completeDemoOccupiedFixtures({
+      rooms, tenants, contracts, initialPaymentRecords, handoverReports,
+      inventoryRecords, handoverConditions, leaseStartEvents
+    }, standardAssets);
+    if (result.added === 0 && result.corrected === 0) {
+      return { success: result.skipped.length === 0, added: 0, corrected: 0,
+        skipped: result.skipped, message: result.skipped.length
+          ? 'Có dữ liệu không khớp bộ mẫu; hệ thống không tự ghi đè. Hãy kiểm tra từng phòng.'
+          : 'Tất cả hồ sơ demo hiện đã đủ, không cần bổ sung.' };
+    }
+    setContracts(result.contracts);
+    setInitialPaymentRecords(result.initialPaymentRecords);
+    setHandoverReports(result.handoverReports);
+    setInventoryRecords(result.inventoryRecords);
+    setHandoverConditions(result.handoverConditions);
+    setLeaseStartEvents(result.leaseStartEvents);
+    return { success: true, added: result.added, corrected: result.corrected,
+      skipped: result.skipped, message: `Đã thêm ${result.added} bản ghi DEMO và chỉnh ${result.corrected} bản ghi mẫu cũ. Không thay đổi hồ sơ không thuộc bộ DEMO.` };
+  };
+
   const resetAllToSeedData = () => {
     // Chức năng khôi phục dữ liệu mẫu dành riêng cho dev; không cấp phiên quản trị.
     localStorage.removeItem('mini_apt_owner_auth_v2');
@@ -4607,6 +4632,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setBankAccounts(INITIAL_BANK_ACCOUNTS);
     setBatchSchedules(INITIAL_BATCH_SCHEDULES);
     setRooms(INITIAL_ROOMS);
+    setInitialPaymentRecords(INITIAL_INITIAL_PAYMENT_RECORDS);
+    setLeaseStartEvents(INITIAL_LEASE_START_EVENTS);
+    setHandoverConditions(INITIAL_HANDOVER_CONDITIONS);
     setRoomHistory([]);
     setReturnPlans([]);
     setContactLogs([]);
@@ -4777,6 +4805,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         logSecurity('Lưu snapshot báo cáo quản trị', `Mã BC: ${snapshot.reportCode} - Kỳ: ${snapshot.periodLabel}`);
       },
 
+      completeDemoOccupiedRooms,
       resetAllToSeedData
     }}>
       {children}

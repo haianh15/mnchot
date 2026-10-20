@@ -37,6 +37,7 @@ import {
   TenantHistoryEntry,
   ReceptionRequest
 } from '../types';
+import { completeDemoOccupiedFixtures } from './demoOccupiedFixtures';
 
 // Một tài khoản được cấp sẵn duy nhất cho BẢN XEM THỬ.
 // Chỉ chứa dẫn xuất PBKDF2, không lưu mật khẩu rõ vào mã nguồn.
@@ -1929,3 +1930,18 @@ export const INITIAL_LEASE_START_EVENTS: LeaseStartEvent[] = [
     syncStatus: 'Đã gửi HSKT-02'
   }
 ];
+
+// BỘ DỮ LIỆU MẪU HOÀN CHỈNH — chỉ dành cho ứng dụng thử nghiệm.
+// Không được dùng hồ sơ DEMO làm bằng chứng nhận tiền hoặc biên bản đã ký thật.
+const demoComplete = completeDemoOccupiedFixtures({
+  rooms: INITIAL_ROOMS, tenants: INITIAL_TENANTS,
+  contracts: INITIAL_CONTRACTS, initialPaymentRecords: INITIAL_INITIAL_PAYMENT_RECORDS,
+  handoverReports: INITIAL_HANDOVER_REPORTS, inventoryRecords: INITIAL_INVENTORY_RECORDS,
+  handoverConditions: INITIAL_HANDOVER_CONDITIONS, leaseStartEvents: INITIAL_LEASE_START_EVENTS
+}, INITIAL_STANDARD_ASSETS);
+INITIAL_CONTRACTS.splice(0, INITIAL_CONTRACTS.length, ...demoComplete.contracts);
+INITIAL_INITIAL_PAYMENT_RECORDS.splice(0, INITIAL_INITIAL_PAYMENT_RECORDS.length, ...demoComplete.initialPaymentRecords);
+INITIAL_HANDOVER_REPORTS.splice(0, INITIAL_HANDOVER_REPORTS.length, ...demoComplete.handoverReports);
+INITIAL_INVENTORY_RECORDS.splice(0, INITIAL_INVENTORY_RECORDS.length, ...demoComplete.inventoryRecords);
+INITIAL_HANDOVER_CONDITIONS.splice(0, INITIAL_HANDOVER_CONDITIONS.length, ...demoComplete.handoverConditions);
+INITIAL_LEASE_START_EVENTS.splice(0, INITIAL_LEASE_START_EVENTS.length, ...demoComplete.leaseStartEvents);

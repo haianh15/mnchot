@@ -28,9 +28,14 @@ test('Thiếu ngày nhận phòng bị cảnh báo', () => assert.equal(valid(ro
 test('Phòng Trống không bị gán hồ sơ đang thuê', () => assert.equal(valid({...room,status:'Trống'}).valid,true));
 const seedRoom = id => INITIAL_ROOMS.find(r=>r.roomCode===id);
 test('Dữ liệu demo P101 có chứng từ nguồn đối chiếu được', () => assert.equal(auditOccupiedRoom(seedRoom('P.101'),INITIAL_CONTRACTS,INITIAL_TENANTS,INITIAL_INITIAL_PAYMENT_RECORDS,INITIAL_HANDOVER_REPORTS).valid,true));
-test('Dữ liệu demo phòng P201 thiếu chứng từ phải hiện cảnh báo, không tự tạo giấy', () => {
+test('Bộ dữ liệu mẫu mới P201 có đủ hợp đồng, cọc, thuê đầu và biên bản DEMO', () => {
   const a = auditOccupiedRoom(seedRoom('P.201'),INITIAL_CONTRACTS,INITIAL_TENANTS,INITIAL_INITIAL_PAYMENT_RECORDS,INITIAL_HANDOVER_REPORTS);
-  assert.equal(a.valid,false); assert.equal(a.paymentValid,false); assert.equal(a.handoverValid,false);
+  assert.equal(a.valid,true); assert.equal(a.paymentValid,true); assert.equal(a.handoverValid,true);
+});
+test('Bỏ chứng từ hoặc biên bản vẫn bị chặn dù trạng thái phòng là Đang thuê', () => {
+  const r = seedRoom('P.201');
+  assert.equal(auditOccupiedRoom(r,INITIAL_CONTRACTS,INITIAL_TENANTS,[],INITIAL_HANDOVER_REPORTS).valid,false);
+  assert.equal(auditOccupiedRoom(r,INITIAL_CONTRACTS,INITIAL_TENANTS,INITIAL_INITIAL_PAYMENT_RECORDS,[]).valid,false);
 });
 const ctx=fs.readFileSync('src/context/AppContext.tsx','utf8');
 const ck=ctx.slice(ctx.indexOf('const confirmCheckInPH05'),ctx.indexOf('const saveMissingConditionPH06'));
@@ -40,5 +45,5 @@ test('Chặn nhận phòng trùng', () => assert(ck.includes('leaseStartEvents.s
 const plan=ctx.slice(ctx.indexOf('const updateExpectedReturnDatePH11_12'),ctx.indexOf('const autoCancelReturnPlanPH14'));
 test('Không chuyển sang Sắp trả khi dữ liệu cũ thiếu hồ sơ', () => assert(plan.includes('auditOccupiedRoom(room, contracts, tenants, initialPaymentRecords, handoverReports)')));
 const view=fs.readFileSync('src/components/views/RoomsView.tsx','utf8');
-test('Danh sách hiển thị nguồn cọc đối chiếu thay cờ lưu sẵn',()=>assert(view.includes("verifiedPayment ? 'Đã đối chiếu'") && view.includes('Cần đối chiếu hồ sơ')));
+test('Danh sách hiển thị nguồn cọc đối chiếu thay cờ lưu sẵn',()=>assert(view.includes('getInitialPaymentStatus(verifiedContract, contracts, initialPaymentRecords).valid') && view.includes('Cần đối chiếu hồ sơ') && view.includes('DEMO - giả lập')));
 console.log(`Room readiness: ${count}/${count} tests passed.`);
