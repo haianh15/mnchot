@@ -3220,6 +3220,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // ==================== DEPOSIT SETTLEMENT (QT05: UC-QTC-01 -> UC-QTC-03) ====================
   const saveSettlementSlipQTC01 = (slip: DepositSettlementSlip) => {
+    // Validate source relations in the data layer, not just the form.
+    const matchingInspection = returnInspections.some(i => i.roomCode === slip.roomCode && i.leaseId === slip.leaseId && i.step304Status === 'Đã nhận lại' && i.step305Confirmed);
+    const matchingContract = contracts.some(c => c.id === slip.initialContractId && c.leaseId === slip.leaseId && c.roomCode === slip.roomCode);
+    const matchingDeposit = initialPaymentRecords.some(r => r.leaseId === slip.leaseId && r.roomCode === slip.roomCode && r.depositCode === slip.initialDepositCode && r.depositAmount === slip.initialDepositAmount && r.depositAmount > 0);
+    if (!matchingInspection || !matchingContract || !matchingDeposit) return {success: false, message:'Thiếu hoặc sai liên kết nhận lại phòng, hợp đồng hoặc tiền cọc gốc của lần thuê.'};
+    if (slip.status !== 'Đang lập' || slip.step58Published) return {success: false, message:'Chỉ được tạo mới phiếu ở trạng thái Đang lập.'};
+    if (settlementSlips.some(s => s.leaseId === slip.leaseId && s.roomCode === slip.roomCode && s.status !== 'Đã hủy')) return {success: false, message:'Lần thuê đã có phiếu quyết toán hiệu lực. Vui lòng mở phiếu đó để xử lý.'};
+    if (settlementSlips.some(s => s.id === slip.id)) return {success: false, message:'Mã phiếu quyết toán đã tồn tại.'};
+    if (slip.deductions.some(d=>!Number.isFinite(d.amount) || d.amount < 0 || (d.category === 'Khoản trừ theo điều khoản hợp đồng' && (!d.clauseRef?.trim() || !d.reason?.trim() || !d.evidence?.trim())))) return {success: false, message:'Khoản khấu trừ không hợp lệ hoặc thiếu điều khoản, lý do, chứng cứ.'};
+    const expectedResult = slip.initialDepositAmount - slip.deductions.reduce((sum,d)=>sum+d.amount,0);
+    if (slip.calculationStatus === 'Đã tính' && slip.calculatedResult !== expectedResult) return {success:false,message:'Số tiền quyết toán không khớp bảng khấu trừ. Cần tính lại.'};
     const nowStr = new Date().toISOString();
     const userName = currentUser?.fullName || 'Nguyễn Văn An (Chủ nhà)';
 
@@ -3289,8 +3300,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }) => {
     const slip = settlementSlips.find(s => s.id === params.slipId);
     if (!slip) return { success: false, message: 'Không tìm thấy phiếu quyết toán.' };
+    if (slip.status === 'Tranh chấp' || slip.disputeLocked) return {success:false,message:'Phiếu tranh chấp đang khóa; phải mở lại phiếu trước khi điều chỉnh.'};
 
-    if (slip.status === 'Đã có 5.8 – chờ ký biên bản' || slip.status === 'Hoàn tất' || slip.status === 'Đã hủy') {
+    if (['Đã có 5.8 – chờ ký biên bản', 'Đã có kết quả – chờ ký biên bản', 'Đã lập quyết toán – chờ ký biên bản', 'Hoàn tất', 'Đã hủy'].includes(slip.status) || !!slip.step58Published) {
       return { success: false, message: 'Phiếu đã có kết quả 5.8 hoặc đã khóa, chỉ được xem (BR-UC.QTC.02-08).' };
     }
 
@@ -3312,6 +3324,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let newStatus: DepositSettlementSlip['status'] = slip.status;
     let newAgreementEvidence = slip.tenantAgreementEvidence;
 
+    if (params.feedback === 'Đồng ý' && (!slip.finalBillConfirmed || slip.calculationStatus !== 'Đã tính' || slip.reviewRequired)) {
+      return {success:false,message:'Chưa xác nhận tiền kỳ cuối hoặc phương án đang cần tính lại; không được ghi nhận khách đồng ý số tiền chưa đủ căn cứ.'};
+    }
     if (params.feedback === 'Đồng ý') {
       if (!params.agreementEvidence?.evidenceFile) {
         return { success: false, message: 'Bắt buộc đính kèm bằng chứng khách đồng ý hợp lệ đúng phiên bản (EF-03).' };
@@ -3373,8 +3388,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }) => {
     const slip = settlementSlips.find(s => s.id === params.slipId);
     if (!slip) return { success: false, message: 'Không tìm thấy phiếu quyết toán.', newVersion: 1 };
+    if (slip.status === 'Tranh chấp' || slip.disputeLocked) return {success:false,message:'Phiếu tranh chấp đang khóa; phải mở lại phiếu trước khi điều chỉnh.', newVersion: slip.version};
 
-    if (slip.status === 'Đã có 5.8 – chờ ký biên bản' || slip.status === 'Hoàn tất' || slip.status === 'Đã hủy') {
+    if (['Đã có 5.8 – chờ ký biên bản', 'Đã có kết quả – chờ ký biên bản', 'Đã lập quyết toán – chờ ký biên bản', 'Hoàn tất', 'Đã hủy'].includes(slip.status) || !!slip.step58Published) {
       return { success: false, message: 'Phiếu đã có kết quả 5.8 hoặc đã khóa, không được sửa (BR-UC.QTC.02-05).', newVersion: slip.version };
     }
 
@@ -3386,6 +3402,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const userName = currentUser?.fullName || 'Nguyễn Văn An (Chủ nhà)';
     const newVersion = (slip.version || 1) + 1;
 
+    const latestConfirmedBill = [...periodBills]
+      .filter(b => b.roomCode === slip.roomCode && b.leaseId === slip.leaseId && b.isConfirmed)
+      .sort((a,b)=>b.periodCode.localeCompare(a.periodCode))[0];
     const totalDed = params.updatedDeductions.reduce((sum, d) => sum + d.amount, 0);
     const newCalculated = slip.initialDepositAmount - totalDed;
 
@@ -3396,6 +3415,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         version: newVersion,
         deductions: params.updatedDeductions,
         calculatedResult: newCalculated,
+        finalBillId: latestConfirmedBill?.id || s.finalBillId,
+        finalBillPeriod: latestConfirmedBill?.periodCode || s.finalBillPeriod,
+        finalBillConfirmed: !!latestConfirmedBill,
+        calculationStatus: latestConfirmedBill ? 'Đã tính' : 'Chưa đủ căn cứ',
         // Khi sửa tiền, bằng chứng đồng ý cũ bị hủy, phải xác nhận lại với khách
         tenantAgreementEvidence: undefined,
         status: 'Không đồng ý', // Chờ khách phản hồi phiên bản mới
@@ -3432,7 +3455,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const slip = settlementSlips.find(s => s.id === params.slipId);
     if (!slip) return { success: false, message: 'Không tìm thấy phiếu quyết toán.' };
 
-    if (slip.status === 'Đã có 5.8 – chờ ký biên bản' || slip.status === 'Hoàn tất' || slip.status === 'Đã hủy') {
+    if (['Đã có 5.8 – chờ ký biên bản', 'Đã có kết quả – chờ ký biên bản', 'Đã lập quyết toán – chờ ký biên bản', 'Hoàn tất', 'Đã hủy'].includes(slip.status) || !!slip.step58Published) {
       return { success: false, message: 'Phiếu đã khóa, không thể chuyển tranh chấp.' };
     }
 
@@ -3521,6 +3544,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const slip = settlementSlips.find(s => s.id === params.slipId);
     if (!slip) return { success: false, message: 'Không tìm thấy phiếu quyết toán.' };
 
+    if (slip.disputeLocked || slip.status === 'Tranh chấp') return {success:false, message:'Phiếu đang khóa tranh chấp; cần mở lại trước khi hủy.'};
+    if (['Đã có 5.8 – chờ ký biên bản','Đã có kết quả – chờ ký biên bản','Hoàn tất','Đã hủy'].includes(slip.status)) return {success:false,message:'Phiếu đã có kết quả hoặc đã hủy, không thể hủy lại.'};
     if (slip.step58Published || slip.transferReceipt) {
       return { success: false, message: 'Phiếu đã có giao dịch tiền hoặc đã phát hành 5.8, không được hủy (BR-UC.QTC.02-07).' };
     }
@@ -3596,6 +3621,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     }
 
+    if (!slip.finalBillConfirmed || slip.calculationStatus !== 'Đã tính' || slip.tenantAgreementEvidence.agreedAmount !== slip.calculatedResult) return {success:false,message:'Chưa đủ căn cứ tính tiền kỳ cuối hoặc số tiền khách đồng ý không khớp phiên bản hiện tại.'};
+    if (!returnInspections.some(i => i.roomCode === slip.roomCode && i.leaseId === slip.leaseId && i.step304Status === 'Đã nhận lại' && i.step305Confirmed)) {
+      return {success:false,message:'Chưa có xác nhận nhận lại đúng phòng và lần thuê.'};
+    }
+    if (!initialPaymentRecords.some(r => r.roomCode === slip.roomCode && r.leaseId === slip.leaseId && r.depositCode === slip.initialDepositCode && r.depositAmount === slip.initialDepositAmount)) {
+      return {success:false,message:'Mã cọc hoặc số tiền cọc gốc không khớp hồ sơ lần thuê.'};
+    }
     const nowStr = new Date().toISOString();
     const userName = currentUser?.fullName || 'Nguyễn Văn An (Chủ nhà)';
     const resultCode = 'KQ58-' + slip.roomCode.replace(/\D/g, '') + '-' + Date.now().toString().slice(-4);
@@ -3620,7 +3652,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
       }
 
-      if (!params.receipt.bankName || !params.receipt.accountNumber || !params.receipt.transactionCode) {
+      if (!params.receipt.bankName || !params.receipt.accountNumber || !params.receipt.accountHolder || !params.receipt.transactionCode || !params.receipt.transferDate || !params.receipt.evidenceFile) {
         return {
           success: false,
           message: 'Vui lòng điền đầy đủ ngân hàng, số tài khoản nhận và mã giao dịch ngân hàng.'

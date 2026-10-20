@@ -2,6 +2,7 @@ import { toUserMessage } from '../../utils/userMessages';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { DepositSettlementSlip, DeductionItem, SettlementContactLog } from '../../types';
+import { canEditSettlement, canRecordSettlement, getCurrentSettlementSlip, terminalSettlementStatuses } from '../../utils/settlementUi';
 import {
   Scale, Plus, CheckCircle2, AlertCircle, Clock, FileCheck, ArrowRight,
   Landmark, AlertTriangle, MessageSquare, History, X, Search, Filter,
@@ -9,7 +10,7 @@ import {
   ExternalLink, PhoneCall, Paperclip, Upload, Eye, RefreshCw, Info, DollarSign
 } from 'lucide-react';
 
-export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) => {
+export const DepositSettlementView: React.FC<{leaseId?: string; contractId?: string; initialMode?: 'list'|'create'|'edit'|'result'|'view'; initialSlipId?: string}> = ({leaseId, contractId, initialMode='list', initialSlipId=''}) => {
   const {
     settlementSlips,
     rooms,
@@ -31,16 +32,19 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
   } = useApp();
 
   // Selected slip state
-  const [selectedSlipId, setSelectedSlipId] = useState<string>(settlementSlips.find(s=>s.leaseId===leaseId)?.id || '');
-  const selectedSlip = useMemo(() => settlementSlips.find(s => s.id === selectedSlipId && s.leaseId === leaseId) || settlementSlips.find(s=>s.leaseId===leaseId) || null, [settlementSlips, selectedSlipId, leaseId]);
+  const contractFocus = contracts.find(c => c.id === contractId && (!leaseId || c.leaseId === leaseId));
+  const [selectedSlipId, setSelectedSlipId] = useState<string>(initialSlipId || (leaseId ? getCurrentSettlementSlip(settlementSlips, leaseId, contractFocus?.roomCode)?.id : settlementSlips[0]?.id) || '');
+  const [isEditMode, setIsEditMode] = useState(initialMode === 'edit');
+  const selectedSlip = useMemo(() => settlementSlips.find(s => s.id === selectedSlipId && (!leaseId || s.leaseId === leaseId) && (!contractFocus || s.roomCode === contractFocus.roomCode)) || (leaseId ? getCurrentSettlementSlip(settlementSlips, leaseId, contractFocus?.roomCode) : settlementSlips[0] || null), [settlementSlips, selectedSlipId, leaseId, contractId]);
 
-  useEffect(() => { setSelectedSlipId(settlementSlips.find(s=>s.leaseId===leaseId)?.id || ''); }, [leaseId]);
+  useEffect(() => { if (initialSlipId) setSelectedSlipId(initialSlipId); else setSelectedSlipId(leaseId ? (getCurrentSettlementSlip(settlementSlips, leaseId, contractFocus?.roomCode)?.id || '') : (settlementSlips[0]?.id || '')); }, [leaseId, contractId, initialSlipId]);
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
   // Modals
-  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(initialMode === 'create');
+  const [createCalculation, setCreateCalculation] = useState<{fingerprint: string; result: number; totalDeductions: number} | null>(null);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [showAdjustModal, setShowAdjustModal] = useState(false);
   const [showDisputeModal, setShowDisputeModal] = useState(false);
@@ -50,7 +54,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
   const [showConfirmQTC03Popup, setShowConfirmQTC03Popup] = useState(false);
 
   // Form states for UC-QTC-01 (Create slip)
-  const [createSelectedRoom, setCreateSelectedRoom] = useState<string>('');
+  const [createSelectedRoom, setCreateSelectedRoom] = useState<string>(contractFocus?.roomCode || '');
   const [earlyTerminationClause, setEarlyTerminationClause] = useState('');
   const [earlyTerminationReason, setEarlyTerminationReason] = useState('');
   const [earlyTerminationAmount, setEarlyTerminationAmount] = useState<number>(0);
@@ -64,8 +68,8 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
   const [contactContent, setContactContent] = useState('');
   const [feedbackResult, setFeedbackResult] = useState<'Đồng ý' | 'Không đồng ý' | 'Chưa phản hồi' | 'Không liên hệ được'>('Đồng ý');
   const [contactEvidence, setContactEvidence] = useState('');
-  const [agreementProofFile, setAgreementProofFile] = useState('zalo_xac_nhan_khach_thue.jpg');
-  const [agreementProofNote, setAgreementProofNote] = useState('Khách gửi tin nhắn xác nhận đồng ý phương án và cung cấp số tài khoản');
+  const [agreementProofFile, setAgreementProofFile] = useState('');
+  const [agreementProofNote, setAgreementProofNote] = useState('');
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
 
   // Form states for UC-QTC-02 (Adjust deductions)
@@ -85,7 +89,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
   const [receiptAccNumber, setReceiptAccNumber] = useState('');
   const [receiptAccHolder, setReceiptAccHolder] = useState('');
   const [receiptTxnCode, setReceiptTxnCode] = useState('');
-  const [receiptDate, setReceiptDate] = useState('2026-10-16');
+  const [receiptDate, setReceiptDate] = useState('');
   const [receiptProofFile, setReceiptProofFile] = useState('');
   const [qtc03Error, setQtc03Error] = useState<string | null>(null);
 
@@ -94,11 +98,14 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
   // -------------------------------------------------------------
   const filteredSlips = useMemo(() => {
     return settlementSlips.filter(slip => {
-      if (slip.leaseId !== leaseId) return false;
+      if (leaseId && slip.leaseId !== leaseId) return false;
+      if (contractFocus && slip.roomCode !== contractFocus.roomCode) return false;
       const matchSearch =
         slip.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
         slip.roomCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        slip.leaseId.toLowerCase().includes(searchQuery.toLowerCase());
+        slip.leaseId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        slip.contractChain?.some(id => id.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        contracts.some(c => c.roomCode === slip.roomCode && c.leaseId === slip.leaseId && c.tenantName.toLowerCase().includes(searchQuery.toLowerCase()));
 
       if (!matchSearch) return false;
 
@@ -108,11 +115,15 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
       }
       if (statusFilter === 'agreed') return slip.status === 'Khách đồng ý';
       if (statusFilter === 'dispute') return slip.status === 'Tranh chấp';
-      if (statusFilter === 'published') return ['Đã có kết quả – chờ ký biên bản', 'Hoàn tất'].includes(slip.status);
+      if (statusFilter === 'published') return terminalSettlementStatuses.includes(slip.status);
       if (statusFilter === 'cancelled') return slip.status === 'Đã hủy';
       return slip.status === statusFilter;
     });
-  }, [settlementSlips, searchQuery, statusFilter, leaseId]);
+  }, [settlementSlips, searchQuery, statusFilter, leaseId, contractId, contracts]);
+
+  useEffect(() => {
+    if (filteredSlips.length > 0 && !filteredSlips.some(s=>s.id === selectedSlipId)) setSelectedSlipId(filteredSlips[0].id);
+  }, [filteredSlips, selectedSlipId]);
 
   // -------------------------------------------------------------
   // UC-QTC-01: Calculate eligible rooms (Bước 1)
@@ -122,18 +133,17 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
   // -------------------------------------------------------------
   const eligibleRooms = useMemo(() => {
     return returnInspections.filter(inspection => {
-      if (inspection.leaseId !== leaseId) return false;
+      if (leaseId && inspection.leaseId !== leaseId) return false;
+      if (contractFocus && inspection.roomCode !== contractFocus.roomCode) return false;
       if (inspection.step304Status !== 'Đã nhận lại' || !inspection.step305Confirmed) {
         return false;
       }
       // Check if lease already has completed/locked slip
-      const existingSlip = settlementSlips.find(s => s.roomCode === inspection.roomCode && s.leaseId === inspection.leaseId);
-      if (existingSlip && (existingSlip.status === 'Đã có kết quả – chờ ký biên bản' || existingSlip.status === 'Hoàn tất')) {
-        return false;
-      }
+      const existingSlip = getCurrentSettlementSlip(settlementSlips, inspection.leaseId, inspection.roomCode);
+      if (existingSlip) return false;
       return true;
     });
-  }, [returnInspections, settlementSlips, leaseId]);
+  }, [returnInspections, settlementSlips, leaseId, contractId]);
 
   // -------------------------------------------------------------
   // UC-QTC-01: Preparation when opening create modal for a room
@@ -145,13 +155,14 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
     setEarlyTerminationAmount(0);
     setEarlyTerminationEvidence('');
     setCreateCustomDeductions([]);
+    setCreateCalculation(null);
 
     if (eligibleRooms.length === 0) {
       alert("Hiện tại không có phòng nào đủ điều kiện lập quyết toán cọc! Điều kiện: Phòng phải được nhận lại thực tế và xác nhận tại /xác nhận của chủ nhà và chưa có phiếu quyết toán hiệu lực.");
       return;
     }
 
-    const defaultRoomCode = eligibleRooms.find(i => i.roomCode === roomCodeCandidate)?.roomCode || eligibleRooms[0]?.roomCode || ''; 
+    const defaultRoomCode = eligibleRooms.find(i => i.roomCode === (contractFocus?.roomCode || roomCodeCandidate))?.roomCode || (contractFocus ? '' : eligibleRooms[0]?.roomCode || ''); 
     setCreateSelectedRoom(defaultRoomCode);
     setShowCreateModal(true);
   };
@@ -160,8 +171,8 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
   const roomCandidateData = useMemo(() => {
     if (!createSelectedRoom) return null;
 
-    const inspection = returnInspections.find(i => i.roomCode === createSelectedRoom && i.leaseId === leaseId && i.step304Status === 'Đã nhận lại' && i.step305Confirmed);
-    const targetLeaseId = inspection?.leaseId || leaseId;
+    const inspection = returnInspections.find(i => i.roomCode === createSelectedRoom && (!leaseId || i.leaseId === leaseId) && i.step304Status === 'Đã nhận lại' && i.step305Confirmed);
+    const targetLeaseId = inspection?.leaseId || leaseId || '';
 
     // Consecutive contract chain for this lease
     const chainContracts = contracts.filter(c => c.roomCode === createSelectedRoom && c.leaseId === targetLeaseId).sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
@@ -257,7 +268,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
     // (c) Khoản trừ theo điều khoản hợp đồng khi kết thúc trước hạn/đơn phương
     if (earlyTerminationAmount > 0 && earlyTerminationClause.trim()) {
       deductions.push({
-        id: 'ded_contract_term_' + Date.now(),
+        id: 'ded_contract_term',
         category: 'Khoản trừ theo điều khoản hợp đồng',
         description: `Khoản trừ kết thúc trước hạn: ${earlyTerminationClause}`,
         amount: earlyTerminationAmount,
@@ -279,12 +290,26 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
   // -------------------------------------------------------------
   // UC-QTC-01: Submit create slip (Bước 7 & 8)
   // -------------------------------------------------------------
+  const createFingerprint = JSON.stringify({ room: createSelectedRoom, lease: roomCandidateData?.leaseId, deposit: roomCandidateData?.depositCode, amount: roomCandidateData?.depositAmount, bill: roomCandidateData?.finalBill?.id, billConfirmed: roomCandidateData?.isFinalBillConfirmed, items: calculatedCreateItems.deductions.map(d=>[d.id,d.amount,d.clauseRef,d.reason,d.evidence]) });
+  const calculationIsCurrent = createCalculation?.fingerprint === createFingerprint;
+
+  const handleCalculateQTC01 = () => {
+    if (!roomCandidateData) { setCreateNoticeMsg({type:'error',text:'Vui lòng chọn hồ sơ nhận lại phòng hợp lệ.'}); return; }
+    if (!Number.isFinite(earlyTerminationAmount) || earlyTerminationAmount < 0) { setCreateNoticeMsg({type:'error',text:'Số tiền khấu trừ phải là số không âm.'}); return; }
+    if (earlyTerminationAmount > 0 && (!earlyTerminationClause.trim() || !earlyTerminationReason.trim() || !earlyTerminationEvidence.trim())) {
+      setCreateNoticeMsg({type:'error',text:'Khoản khấu trừ theo hợp đồng cần có điều khoản, lý do và chứng cứ cụ thể.'}); return;
+    }
+    setCreateNoticeMsg(null);
+    setCreateCalculation({fingerprint:createFingerprint, result:calculatedCreateItems.result, totalDeductions:calculatedCreateItems.totalDeductions});
+  };
+
   const handleSaveNewSlipQTC01 = () => {
     if (!roomCandidateData) return;
+    if (!calculationIsCurrent) { setCreateNoticeMsg({type:'error',text:'Vui lòng bấm Tính kết quả sau khi nhập hoặc thay đổi các khoản khấu trừ.'}); return; }
 
     // Bước 2: Kiểm tra phiếu đang lập của lần thuê
     if (roomCandidateData.existingDraftSlip) {
-      const proceed = confirm(`Phòng ${createSelectedRoom} đã có phiếu quyết toán đang lập (${roomCandidateData.existingDraftSlip.id}).\n\nHệ thống sẽ mở phiếu hiện có và chuyển sang màn hình Sửa quyết toán cọc  theo Bước 2.`);
+      const proceed = confirm(`Phòng ${createSelectedRoom} đã có phiếu quyết toán (${roomCandidateData.existingDraftSlip.id}). Bạn có muốn xem phiếu này không?`);
       if (proceed) {
         setSelectedSlipId(roomCandidateData.existingDraftSlip.id);
         setShowCreateModal(false);
@@ -311,7 +336,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
       if (!allowDraftWithoutBill) return;
     }
 
-    const slipId = 'QTC-' + createSelectedRoom.replace(/\D/g, '') + '-' + new Date().getFullYear();
+    const slipId = 'QTC-' + createSelectedRoom.replace(/[^a-zA-Z0-9-]/g, '') + '-' + roomCandidateData.leaseId.replace(/[^a-zA-Z0-9-]/g, '') + '-' + Date.now().toString(36);
 
     const newSlip: DepositSettlementSlip = {
       id: slipId,
@@ -330,7 +355,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
       finalBillConfirmed: roomCandidateData.isFinalBillConfirmed,
       prepaidRentAmount: roomCandidateData.firstContract?.monthlyRent || 0,
       deductions: calculatedCreateItems.deductions,
-      calculatedResult: roomCandidateData.isFinalBillConfirmed ? calculatedCreateItems.result: 0,
+      calculatedResult: roomCandidateData.isFinalBillConfirmed ? createCalculation!.result: 0,
       calculationStatus: roomCandidateData.isFinalBillConfirmed ? 'Đã tính': 'Chưa đủ căn cứ',
       status: 'Đang lập', // Phiếu không có trạng thái Nháp riêng (Bước 7)
       version: 1,
@@ -408,7 +433,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
   // -------------------------------------------------------------
   const handleOpenAdjustModal = () => {
     if (!selectedSlip) return;
-    if (selectedSlip.status === 'Đã có kết quả – chờ ký biên bản' || selectedSlip.status === 'Hoàn tất' || selectedSlip.status === 'Đã hủy') {
+    if (terminalSettlementStatuses.includes(selectedSlip.status) || selectedSlip.status === 'Đã hủy') {
       alert('Phiếu đã có kết quả quyết toán cọc hoặc đã khóa, chỉ được xem.');
       return;
     }
@@ -535,7 +560,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
       return;
     }
 
-    if (selectedSlip.reviewRequired) {
+    if (selectedSlip.reviewRequired || !selectedSlip.finalBillConfirmed || selectedSlip.calculationStatus !== 'Đã tính') {
       alert(`Chặn: Phiếu đang bị cắm cờ 'Cần rà soát' do bảng tính kỳ cuối hoặc nguồn công nợ đã thay đổi. Cần tính lại và khách đồng ý lại trước khi hoàn tất.`);
       return;
     }
@@ -546,16 +571,19 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
     }
 
     // Pre-fill fields for single transfer receipt (Bước 2)
-    const isRefund = selectedSlip.calculatedResult > 0;
     // Chứng từ và tài khoản phải được nhập theo giao dịch thực tế.
     setReceiptBank('');
     setReceiptAccNumber('');
     setReceiptAccHolder('');
     setReceiptTxnCode('');
     setReceiptProofFile('');
-    setReceiptDate(new Date().toISOString().split('T')[0]);
+    setReceiptDate('');
     setShowQTC03Modal(true);
   };
+
+  useEffect(() => {
+    if (initialMode === 'result' && selectedSlip?.id === initialSlipId) handleOpenQTC03Modal();
+  }, [initialMode, initialSlipId, selectedSlip?.id]);
 
   const handleProceedToConfirmPopupQTC03 = (e: React.FormEvent) => {
     e.preventDefault();
@@ -564,8 +592,8 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
 
     // Validate if transfer amount required
     if (selectedSlip.calculatedResult !== 0) {
-      if (!receiptBank.trim() || !receiptAccNumber.trim() || !receiptAccHolder.trim() || !receiptTxnCode.trim() || !receiptProofFile.trim()) {
-        setQtc03Error('Vui lòng nhập đủ ngân hàng, số tài khoản, chủ tài khoản, mã giao dịch và chứng từ chuyển khoản thực tế.');
+      if (!receiptBank.trim() || !receiptAccNumber.trim() || !receiptAccHolder.trim() || !receiptTxnCode.trim() || !receiptDate.trim() || !receiptProofFile.trim()) {
+        setQtc03Error('Vui lòng nhập đủ ngân hàng, số tài khoản, chủ tài khoản, mã giao dịch, ngày chuyển và chứng từ chuyển khoản thực tế.');
         return;
       }
       if (selectedSlip.calculatedResult > 0 && activeBankAccount && receiptAccNumber.trim() === activeBankAccount.accountNumber) {
@@ -600,13 +628,13 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
       receipt: receiptData
     });
 
-    setShowConfirmQTC03Popup(false);
-    setShowQTC03Modal(false);
-
     if (res.success) {
+      setShowConfirmQTC03Popup(false);
+      setShowQTC03Modal(false);
       alert(toUserMessage(res.message));
     } else {
-      alert('Lỗi: ' + res.message);
+      setQtc03Error(res.message);
+      setShowConfirmQTC03Popup(false);
     }
   };
 
@@ -623,16 +651,17 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
               Quyết toán cọc </h1>
           </div>
           <p className="text-xs text-slate-500 mt-1 max-w-4xl">
-            Lập phiếu quyết toán cọc lấy từ hợp đồng đầu tiên trong chuỗi thuê liên tục (QTC-01), ghi nhận phản hồi & điều chỉnh (QTC-02), hoàn tất bằng một chứng từ chuyển khoản duy nhất và phát hành kết quả quyết toán cọc đồng bộ sang biên bản trả phòng (QTC-03). </p>
+            Tra cứu phiếu, điều chỉnh khoản trừ và ghi nhận kết quả từ đúng hồ sơ hợp đồng và lần thuê. </p>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
           <button
+            disabled={eligibleRooms.length === 0}
             onClick={() => handleOpenCreateModal()}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-2 shadow-sm cursor-pointer transition-all"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg text-xs font-bold flex items-center gap-2 shadow-sm cursor-pointer transition-all"
           >
             <Plus className="w-4 h-4" />
-            Lập quyết toán cọc (QTC-01) </button>
+            Lập quyết toán cọc </button>
         </div>
       </div>
 
@@ -645,7 +674,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
           className={`p-3 rounded-xl border cursor-pointer transition-all text-xs space-y-1 ${statusFilter === 'all' ? 'border-blue-500 bg-blue-50/40 shadow-sm': 'border-slate-200 bg-white hover:border-slate-300'}`}
         >
           <div className="text-slate-500 font-medium">Tất cả hồ sơ</div>
-          <div className="text-xl font-bold font-mono text-slate-900">{settlementSlips.length}</div>
+          <div className="text-xl font-bold font-mono text-slate-900">{filteredSlips.length}</div>
           <div className="text-[11px] text-slate-400">Toàn bộ phiếu quyết toán</div>
         </div>
 
@@ -688,7 +717,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
         >
           <div className="text-indigo-800 font-medium">Đã có quyết toán cọc (Chờ )</div>
           <div className="text-xl font-bold font-mono text-indigo-700">
-            {settlementSlips.filter(s => ['Đã có kết quả – chờ ký biên bản', 'Hoàn tất'].includes(s.status)).length}
+            {settlementSlips.filter(s => terminalSettlementStatuses.includes(s.status)).length}
           </div>
           <div className="text-[11px] text-indigo-600">Đã phát hành kết quả</div>
         </div>
@@ -703,7 +732,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
           <div className="flex items-center justify-between pb-2 border-b border-slate-100">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
               Danh sách phiếu ({filteredSlips.length}) </span>
-            <span className="text-[11px] text-slate-400 font-mono">QTC-01 / 02</span>
+            <span className="text-[11px] text-slate-400 font-mono">Phiếu quyết toán</span>
           </div>
 
           {/* Search Box */}
@@ -718,6 +747,14 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
             />
           </div>
 
+          <select aria-label="Lọc trạng thái phiếu quyết toán" value={statusFilter} onChange={e=>setStatusFilter(e.target.value)} className="w-full rounded-lg border border-slate-300 p-2 text-xs bg-white">
+            <option value="all">Tất cả trạng thái</option>
+            <option value="pending">Đang lập / cần điều chỉnh</option>
+            <option value="agreed">Khách đồng ý</option>
+            <option value="dispute">Tranh chấp</option>
+            <option value="published">Đã có kết quả / hoàn tất</option>
+            <option value="cancelled">Đã hủy</option>
+          </select>
           {/* Slips Cards */}
           <div className="space-y-2 max-h-[680px] overflow-y-auto pr-1">
             {filteredSlips.length === 0 ? (
@@ -734,7 +771,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                 return (
                   <div
                     key={slip.id}
-                    onClick={() => setSelectedSlipId(slip.id)}
+                    onClick={() => { setSelectedSlipId(slip.id); setIsEditMode(false); }}
                     className={`p-3.5 rounded-xl border transition-all cursor-pointer text-xs space-y-2 ${
                       isSelected
                         ? 'border-blue-600 bg-blue-50/50 shadow-sm ring-1 ring-blue-500/20': 'border-slate-200 hover:border-slate-300 bg-white'
@@ -748,7 +785,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                         </span>
                       </div>
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        slip.status === 'Đã có kết quả – chờ ký biên bản' || slip.status === 'Hoàn tất'
+                        terminalSettlementStatuses.includes(slip.status)
                           ? 'bg-indigo-100 text-indigo-800': slip.status === 'Khách đồng ý'
                           ? 'bg-emerald-100 text-emerald-800': slip.status === 'Tranh chấp'
                           ? 'bg-red-100 text-red-800': slip.status === 'Không liên hệ được'
@@ -789,8 +826,25 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
 
         {/* Right Column: Detailed Slip View & Operational Actions (8 cols) */}
         <div className="lg:col-span-8 bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-6">
-          {selectedSlip ? (
+          {selectedSlip && filteredSlips.some(s => s.id === selectedSlip.id) ? (
             <div className="space-y-6 text-xs">
+              <div className="flex flex-wrap items-center gap-2">
+                {initialMode === 'list' && selectedSlip && (canEditSettlement(selectedSlip) || selectedSlip.status === 'Tranh chấp') && <button onClick={()=>setIsEditMode(true)} className="rounded-lg bg-blue-600 text-white px-3 py-2 font-semibold">Sửa phiếu</button>}
+                {initialMode === 'list' && canRecordSettlement(selectedSlip) && <button onClick={handleOpenQTC03Modal} className="rounded-lg bg-emerald-600 text-white px-3 py-2 font-semibold">Ghi nhận kết quả quyết toán</button>}
+                {isEditMode && <button onClick={()=>setIsEditMode(false)} className="rounded-lg border px-3 py-2">Kết thúc sửa</button>}
+              </div>
+              {isEditMode && (canEditSettlement(selectedSlip) || selectedSlip.status === 'Tranh chấp') && (
+                <div className="border rounded-xl p-4 space-y-3 bg-blue-50/50">
+                  <div className="font-bold text-sm">Sửa quyết toán cọc · {selectedSlip.id}</div>
+                  <div className="flex flex-wrap gap-2">
+                    {canEditSettlement(selectedSlip) && <button onClick={handleOpenAdjustModal} className="rounded-lg border bg-white px-3 py-2">Điều chỉnh khoản khấu trừ</button>}
+                    {canEditSettlement(selectedSlip) && <button onClick={()=>{setFeedbackResult('Chưa phản hồi');setAgreementProofFile('');setAgreementProofNote('');setContactContent('');setContactPerson('');setFeedbackError(null);setShowFeedbackModal(true);}} className="rounded-lg border bg-white px-3 py-2">Ghi nhận phản hồi</button>}
+                    {canEditSettlement(selectedSlip) && !selectedSlip.transferReceipt && <button onClick={()=>{setCancelReasonInput('');setShowCancelModal(true);}} className="rounded-lg border bg-white px-3 py-2">Hủy phiếu</button>}
+                    {canEditSettlement(selectedSlip) && <button onClick={()=>{setDisputeReasonInput('');setDisputeItemsInput('');setDisputeBasisInput('');setShowDisputeModal(true);}} className="rounded-lg border bg-white px-3 py-2">Xác lập tranh chấp</button>}
+                    {selectedSlip.status === 'Tranh chấp' && <button onClick={()=>{setReopenReasonInput('');setShowReopenModal(true);}} className="rounded-lg border bg-white px-3 py-2">Mở lại phiếu tranh chấp</button>}
+                  </div>
+                </div>
+              )}
               {/* Slip Header Banner */}
               <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-200">
                 <div>
@@ -814,7 +868,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
 
                 <div className="flex flex-col items-end gap-1">
                   <span className={`px-3 py-1 rounded-lg font-bold text-xs ${
-                    selectedSlip.status === 'Đã có kết quả – chờ ký biên bản' || selectedSlip.status === 'Hoàn tất'
+                    terminalSettlementStatuses.includes(selectedSlip.status)
                       ? 'bg-indigo-100 text-indigo-800': selectedSlip.status === 'Khách đồng ý'
                       ? 'bg-emerald-100 text-emerald-800': selectedSlip.status === 'Tranh chấp'
                       ? 'bg-red-100 text-red-800': selectedSlip.status === 'Không liên hệ được'
@@ -831,7 +885,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
               </div>
 
               {/* Status Warning Banners */}
-              {selectedSlip.status === 'Đã có kết quả – chờ ký biên bản' && (
+              {terminalSettlementStatuses.includes(selectedSlip.status) && selectedSlip.status !== 'Hoàn tất' && (
                 <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl flex items-start gap-2.5 text-indigo-900">
                   <FileCheck className="w-4 h-4 text-indigo-600 mt-0.5 shrink-0" />
                   <div className="space-y-0.5 text-xs">
@@ -855,7 +909,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                     </div>
                   </div>
 
-                  <button
+                  {isEditMode && <button
                     onClick={() => {
                       setReopenReasonInput('');
                       setShowReopenModal(true);
@@ -863,7 +917,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                     className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-semibold shrink-0 cursor-pointer flex items-center gap-1"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
-                    Mở lại phiếu </button>
+                    Mở lại phiếu </button>}
                 </div>
               )}
 
@@ -992,7 +1046,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                         ? 'bg-emerald-100 text-emerald-800': selectedSlip.calculatedResult < 0
                         ? 'bg-red-100 text-red-800': 'bg-slate-200 text-slate-800'
                     }`}>
-                      {selectedSlip.calculatedResult > 0
+                      {selectedSlip.calculationStatus !== 'Đã tính' ? 'Chưa đủ căn cứ tính kết quả' : selectedSlip.calculatedResult > 0
                         ? `Hoàn cọc: +${selectedSlip.calculatedResult.toLocaleString('vi-VN')} đ`: selectedSlip.calculatedResult < 0
                         ? `Thu thêm: ${selectedSlip.calculatedResult.toLocaleString('vi-VN')} đ`: 'Đối trừ hết (0 đ)'}
                     </span>
@@ -1012,7 +1066,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                     <MessageSquare className="w-4 h-4 text-blue-600" />
                     3. Phản hồi khách & Lịch sử liên hệ </span>
 
-                  {selectedSlip.status !== 'Đã có kết quả – chờ ký biên bản' && selectedSlip.status !== 'Hoàn tất' && selectedSlip.status !== 'Đã hủy' && (
+                  {false && isEditMode && canEditSettlement(selectedSlip) && (
                     <div className="flex items-center gap-2">
                       <button
                         onClick={handleOpenAdjustModal}
@@ -1134,7 +1188,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                       <div>Mã GD: <strong className="font-mono">{selectedSlip.transferReceipt.transactionCode}</strong></div>
                       <div>Ngày chuyển: <strong className="font-mono">{selectedSlip.transferReceipt.transferDate}</strong></div>
                       <div>Người xác nhận: <strong>{selectedSlip.transferReceipt.verifiedBy}</strong></div>
-                      <div>File chứng từ: <strong className="font-mono">{selectedSlip.transferReceipt.evidenceFile || 'unc_mb.pdf'}</strong></div>
+                      <div>File chứng từ: <strong className="font-mono">{selectedSlip.transferReceipt.evidenceFile || 'Không đính kèm'}</strong></div>
                     </div>
                   </div>
                 ): selectedSlip.calculatedResult === 0 && selectedSlip.step58Published ? (
@@ -1152,8 +1206,8 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                 )}
               </div>
 
-              {/* Audit History Log */}
-              {selectedSlip.auditHistory && selectedSlip.auditHistory.length > 0 && (
+              {/* Audit history retained internally; not displayed in the landlord-facing UI. */}
+              {false && selectedSlip.auditHistory && selectedSlip.auditHistory.length > 0 && (
                 <div className="border-t border-slate-200 pt-3 space-y-1.5">
                   <div className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
                     <History className="w-3.5 h-3.5 text-slate-400" />
@@ -1173,7 +1227,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
               <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-200">
                 <div className="flex items-center gap-2">
                   {/* Cancel slip button */}
-                  {!selectedSlip.step58Published && selectedSlip.status !== 'Đã hủy' && selectedSlip.status !== 'Hoàn tất' && (
+                  {false && isEditMode && canEditSettlement(selectedSlip) && (
                     <button
                       onClick={() => {
                         setCancelReasonInput('');
@@ -1186,7 +1240,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                   )}
 
                   {/* Lock dispute button */}
-                  {!selectedSlip.step58Published && selectedSlip.status !== 'Tranh chấp' && selectedSlip.status !== 'Đã hủy' && (
+                  {false && isEditMode && canEditSettlement(selectedSlip) && (
                     <button
                       onClick={() => {
                         setDisputeReasonInput('');
@@ -1203,7 +1257,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
 
                 {/* Main QTC-03 Action Button */}
                 <div className="flex items-center gap-2">
-                  {selectedSlip.status === 'Khách đồng ý' && !selectedSlip.step58Published && (
+                  {false && selectedSlip.status === 'Khách đồng ý' && !selectedSlip.step58Published && (
                     <button
                       onClick={handleOpenQTC03Modal}
                       className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold cursor-pointer transition-all shadow-sm flex items-center gap-1.5"
@@ -1218,7 +1272,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
             <div className="p-12 text-center text-slate-400 space-y-2">
               <Scale className="w-10 h-10 text-slate-300 mx-auto" />
               <p className="text-sm font-semibold">Chọn một phiếu quyết toán ở cột bên trái để xem chi tiết.</p>
-              <p className="text-xs">Hoặc nhấn "Lập quyết toán cọc (QTC-01)" ở góc trên để tạo phiếu mới cho phòng đã nhận lại.</p>
+              <p className="text-xs">Hoặc nhấn "Lập quyết toán cọc" ở góc trên để tạo phiếu mới cho phòng đã nhận lại.</p>
             </div>
           )}
         </div>
@@ -1326,7 +1380,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                     <div>
                       <label className="block text-slate-600 font-medium mb-0.5">Số tiền trừ phạt (VNĐ):</label>
                       <input
-                        type="number"
+                        type="number" min="0" step="1"
                         placeholder="0"
                         value={earlyTerminationAmount || ''}
                         onChange={(e) => setEarlyTerminationAmount(Number(e.target.value))}
@@ -1344,10 +1398,14 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                       />
                     </div>
                   </div>
+                  <div>
+                    <label className="block text-slate-600 font-medium mb-0.5">Chứng cứ liên quan đến khoản khấu trừ</label>
+                    <input type="text" value={earlyTerminationEvidence} onChange={e=>setEarlyTerminationEvidence(e.target.value)} placeholder="Tên chứng từ hoặc tham chiếu hồ sơ thực tế" className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs"/>
+                  </div>
                 </div>
 
                 {/* Deductions Summary Preview */}
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                {calculationIsCurrent && <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
                   <div className="flex justify-between items-center font-bold text-xs text-slate-900">
                     <span>Tổng khấu trừ tổng hợp được ({calculatedCreateItems.deductions.length} khoản):</span>
                     <span className="font-mono text-red-600 font-bold">
@@ -1364,7 +1422,7 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                   </div>
 
                   <div className="pt-2 border-t border-slate-200 flex justify-between items-center font-bold text-xs">
-                    <span className="text-slate-900">Kết quả dự kiến:</span>
+                    <span className="text-slate-900">{roomCandidateData.isFinalBillConfirmed ? 'Kết quả dự kiến:' : 'Tạm tính (chưa đủ bảng tiền kỳ cuối):'}</span>
                     <span className={`font-mono text-sm ${
                       calculatedCreateItems.result > 0
                         ? 'text-emerald-700': calculatedCreateItems.result < 0
@@ -1375,27 +1433,31 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
                         ? `Thu thêm: ${calculatedCreateItems.result.toLocaleString('vi-VN')} đ`: 'Đối trừ vừa hết (0 đ)'}
                     </span>
                   </div>
-                </div>
+                </div>}
 
+                {!calculationIsCurrent && <div className="p-3 text-xs text-slate-600 border rounded-lg">Chưa tính kết quả. Bấm <strong>Tính kết quả</strong> để xem số tiền dự kiến hoàn hoặc thu thêm.</div>}
                 {/* Warning note for prepaid rent */}
                 <div className="text-[11px] text-slate-500 italic">
                   * Hệ thống không tự tạo tiền thuê tháng tiếp theo, không hoàn tiền thuê còn lại của kỳ đã trả trước nếu khách trả giữa tháng. </div>
               </div>
             )}
 
+            {createNoticeMsg && <div className="p-3 border rounded text-xs text-red-700 bg-red-50">{createNoticeMsg.text}</div>}
             <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
+              <button type="button" onClick={handleCalculateQTC01} className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-semibold">Tính kết quả</button>
               <button
                 type="button"
                 onClick={() => setShowCreateModal(false)}
                 className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer"
               >
-                Đóng </button>
+                Hủy </button>
               <button
                 type="button"
                 onClick={handleSaveNewSlipQTC01}
-                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-sm cursor-pointer"
+                disabled={!calculationIsCurrent}
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg text-xs font-bold shadow-sm cursor-pointer"
               >
-                Lưu phiếu quyết toán (Đang lập) </button>
+                Lưu </button>
             </div>
           </div>
         </div>
@@ -1876,6 +1938,12 @@ export const DepositSettlementView: React.FC<{leaseId: string}> = ({leaseId}) =>
               </div>
             </div>
 
+            <div className="rounded-lg border border-emerald-200 p-3 bg-emerald-50 text-xs space-y-1">
+              <div className="font-semibold">Phương án khách đã đồng ý</div>
+              <div>Phiên bản: v{selectedSlip.tenantAgreementEvidence?.schemeVersion || '—'}</div>
+              <div>Chứng cứ: {selectedSlip.tenantAgreementEvidence?.evidenceFile || 'Chưa có'}</div>
+              <div>Số tiền thống nhất: {selectedSlip.tenantAgreementEvidence ? Math.abs(selectedSlip.tenantAgreementEvidence.agreedAmount).toLocaleString('vi-VN') + ' đ' : 'Chưa có'}</div>
+            </div>
             {/* Single Transfer Receipt Fields */}
             {selectedSlip.calculatedResult !== 0 ? (
               <div className="p-4 bg-blue-50/50 border border-blue-200 rounded-xl space-y-3">
