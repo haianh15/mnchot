@@ -39,7 +39,8 @@ export const ContractReturnTracking: React.FC<Props> = ({
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [planFilter, setPlanFilter] = useState<'has-plan' | 'all' | 'not-set'>('has-plan');
+  const [planFilter, setPlanFilter] = useState<'has-plan' | 'all' | 'not-set' | 'expiring'>('all');
+  const [dateBasis, setDateBasis] = useState<'expiry' | 'return'>('expiry');
   const [selectedRoomCode, setSelectedRoomCode] = useState('');
   const [editingDate, setEditingDate] = useState(false);
   const [editingContact, setEditingContact] = useState(false);
@@ -77,24 +78,33 @@ export const ContractReturnTracking: React.FC<Props> = ({
     setDateTo('');
     setStatusFilter('all');
     setPlanFilter('all');
+    setDateBasis('return');
     setEditingDate(false);
     setEditingContact(false);
     setMessage(null);
   }, [focusRoomCode, focusLeaseId, focusContractId]);
 
-  const listed = liveRecords.filter(({room, contract}) => {
-    if (focusRoomCode && (room.roomCode !== focusRoomCode ||
+  // Một danh sách duy nhất cho hạn hợp đồng và ngày trả phòng. Hợp đồng cũ chỉ
+  // được xem hạn, không thể cập nhật kế hoạch trả của lượt thuê đã kết thúc.
+  const listed = contracts.flatMap(contract => {
+    const current = liveRecords.find(r => r.contract.id === contract.id && r.contract.leaseId === contract.leaseId);
+    if (focusRoomCode && (!current || current.room.roomCode !== focusRoomCode ||
       (focusLeaseId && contract.leaseId !== focusLeaseId) ||
-      (focusContractId && contract.id !== focusContractId))) return false;
-    if (statusFilter !== 'all' && room.status !== statusFilter) return false;
-    if (planFilter === 'has-plan' && !room.expectedReturnDate) return false;
-    if (planFilter === 'not-set' && !!room.expectedReturnDate) return false;
-    if (roomQuery && ![room.roomCode, contract.id, contract.tenantName].join(' ').toLocaleLowerCase('vi')
-      .includes(roomQuery.toLocaleLowerCase('vi'))) return false;
-    if (dateFrom && (!room.expectedReturnDate || room.expectedReturnDate < dateFrom)) return false;
-    if (dateTo && (!room.expectedReturnDate || room.expectedReturnDate > dateTo)) return false;
-    return true;
-  }).sort((a, b) => (a.room.expectedReturnDate || '9999').localeCompare(b.room.expectedReturnDate || '9999'));
+      (focusContractId && contract.id !== focusContractId))) return [];
+    const returnDate = current?.plan?.expectedDate || '';
+    const today = todayLocal();
+    const expiryDays = Math.round((new Date(`${contract.endDate}T12:00:00`).getTime() - new Date(`${today}T12:00:00`).getTime()) / 86400000);
+    if (statusFilter !== 'all' && (!current || current.room.status !== statusFilter)) return [];
+    if (planFilter === 'has-plan' && !returnDate) return [];
+    if (planFilter === 'not-set' && (!current || !!returnDate)) return [];
+    if (planFilter === 'expiring' && (!current || expiryDays < 0 || expiryDays > 15)) return [];
+    if (roomQuery && ![contract.roomCode, contract.id, contract.tenantName].join(' ').toLocaleLowerCase('vi')
+      .includes(roomQuery.trim().toLocaleLowerCase('vi'))) return [];
+    const dateValue = dateBasis === 'expiry' ? contract.endDate : returnDate;
+    if (dateFrom && (!dateValue || dateValue < dateFrom)) return [];
+    if (dateTo && (!dateValue || dateValue > dateTo)) return [];
+    return [{contract, current, returnDate, expiryDays, latestContact: current?.latestContact}];
+  }).sort((a,b) => (a.contract.endDate || '9999').localeCompare(b.contract.endDate || '9999'));
 
   const selected = liveRecords.find(r => r.room.roomCode === selectedRoomCode);
   const showDateForm = (room: Room) => {
@@ -153,8 +163,8 @@ export const ContractReturnTracking: React.FC<Props> = ({
     <section className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h2 className="font-bold text-lg flex items-center gap-2"><CalendarClock className="w-5 h-5 text-blue-700"/> Theo dõi trả phòng</h2>
-          <p className="text-sm text-slate-600 mt-1">Ngày khách dự kiến trả phòng được theo dõi riêng với ngày hết hạn hợp đồng.</p>
+          <h2 className="font-bold text-lg flex items-center gap-2"><CalendarClock className="w-5 h-5 text-blue-700"/> Theo dõi hạn hợp đồng &amp; trả phòng</h2>
+          <p className="text-sm text-slate-600 mt-1">Một danh sách theo dõi hai mốc thời gian: ngày kết thúc hợp đồng và ngày dự kiến trả phòng do khách xác nhận. Hai ngày không tự thay thế cho nhau.</p>
         </div>
         <button onClick={onBack} className="px-3 py-2 text-sm rounded-lg border border-slate-300 font-semibold">← Danh sách hợp đồng</button>
       </div>
@@ -163,7 +173,7 @@ export const ContractReturnTracking: React.FC<Props> = ({
         {!matchingFocus && <p className="mt-1 text-amber-800">Không tìm thấy lần thuê hiện tại phù hợp. Không hiển thị dữ liệu của lần thuê cũ.</p>}
       </div>}
     </section>
-    {!focusRoomCode && <section className="bg-white rounded-xl border border-slate-200 p-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3 text-sm">
+    {!focusRoomCode && <section className="bg-white rounded-xl border border-slate-200 p-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-3 text-sm">
       <label className="font-semibold">Tìm phòng, hợp đồng, khách thuê
         <span className="relative block mt-1"><Search className="w-4 h-4 absolute top-2.5 left-3 text-slate-400"/>
           <input value={roomQuery} onChange={e => setRoomQuery(e.target.value)} placeholder="Tìm theo hồ sơ" className="pl-9 pr-3 py-2 w-full border rounded-lg font-normal"/>
@@ -174,42 +184,51 @@ export const ContractReturnTracking: React.FC<Props> = ({
           <option value="all">Tất cả</option><option value="Đang thuê">Đang thuê</option><option value="Sắp trả">Sắp trả phòng</option>
         </select>
       </label>
-      <label className="font-semibold">Kế hoạch trả
-        <select value={planFilter} onChange={e => setPlanFilter(e.target.value as 'has-plan' | 'all' | 'not-set')} className="block mt-1 px-3 py-2 w-full border rounded-lg font-normal">
-          <option value="has-plan">Đã ghi ngày dự kiến trả</option><option value="not-set">Chưa ghi ngày dự kiến trả</option><option value="all">Tất cả lần thuê hiện tại</option>
+      <label className="font-semibold">Lọc cần theo dõi
+        <select value={planFilter} onChange={e => setPlanFilter(e.target.value as 'has-plan' | 'all' | 'not-set' | 'expiring')} className="block mt-1 px-3 py-2 w-full border rounded-lg font-normal">
+          <option value="all">Tất cả hợp đồng</option><option value="expiring">Hợp đồng còn tối đa 15 ngày</option><option value="has-plan">Có ngày dự kiến trả</option><option value="not-set">Đang thuê, chưa ghi ngày trả</option>
         </select>
       </label>
-      <label className="font-semibold">Dự kiến trả từ ngày
+      <label className="font-semibold">Lọc ngày theo
+        <select value={dateBasis} onChange={e => {setDateBasis(e.target.value as 'expiry' | 'return');setDateFrom('');setDateTo('');}} className="block mt-1 px-3 py-2 w-full border rounded-lg font-normal">
+          <option value="expiry">Ngày hết hạn hợp đồng</option><option value="return">Ngày dự kiến trả phòng</option>
+        </select>
+      </label>
+      <label className="font-semibold">Từ ngày
         <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="block mt-1 px-3 py-2 w-full border rounded-lg font-normal"/>
       </label>
-      <label className="font-semibold">Dự kiến trả đến ngày
+      <label className="font-semibold">Đến ngày
         <input type="date" min={dateFrom || undefined} value={dateTo} onChange={e => setDateTo(e.target.value)} className="block mt-1 px-3 py-2 w-full border rounded-lg font-normal"/>
       </label>
     </section>}
     <section className="bg-white border border-slate-200 rounded-xl overflow-x-auto">
-      <table className="w-full text-left text-sm min-w-[750px]">
+      <table className="w-full text-left text-sm min-w-[960px]">
         <thead className="bg-slate-50 text-slate-600"><tr>
-          {['Phòng','Hợp đồng / Khách thuê','Tình trạng','Ngày dự kiến trả','Theo dõi','Phản hồi','Thao tác'].map(h => <th key={h} className="p-3">{h}</th>)}
+          {['Phòng', 'Hợp đồng / Khách thuê', 'Trạng thái', 'Ngày hết hạn hợp đồng', 'Ngày dự kiến trả phòng', 'Liên hệ khách', 'Thao tác'].map(h => <th key={h} className="p-3">{h}</th>)}
         </tr></thead>
-        <tbody>{listed.map(({room, contract, latestContact}) => {
-          const dayDiff = room.expectedReturnDate ? Math.round((new Date(`${room.expectedReturnDate}T12:00:00`).getTime() - new Date(`${todayLocal()}T12:00:00`).getTime()) / 86400000) : null;
-          return <tr key={`${room.roomCode}-${contract.leaseId}`} className={`border-t ${selectedRoomCode === room.roomCode ? 'bg-blue-50' : 'hover:bg-slate-50'}`}>
-            <td className="p-3 font-semibold">{room.roomCode}</td>
+        <tbody>{listed.map(({contract, current, returnDate, expiryDays, latestContact}) => {
+          const room = current?.room;
+          const dayDiff = returnDate ? Math.round((new Date(`${returnDate}T12:00:00`).getTime() - new Date(`${todayLocal()}T12:00:00`).getTime()) / 86400000) : null;
+          return <tr key={contract.id} className={`border-t ${room && selectedRoomCode === room.roomCode ? 'bg-blue-50' : 'hover:bg-slate-50'}`}>
+            <td className="p-3 font-semibold">{contract.roomCode}</td>
             <td className="p-3"><span className="font-semibold block">{contract.id}</span><span className="text-slate-600">{contract.tenantName}</span></td>
-            <td className="p-3">{room.status === 'Sắp trả' ? 'Sắp trả phòng' : room.status}</td>
-            <td className="p-3 font-medium">{room.expectedReturnDate || <span className="text-slate-400">Chưa ghi nhận</span>}</td>
-            <td className="p-3">{dayDiff === null ? '—' : dayDiff < 0 ? `Quá ngày ${-dayDiff} ngày` : dayDiff === 0 ? 'Dự kiến trả hôm nay' : `Còn ${dayDiff} ngày`}</td>
-            <td className="p-3">{latestContact?.contactResult || 'Chưa ghi nhận'}</td>
+            <td className="p-3">{room ? (room.status === 'Sắp trả' ? 'Sắp trả phòng' : room.status) : contract.status}<span className="block text-xs text-slate-500">{room ? 'Lần thuê hiện tại' : 'Không phải lần thuê đang ở'}</span></td>
+            <td className="p-3 font-medium">{contract.endDate}
+              {room && expiryDays < 0 && <span className="block text-xs text-amber-700">Quá hạn {Math.abs(expiryDays)} ngày — kiểm tra hợp đồng</span>}
+              {room && expiryDays >= 0 && expiryDays <= 15 && <span className="block text-xs text-amber-700">{expiryDays === 0 ? 'Hết hạn hôm nay' : `Còn ${expiryDays} ngày`}</span>}
+            </td>
+            <td className="p-3 font-medium">{room && returnDate ? <>{returnDate}<span className="block text-xs text-slate-600">{dayDiff === null ? '' : dayDiff < 0 ? `Quá ngày ${-dayDiff} ngày` : dayDiff === 0 ? 'Dự kiến trả hôm nay' : `Còn ${dayDiff} ngày`}</span></> : <span className="text-slate-400">{room ? 'Chưa xác nhận' : 'Không áp dụng'}</span>}</td>
+            <td className="p-3">{room ? latestContact?.contactResult || 'Chưa ghi nhận' : '—'}</td>
             <td className="p-3"><div className="flex gap-2 flex-wrap">
               <button className="font-semibold text-blue-700 hover:underline" onClick={() => onSelectContract(contract.id)}><FileText className="inline w-4 h-4 mr-1"/>Hợp đồng</button>
-              <button className="font-semibold text-amber-800 hover:underline" onClick={() => showDateForm(room)}>{room.expectedReturnDate ? 'Cập nhật ngày trả' : 'Ghi ngày trả'}</button>
-              <button className="font-semibold text-indigo-700 hover:underline" onClick={() => {setSelectedRoomCode(room.roomCode);setEditingContact(true);setEditingDate(false);setMessage(null);}}><MessageSquare className="inline w-4 h-4 mr-1"/>Liên hệ</button>
-              {onOpenRoom && <button className="text-slate-600 hover:underline" onClick={() => onOpenRoom(room.roomCode)}>Xem phòng</button>}
+              {room && <button className="font-semibold text-amber-800 hover:underline" onClick={() => showDateForm(room)}>{returnDate ? 'Cập nhật ngày trả' : 'Ghi ngày trả'}</button>}
+              {room && <button className="font-semibold text-indigo-700 hover:underline" onClick={() => {setSelectedRoomCode(room.roomCode);setEditingContact(true);setEditingDate(false);setMessage(null);}}><MessageSquare className="inline w-4 h-4 mr-1"/>Liên hệ</button>}
+              {room && onOpenRoom && <button className="text-slate-600 hover:underline" onClick={() => onOpenRoom(room.roomCode)}>Xem phòng</button>}
             </div></td>
           </tr>;
         })}</tbody>
       </table>
-      {listed.length === 0 && <p className="p-5 text-slate-600 text-sm">Không có hồ sơ trả phòng phù hợp. Phòng trống và lần thuê cũ không được đưa vào danh sách hiện tại.</p>}
+      {listed.length === 0 && <p className="p-5 text-slate-600 text-sm">Không có hợp đồng phù hợp bộ lọc hoặc không có hồ sơ hiện tại đúng phòng và lần thuê được chọn.</p>}
     </section>
     {message && <div role="status" className={`p-3 border rounded-lg text-sm ${message.success ? 'bg-green-50 border-green-200 text-green-900' : 'bg-rose-50 border-rose-200 text-rose-900'}`}>{message.text}</div>}
     {selected && <details className="bg-white border border-slate-200 rounded-xl p-4 text-sm">

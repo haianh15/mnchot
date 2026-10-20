@@ -11,7 +11,6 @@ import { HDT03SendAndNegotiate } from './contracts/HDT03SendAndNegotiate';
 import { HDT04ReceiveSignedContract } from './contracts/HDT04ReceiveSignedContract';
 import { getInitialPaymentStatus } from '../../utils/initialPayments';
 import { HDT05BatchSchedules } from './contracts/HDT05BatchSchedules';
-import { HDT05ContractExpiry } from './contracts/HDT05ContractExpiry';
 import { ContractReturnTracking } from './contracts/ContractReturnTracking';
 import { HDT06RenewalContract } from './contracts/HDT06RenewalContract';
 import { DepositSettlementView } from './DepositSettlementView';
@@ -27,7 +26,6 @@ export type ContractTabKey =
   | 'negotiate'
   | 'sign'
   | 'expiry'
-  | 'returns'
   | 'schedules'
   | 'renewal'
   | 'activate';
@@ -57,7 +55,7 @@ export const ContractsView: React.FC<{initialContractId?: string; initialRoomCod
   const [returnFocus, setReturnFocus] = useState<{roomCode?: string; leaseId?: string; contractId?: string}>({});
   const openReturnTracking = (record: {roomCode?: string; leaseId?: string; contractId?: string} = {}) => {
     setReturnFocus(record);
-    setActiveTab('returns');
+    setActiveTab('expiry');
   };
   useEffect(() => {
     if (initialAction === 'return-plans') {
@@ -137,18 +135,18 @@ export const ContractsView: React.FC<{initialContractId?: string; initialRoomCod
           <h1 className="font-bold text-lg text-slate-900">Danh sách hợp đồng</h1>
           <p className="text-xs text-slate-500 mt-1">Chọn hợp đồng để xem chi tiết, gia hạn hoặc quyết toán cọc theo điều kiện.</p>
           <div className="flex flex-wrap gap-2 mt-3 items-center">
-            <input value={searchContract} onChange={e=>setSearchContract(e.target.value)} placeholder="Tìm mã hợp đồng, phòng hoặc khách thuê" className="w-full sm:w-auto sm:flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm" />
-            <label className="text-xs text-slate-600 flex items-center gap-2">Tình trạng quyết toán cọc
-              <select aria-label="Tình trạng quyết toán cọc" value={settlementFilter} onChange={e=>setSettlementFilter(e.target.value as 'all'|'pending')} className="rounded-lg border border-slate-300 p-2 text-sm bg-white">
-                <option value="all">Tất cả</option>
-                <option value="pending">Cần hoàn tất quyết toán cọc</option>
-              </select>
-            </label>
-            <button onClick={()=>{setSelectedContractId('');openSettlement('list');}} className="px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">Quản lý quyết toán cọc</button>
+            <input value={searchContract} onChange={e=>setSearchContract(e.target.value)} placeholder="Tìm mã hợp đồng, phòng hoặc khách thuê" aria-label="Tìm mã hợp đồng, phòng hoặc khách thuê" className="w-full sm:min-w-[230px] sm:flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm" />
             <button onClick={()=>setActiveTab('schedules')} className="px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">Lịch hợp đồng chung</button>
-            <button onClick={()=>openReturnTracking()} className="px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">Theo dõi trả phòng</button>
-            <button onClick={()=>setActiveTab('expiry')} className="px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">Theo dõi hạn hợp đồng</button>
+            <button onClick={()=>openReturnTracking()} className="px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">Theo dõi hạn hợp đồng</button>
+            <button onClick={()=>{setSelectedContractId('');openSettlement('list');}} className="px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">Quản lý quyết toán cọc</button>
             <button onClick={()=>setActiveTab('conditions')} className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold">+ Lập hợp đồng</button>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 mt-2">
+            <label htmlFor="settlement-contract-filter" className="text-xs font-semibold text-slate-600">Tình trạng quyết toán cọc</label>
+            <select id="settlement-contract-filter" value={settlementFilter} onChange={e=>setSettlementFilter(e.target.value as 'all'|'pending')} className="rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white">
+              <option value="all">Tất cả hợp đồng</option>
+              <option value="pending">Cần hoàn tất quyết toán cọc</option>
+            </select>
           </div>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
@@ -239,21 +237,20 @@ export const ContractsView: React.FC<{initialContractId?: string; initialRoomCod
         <DepositSettlementView key={`${settlementMode}-${selectedContract?.leaseId || 'all'}-${settlementOpenId}`} leaseId={settlementMode === 'list' ? undefined : selectedContract?.leaseId} contractId={selectedContract?.id} initialMode={settlementMode} initialSlipId={settlementOpenId} onCreateClose={returnToContractList} />
       </div>}
       {/* Action screens are contextual. The page no longer exposes every UC as a navigation tab. */}
-      {activeTab !== 'overview' && activeTab !== 'settlement' && activeTab !== 'returns' && <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-wrap gap-3 items-center justify-between">
+      {activeTab !== 'overview' && activeTab !== 'settlement' && activeTab !== 'expiry' && <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-wrap gap-3 items-center justify-between">
         <div>
           <p className="text-xs font-semibold text-blue-700">Quản lý hợp đồng</p>
-          <h1 className="font-bold text-lg">{{conditions:'Ghi nhận điều kiện thuê đã thống nhất',draft:'Lập dự thảo hợp đồng',negotiate:'Điều chỉnh dự thảo',sign:'Ghi nhận hợp đồng đã ký',expiry:'Theo dõi hạn hợp đồng',returns:'Theo dõi trả phòng',schedules:'Lịch đợt hợp đồng chung',renewal:'Lập hợp đồng nối tiếp',activate:'Ghi nhận ký hợp đồng nối tiếp'}[activeTab]}</h1>
+          <h1 className="font-bold text-lg">{{conditions:'Ghi nhận điều kiện thuê đã thống nhất',draft:'Lập dự thảo hợp đồng',negotiate:'Điều chỉnh dự thảo',sign:'Ghi nhận hợp đồng đã ký',expiry:'Theo dõi hạn hợp đồng và trả phòng',schedules:'Lịch đợt hợp đồng chung',renewal:'Lập hợp đồng nối tiếp',activate:'Ghi nhận ký hợp đồng nối tiếp'}[activeTab]}</h1>
         </div>
         <button onClick={()=>setActiveTab('overview')} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold hover:bg-slate-50">← Danh sách hợp đồng</button>
       </div>}
-      {activeTab === 'returns' && <ContractReturnTracking
+      {activeTab === 'expiry' && <ContractReturnTracking
         focusRoomCode={returnFocus.roomCode}
         focusLeaseId={returnFocus.leaseId}
         focusContractId={returnFocus.contractId}
         onSelectContract={id => { setSelectedContractId(id); setActiveTab('overview'); }}
         onBack={() => {setReturnFocus({});setActiveTab('overview');}} onOpenRoom={onBackToRooms}
       />}
-      {activeTab === 'expiry' && <HDT05ContractExpiry onSelectContract={(id)=>{setSelectedContractId(id);setActiveTab('overview');}}/>}
       {/* Tab Panels */}
       <div>
         {activeTab === 'conditions' && (
