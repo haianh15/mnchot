@@ -183,6 +183,10 @@ export const HandoverAssetsView: React.FC<{
       ? initialContractId : (selectedRoom?.currentContractId || selectedRoom?.pendingContractId))) ||
     (resolvedContract?.leaseId === selectedLeaseId ? resolvedContract : undefined);
   const openLinkedDepositSettlement = () => {
+    if (!returnInspectionTarget || returnInspectionTarget.step304Status !== 'Đã nhận lại' || !returnInspectionTarget.step305Confirmed) {
+      showToast('error', 'Chưa thể quyết toán cọc: cần xác nhận đã nhận lại phòng thực tế trong Bàn giao trả phòng. Biên bản nhận phòng lúc khách đến ở chưa đủ điều kiện.');
+      return;
+    }
     if (!targetContract || targetContract.roomCode !== selectedRoomCode || targetContract.leaseId !== selectedLeaseId) {
       showToast('error', 'Không xác định được hợp đồng và lần thuê của phòng đang bàn giao.');
       return;
@@ -2606,18 +2610,18 @@ export const HandoverAssetsView: React.FC<{
               </div>
             </div>
 
-            {/* Thao tác & : Chuyển thông tin đối chiếu sang Quyết toán cọc ngoài hệ thống */}
-            <div className="p- bg-indigo-50 border border-indigo-200 rounded-xl space-y-2 text-indigo-950 text-xs">
+            {/* Thông tin đối chiếu tài sản chuyển tiếp vào hồ sơ quyết toán cọc */}
+            <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl space-y-2 text-indigo-950 text-xs">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5 font-bold">
                   <Info className="w-4 h-4 text-indigo-600 shrink-0" />
-                  <span>Thao tác: Chuyển thông tin sang Quyết toán cọc – Quyết toán cọc ngoài hệ thống:</span>
+                  <span>Thông tin bàn giao phục vụ quyết toán cọc</span>
                 </div>
                 <span className="text-[10px] font-mono bg-indigo-200/70 text-indigo-900 px-2 py-0.5 rounded font-bold">
-                  Bàn giao nghiệp vụ ngoài phần mềm </span>
+                  Liên kết hồ sơ </span>
               </div>
               <p className="text-[11px] text-indigo-900">
-                Thông tin chuyển tại thao tác gồm: mã phòng <strong>{selectedRoomCode}</strong>, hợp đồng <strong>{targetContract?.id || 'Chưa có'}</strong>, lần thuê <strong>{targetContract?.leaseId || selectedRoom.currentLeaseId}</strong>, kết quả đối chiếu, sự cố liên quan và phiên bản hồ sơ. Sau đó, hồ sơ quyết toán cọc sử dụng dữ liệu này để đối chiếu, <strong>không tự khởi tạo từ </strong>. </p>
+                Thông tin chuyển tại thao tác gồm: mã phòng <strong>{selectedRoomCode}</strong>, hợp đồng <strong>{targetContract?.id || 'Chưa có'}</strong>, lần thuê <strong>{targetContract?.leaseId || selectedRoom.currentLeaseId}</strong>, kết quả đối chiếu, sự cố liên quan và phiên bản hồ sơ. Khi mở Quản lý hợp đồng, hệ thống sẽ hiển thị thông tin nguồn này để lập hoặc đối chiếu phiếu; không tự coi là đã hoàn tất quyết toán. </p>
               
               <div className="p-2.5 bg-white border border-indigo-200 rounded-lg flex items-center justify-between">
                 <label className="flex items-center gap-2 cursor-pointer">

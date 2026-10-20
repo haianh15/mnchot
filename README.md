@@ -43,9 +43,3 @@ Xem `BAO_CAO_SUA_LUONG_PHONG_BAN_GIAO_20_10_2026.md` để biết các sửa l�
 Đã rà soát lại liên kết mã phòng/hợp đồng/lần thuê, hồ sơ nhận phòng kế thừa, kết quả trả phòng, xác nhận ký giấy, dữ liệu kiểm kê, hiện trạng và đối chiếu cọc. Xem `BAO_CAO_KIEM_TRA_SUA_LIEN_KET_PHONG_BAN_GIAO_20_10.md`.
 
 Sau khi `npm install`, chạy `npm run test:handover` (có thêm 29 trường hợp kiểm tra), cùng `npm run test:occupancy`, `npm run test:settlement` và `npm run test:contract`.
-
-
-## Cập nhật giao diện ngày 20/10/2026
-- Đã ẩn các banner ở đầu màn hình Quản lý phòng, nút và nhãn liên quan hồ sơ DEMO, đồng thời bỏ nhãn đứng cạnh bộ lọc Quyết toán cọc.
-- Giữ nguyên nguồn dữ liệu, quy tắc đối chiếu, và lựa chọn của bộ lọc. Chứng từ giả lập trong dữ liệu nguồn vẫn được nhận dạng nội bộ và **không phải chứng từ có thật**.
-- **Ứng dụng vẫn là nguyên mẫu lưu dữ liệu trong trình duyệt, không có backend bảo mật; không nhập dữ liệu cá nhân hoặc giao dịch thật.** Việc ẩn banner không thay đổi hạn chế này.
