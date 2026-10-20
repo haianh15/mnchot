@@ -1,0 +1,34 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+let ts;
+try { ts = require('typescript'); } catch { ts = require('/opt/nvm/versions/node/v22.16.0/lib/node_modules/typescript'); }
+const source = fs.readFileSync(__dirname + '/../src/utils/contractTenantLink.ts', 'utf8');
+const compiled = ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText;
+const ex = {}; vm.runInNewContext(compiled,{exports: ex, require});
+const {validateContractTenantLink} = ex;
+const tenant = {id:'tenant-1',fullName:'Khách đúng',idNumber:'CCCD123'};
+const contract = {tenantId:'tenant-1',tenantName:'Khách đúng',tenantIdNumber:'CCCD123'};
+let passed=0;
+function test(name,cb){cb();passed++;console.log('PASS',name)}
+test('Liên kết hồ sơ khách theo mã ID đúng',()=>{assert.equal(validateContractTenantLink(contract,[tenant]).valid,true)});
+test('Thiếu hồ sơ bị chặn',()=>{assert.equal(validateContractTenantLink(contract,[]).valid,false)});
+test('Không lấy hồ sơ khách khác chỉ vì trùng phòng',()=>{assert.equal(validateContractTenantLink(contract,[{...tenant,id:'tenant-other'}]).valid,false)});
+test('Trùng tên nhưng khác mã khách vẫn bị chặn',()=>{assert.equal(validateContractTenantLink(contract,[{...tenant,id:'tenant-other',fullName:'Khách đúng'}]).valid,false)});
+test('Không ký nếu họ tên trong hợp đồng khác hồ sơ',()=>{assert.equal(validateContractTenantLink({...contract,tenantName:'Người khác'},[tenant]).valid,false)});
+test('Không ký nếu CCCD trong hợp đồng khác hồ sơ',()=>{assert.equal(validateContractTenantLink({...contract,tenantIdNumber:'Wrong'},[tenant]).valid,false)});
+test('Hồ sơ không có CCCD vẫn có thể lập dự thảo nhưng cần xác minh trước khi ký',()=>{assert.equal(validateContractTenantLink({...contract,tenantIdNumber:undefined},[{...tenant,idNumber:undefined}]).valid,true)});
+const draft=fs.readFileSync(__dirname+'/../src/components/views/contracts/HDT02DraftContract.tsx','utf8');
+const context=fs.readFileSync(__dirname+'/../src/context/AppContext.tsx','utf8');
+const details=fs.readFileSync(__dirname+'/../src/components/views/ContractsView.tsx','utf8');
+const rooms=fs.readFileSync(__dirname+'/../src/components/views/RoomsView.tsx','utf8');
+const app=fs.readFileSync(__dirname+'/../src/App.tsx','utf8');
+test('Dự thảo không tự chọn khách đầu tiên',()=>assert.ok(!draft.includes("tenants[0]?.id || ''")));
+test('Dự thảo bắt buộc chọn hồ sơ',()=>assert.ok(draft.includes('Chọn hồ sơ khách thuê trước khi lập hợp đồng')));
+test('Cả lập dự thảo và xác nhận ký đều kiểm tra hồ sơ',()=>assert.ok((context.match(/validateContractTenantLink\(/g)||[]).length>=2));
+test('Ký hợp đồng trống không tự ghi nhận người đã cư trú',()=>assert.ok(context.includes('currentTenantId: undefined,\n        currentTenantName: undefined,\n        totalOccupants: 0')));
+test('Chi tiết hợp đồng có nút mở đúng hồ sơ',()=>assert.ok(details.includes('onOpenTenant({tenantId: selectedTenant.id, roomCode: selectedContract.roomCode, leaseId: selectedContract.leaseId, contractId: selectedContract.id})')));
+test('Điều hướng hợp đồng sang hồ sơ khách truyền đúng bản ghi',()=>assert.ok(app.includes('onOpenTenant={(record) => navigate(\'tenants\', record)}')));
+test('Chi tiết phòng cũng mở hồ sơ khách đúng hợp đồng',()=>assert.ok(rooms.includes("onNavigate('tenants', { roomCode: room.roomCode, tenantId,")));
+test('Hợp đồng có hồ sơ nhưng chưa nhận phòng vẫn cho biết 0 người đang cư trú',()=>assert.ok(context.includes('totalOccupants: 0')));
+console.log('TOTAL',passed);

@@ -16,7 +16,8 @@
     "test:contract": "node tests/contractDocument.test.cjs",
     "test:occupancy": "node tests/occupancyCount.test.cjs",
     "test:meters": "node tests/meterReadings.test.cjs",
-    "test:return-slip": "node tests/returnSlipAfterHandover.test.cjs"
+    "test:return-slip": "node tests/returnSlipAfterHandover.test.cjs",
+    "test:pre-sign-payment": "node tests/preSignPayments.test.cjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

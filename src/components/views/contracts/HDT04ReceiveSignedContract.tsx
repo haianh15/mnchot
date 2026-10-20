@@ -2,6 +2,7 @@ import { toUserMessage } from '../../../utils/userMessages';
 import React, { useState } from 'react';
 import { useApp } from '../../../context/AppContext';
 import { Contract } from '../../../types';
+import { getInitialPaymentStatus } from '../../../utils/initialPayments';
 import {
   FileCheck, ShieldCheck, CheckCircle2, AlertTriangle, AlertCircle,
   Upload, FileText, Calendar, Building, User, Lock, ArrowRight,
@@ -23,28 +24,60 @@ export const HDT04ReceiveSignedContract: React.FC<HDT04Props> = ({
     contracts,
     tenants,
     rooms,
+    initialPaymentRecords,
+    activeBankAccount,
+    recordInitialPaymentPH07,
     confirmContractSignedHDT04
   } = useApp();
 
   const [selectedContractId, setSelectedContractId] = useState<string>(
-    initialContract?.id ||
-    contracts.find(c => c.status === 'Chờ khách ký' || c.status === 'Nháp')?.id ||
-    ''
+    initialContract?.id || ''
   );
 
   const [signedDate, setSignedDate] = useState<string>(
     new Date().toISOString().split('T')[0]
   );
-  const [proofFile, setProofFile] = useState<string>('hop_dong_ky_tay_hai_ben.pdf');
+  const [proofFile, setProofFile] = useState<string>('');
 
   //  ghi nhận ký Identity Verification fields
   const [verifiedIdNumber, setVerifiedIdNumber] = useState<string>('');
-  const [verifiedProof, setVerifiedProof] = useState<string>('anh_cccd_goc_2_mat_doi_chieu.jpg');
+  const [verifiedProof, setVerifiedProof] = useState<string>('');
   const [confirmVerified, setConfirmVerified] = useState<boolean>(false);
 
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [receivedDate, setReceivedDate] = useState('');
+  const [transactionCode, setTransactionCode] = useState('');
+  const [receivedBank, setReceivedBank] = useState('');
+  const [transferProof, setTransferProof] = useState('');
+  const [bankVerified, setBankVerified] = useState(false);
+  const [paymentMessage, setPaymentMessage] = useState<string | null>(null);
 
   const selectedContract = contracts.find(c => c.id === selectedContractId);
+  const paymentStatus = getInitialPaymentStatus(selectedContract, contracts, initialPaymentRecords, signedDate);
+  const totalInitialDue = selectedContract ? selectedContract.depositAmount + selectedContract.firstMonthRentAmount : 0;
+  const handleConfirmInitialPayment = () => {
+    if (!selectedContract || selectedContract.contractType === 'Hợp đồng nối tiếp') return;
+    if (!bankVerified) {
+      setPaymentMessage('Đây chỉ là bước ghi nhận: cần kiểm tra tiền đã chuyển ngoài hệ thống thực sự về tài khoản ngân hàng trước khi lưu.');
+      return;
+    }
+    const response = recordInitialPaymentPH07({
+      contractId: selectedContract.id,
+      roomCode: selectedContract.roomCode,
+      leaseId: selectedContract.leaseId,
+      depositAmount: selectedContract.depositAmount,
+      firstMonthRentAmount: selectedContract.firstMonthRentAmount,
+      actualAmount: totalInitialDue,
+      receivedDate,
+      transactionCode,
+      bankAccountReceived: receivedBank,
+      proofFile: transferProof || undefined
+    });
+    setPaymentMessage(response.message);
+    if (response.success) {
+      setBankVerified(false);
+    }
+  };
   const selectedTenant = selectedContract ? tenants.find(t => t.id === selectedContract.tenantId): null;
   const isPreliminary = selectedTenant?.isPreliminary || selectedTenant?.verificationStatus === 'Chưa xác minh';
 
@@ -54,6 +87,10 @@ export const HDT04ReceiveSignedContract: React.FC<HDT04Props> = ({
   const handleConfirmSigned = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedContract) return;
+    if (!paymentStatus.valid) {
+      alert(toUserMessage(`Không thể ghi nhận ký: ${paymentStatus.message}`));
+      return;
+    }
 
     // Check  ghi nhận ký identity verification constraint
     if (isPreliminary && (!confirmVerified || !verifiedIdNumber.trim())) {
@@ -130,9 +167,16 @@ export const HDT04ReceiveSignedContract: React.FC<HDT04Props> = ({
                 onChange={(e) => {
                   setSelectedContractId(e.target.value);
                   setSuccessMessage(null);
+                  setPaymentMessage(null);
+                  setReceivedDate('');
+                  setTransactionCode('');
+                  setReceivedBank('');
+                  setTransferProof('');
+                  setBankVerified(false);
                 }}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg font-mono font-bold text-xs"
               >
+                <option value="" disabled>Chọn hợp đồng cần ghi nhận</option>
                 {eligibleContracts.map(c => (
                   <option key={c.id} value={c.id}>
                     {c.id} - Phòng {c.roomCode} - Khách: {c.tenantName} ({c.status}) </option>
@@ -171,6 +215,55 @@ export const HDT04ReceiveSignedContract: React.FC<HDT04Props> = ({
                     />
                   </div>
                 </div>
+
+                {/* Chứng từ thu cọc và tiền thuê đầu là điều kiện bắt buộc TRƯỚC khi ký. */}
+                <section className="rounded-xl border border-blue-200 bg-blue-50 p-4 space-y-3" aria-label="Đối chiếu cọc và tiền thuê đầu">
+                  <h4 className="text-sm font-bold text-blue-950">Đối chiếu khoản đã chuyển bên ngoài hệ thống trước khi ký</h4>
+                  <p className="text-xs text-blue-900">Khách chuyển tiền cọc và tiền thuê kỳ đầu trực tiếp vào tài khoản ngân hàng theo thỏa thuận với Chủ nhà, ngoài website. Màn hình này <strong>chỉ ghi nhận giao dịch đã phát sinh và được Chủ nhà đối chiếu</strong>; không tạo yêu cầu thanh toán, không chuyển tiền hoặc tự xác nhận tiền đã về.</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    <div className="rounded-lg bg-white border p-2">Cọc gốc: <strong>{selectedContract.depositAmount.toLocaleString('vi-VN')} đ</strong></div>
+                    <div className="rounded-lg bg-white border p-2">Tiền thuê kỳ đầu: <strong>{selectedContract.firstMonthRentAmount.toLocaleString('vi-VN')} đ</strong></div>
+                    <div className="sm:col-span-2 rounded-lg bg-white border p-2">Tổng tiền phải thu: <strong>{totalInitialDue.toLocaleString('vi-VN')} đ</strong></div>
+                  </div>
+                  <p className={`rounded-lg p-2 text-xs ${paymentStatus.valid ? 'bg-emerald-100 text-emerald-900' : 'bg-amber-100 text-amber-900'}`} role="status">
+                    {paymentStatus.valid ? `Đã đối chiếu chứng từ. ${paymentStatus.message}` : `Chưa đủ điều kiện ký: ${paymentStatus.message}`}
+                  </p>
+                  {paymentStatus.valid && paymentStatus.payment && (
+                    <div className="rounded-lg border bg-white p-3 text-xs space-y-1">
+                      <p><strong>Mã giao dịch:</strong> {paymentStatus.payment.transactionCode}</p>
+                      <p><strong>Đã thu cọc:</strong> {paymentStatus.payment.depositAmount.toLocaleString('vi-VN')} đ</p>
+                      <p><strong>Đã thu tiền thuê kỳ đầu:</strong> {paymentStatus.payment.firstMonthRentAmount.toLocaleString('vi-VN')} đ ({paymentStatus.payment.rentPeriodNote})</p>
+                      <p><strong>Ngày tiền về:</strong> {paymentStatus.payment.receivedDate}</p>
+                      {paymentStatus.inherited && <p className="text-purple-700">Hợp đồng nối tiếp: kế thừa chứng từ của hợp đồng gốc, không thu lại.</p>}
+                    </div>
+                  )}
+                  {!paymentStatus.valid && selectedContract.contractType !== 'Hợp đồng nối tiếp' && (
+                    <div className="space-y-3 rounded-lg bg-white border p-3">
+                      <p className="text-xs font-semibold">Ghi nhận chứng từ giao dịch ngoài hệ thống (chỉ sau khi tiền thực tế đã về)</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <label className="space-y-1">Ngày tiền về
+                          <input type="date" className="w-full border rounded-lg p-2" value={receivedDate} max={new Date().toISOString().slice(0,10)} onChange={e => setReceivedDate(e.target.value)} />
+                        </label>
+                        <label className="space-y-1">Mã giao dịch chuyển khoản
+                          <input className="w-full border rounded-lg p-2" value={transactionCode} onChange={e => setTransactionCode(e.target.value)} placeholder="Mã giao dịch thực tế" />
+                        </label>
+                        <label className="space-y-1">Tài khoản thực nhận
+                          <input className="w-full border rounded-lg p-2" value={receivedBank} onChange={e => setReceivedBank(e.target.value)} placeholder="Ngân hàng / số tài khoản đã đối chiếu" />
+                        </label>
+                        <label className="space-y-1">Mã/tên chứng từ (nếu có)
+                          <input className="w-full border rounded-lg p-2" value={transferProof} onChange={e => setTransferProof(e.target.value)} placeholder="Tên tệp chứng từ thực tế" />
+                        </label>
+                      </div>
+                      {activeBankAccount && <p className="text-xs text-slate-600">Tài khoản thu đang cấu hình: {activeBankAccount.bankName} · {activeBankAccount.accountNumber}. Hãy đối chiếu đúng nơi tiền đã về.</p>}
+                      <label className="flex gap-2 items-start text-xs">
+                        <input type="checkbox" checked={bankVerified} onChange={e => setBankVerified(e.target.checked)} />
+                        Tôi đã kiểm tra sao kê và xác nhận tiền cọc cùng tiền thuê kỳ đầu thực nhận đủ {totalInitialDue.toLocaleString('vi-VN')} đ.
+                      </label>
+                      <button type="button" onClick={handleConfirmInitialPayment} className="px-4 py-2 rounded-lg bg-blue-700 text-white font-semibold">Lưu kết quả đối chiếu khoản đã nhận</button>
+                      {paymentMessage && <p role="status" className="text-xs text-blue-900">{toUserMessage(paymentMessage)}</p>}
+                    </div>
+                  )}
+                </section>
 
                 {/*  ghi nhận ký Identity Verification Box */}
                 {isPreliminary ? (
@@ -236,11 +329,12 @@ export const HDT04ReceiveSignedContract: React.FC<HDT04Props> = ({
                 {/* Submit Action */}
                 <div className="pt-3 border-t border-slate-200 flex items-center justify-between">
                   <span className="text-slate-400 text-[11px]">
-                    Thao tác này sẽ chuyển hợp đồng sang trạng thái Đã ký / Hiệu lực và khóa phòng. </span>
+                    Việc chuyển tiền diễn ra ngoài hệ thống. Chỉ ghi nhận hợp đồng đã ký khi đã đối chiếu đủ khoản cọc và thuê đầu; phòng chưa chuyển sang Đang thuê. </span>
 
                   <button
                     type="submit"
-                    className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold flex items-center gap-2 shadow-sm cursor-pointer"
+                    disabled={!paymentStatus.valid}
+                    className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-lg font-bold flex items-center gap-2 shadow-sm cursor-pointer"
                   >
                     <CheckCircle2 className="w-4 h-4" />
                     Xác nhận lưu hợp đồng đã ký (4.12) </button>

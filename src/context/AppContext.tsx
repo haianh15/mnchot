@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getConfirmedRoomHandover } from '../utils/roomLinks';
+import { validateContractTenantLink } from '../utils/contractTenantLink';
+import { getInitialPaymentStatus } from '../utils/initialPayments';
 import { validateMeterReadingSave } from '../utils/meterReadings';
 import { getRoomOccupancy } from '../utils/occupancy';
 import { hasValidHandoverSource, validateReturnConfirmation } from '../utils/handoverValidation';
@@ -1042,18 +1044,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // A payment cannot be recorded against a contract for another room or lease.
     const targetContract = contracts.find(c => c.id === params.contractId &&
       c.roomCode === params.roomCode && c.leaseId === params.leaseId);
-    if (!targetContract || !targetContract.isSignedPaper) {
-      return { success: false, message: 'Chưa có hợp đồng đã ký thuộc đúng phòng và lần thuê được chọn.' };
+    if (!targetContract || !['Nháp', 'Chờ khách ký', 'Đã ký', 'Chờ hiệu lực', 'Hiệu lực'].includes(targetContract.status)) {
+      return { success: false, message: 'Chỉ ghi nhận tiền cho hợp đồng đúng phòng và lần thuê ở trạng thái hợp lệ.' };
     }
     if (targetContract.contractType === 'Hợp đồng nối tiếp') {
       return { success: false, message: 'Hợp đồng nối tiếp dùng lại cọc gốc, không thu cọc ban đầu thêm lần nữa.' };
     }
     if (params.depositAmount !== targetContract.depositAmount ||
-        params.firstMonthRentAmount !== targetContract.monthlyRent) {
+        params.firstMonthRentAmount !== targetContract.firstMonthRentAmount) {
       return { success: false, message: 'Số tiền cọc và tiền thuê đầu không khớp hợp đồng đã ký của phòng.' };
     }
     if (initialPaymentRecords.some(p => p.roomCode === params.roomCode && p.leaseId === params.leaseId)) {
       return { success: false, message: 'Lần thuê này đã có chứng từ cọc và thuê đầu; không được ghi nhận thu trùng.' };
+    }
+
+    // Tiền chuyển bên ngoài hệ thống. Chỉ lưu bản ghi xác nhận sau khi Chủ nhà đối chiếu sao kê thực nhận, kể cả trước khi ký giấy.
+    const validReceivedDate = /^\d{4}-\d{2}-\d{2}$/.test(params.receivedDate) &&
+      !Number.isNaN(Date.parse(params.receivedDate)) && new Date(params.receivedDate).toISOString().slice(0, 10) === params.receivedDate;
+    if (!validReceivedDate || params.receivedDate > new Date().toISOString().slice(0, 10) ||
+        !params.transactionCode?.trim() || !params.bankAccountReceived?.trim() ||
+        !Number.isFinite(params.actualAmount) || params.depositAmount <= 0 || params.firstMonthRentAmount <= 0) {
+      return { success: false, message: 'Cần đối chiếu tiền thực nhận và nhập đủ ngày, mã giao dịch, tài khoản nhận trước khi xác nhận thu.' };
+    }
+    if (targetContract.isSignedPaper && targetContract.signedDate && params.receivedDate > targetContract.signedDate) {
+      return { success: false, message: 'Khoản thu ban đầu phải có ngày nhận không muộn hơn ngày ký; hồ sơ cũ cần đối chiếu riêng.' };
     }
 
     // Đúng đủ 1 tháng cọc + 1 tháng thuê đầu
@@ -1066,7 +1080,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     // Check duplicate transaction code
-    if (initialPaymentRecords.some(p => p.transactionCode === params.transactionCode)) {
+    if (initialPaymentRecords.some(p => p.transactionCode.trim() === params.transactionCode.trim())) {
       return { success: false, message: 'Mã giao dịch đã tồn tại trên hệ thống. Vui lòng kiểm tra lại để tránh ghi trùng (AF-02).' };
     }
 
@@ -1082,8 +1096,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       firstMonthRentAmount: params.firstMonthRentAmount,
       actualAmount: params.actualAmount,
       receivedDate: params.receivedDate,
-      transactionCode: params.transactionCode,
-      bankAccountReceived: params.bankAccountReceived,
+      transactionCode: params.transactionCode.trim(),
+      bankAccountReceived: params.bankAccountReceived.trim(),
       proofFile: params.proofFile,
       depositCode,
       rentPeriodNote,
@@ -1109,7 +1123,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } : r));
 
     logSecurity('PH07_PAYMENT_RECORDED', `Room ${params.roomCode} recorded deposit (${params.depositAmount}) & 1st rent (${params.firstMonthRentAmount}) via txn ${params.transactionCode}`);
-    return { success: true, message: 'Ghi nhận hoàn tất một tháng tiền cọc và một tháng tiền thuê đầu thành công! Đã lưu 2 dòng riêng biệt.' };
+    return { success: true, message: 'Đã lưu kết quả đối chiếu tiền cọc và tiền thuê kỳ đầu thực nhận ngoài hệ thống. Website không thực hiện giao dịch chuyển tiền.' };
   };
 
   // UC-PH-07 AF-03: Đính chính thông tin chứng cứ chuyển khoản có lịch sử
@@ -1120,6 +1134,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const record = initialPaymentRecords.find(p => p.id === id);
     if (!record) return { success: false, message: 'Không tìm thấy bản ghi thanh toán.' };
 
+    const allowed = ['transactionCode', 'bankAccountReceived', 'receivedDate', 'proofFile'];
+    if (Object.keys(updatedFields).some(k => !allowed.includes(k))) {
+      return { success: false, message: 'Không được đính chính số tiền, phòng, hợp đồng hoặc lần thuê qua chứng từ.' };
+    }
+    const updatedDate = updatedFields.receivedDate ?? record.receivedDate;
+    const updatedTransaction = updatedFields.transactionCode ?? record.transactionCode;
+    const updatedAccount = updatedFields.bankAccountReceived ?? record.bankAccountReceived;
+    if (!updatedDate || Number.isNaN(Date.parse(updatedDate)) ||
+        new Date(updatedDate).toISOString().slice(0, 10) !== updatedDate ||
+        updatedDate > new Date().toISOString().slice(0, 10) ||
+        !updatedTransaction?.trim() || !updatedAccount?.trim() ||
+        initialPaymentRecords.some(p => p.id !== id && p.transactionCode === updatedTransaction)) {
+      return { success: false, message: 'Ngày tiền về, mã giao dịch hoặc tài khoản nhận không hợp lệ/trùng lặp.' };
+    }
+    const signedContract = contracts.find(c => c.id === record.contractId);
+    if (signedContract?.isSignedPaper && signedContract.signedDate && updatedDate > signedContract.signedDate) {
+      return { success: false, message: 'Ngày tiền về không được sau ngày ký hợp đồng.' };
+    }
     const correctionHistory = record.correctionHistory || [];
     const now = new Date().toISOString();
     const user = currentUser?.fullName || 'Chủ nhà';
@@ -1136,8 +1168,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setInitialPaymentRecords(prev => prev.map(p => p.id === id ? {
       ...p,
       ...updatedFields,
-      // Không cho sửa đổi số tiền cọc gốc tùy tiện 
-      depositAmount: record.depositAmount,
+      // Chỉ metadata chứng từ được phép đính chính; không sửa bất kỳ khoản tiền nào.
       correctionHistory: [...correctionHistory, ...historyItems]
     } : p));
 
@@ -1163,9 +1194,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     // Tiêu chí 2 & 3: Cọc 1 tháng & Thuê đầu 1 tháng tại UC-PH-07
-    if (!contract.firstMonthRentPaid || !room.firstMonthRentPaid || !room.hasDeposit ||
-        !initialPaymentRecords.some(p => p.roomCode === roomCode && p.leaseId === leaseId && p.contractId === contract.id)) {
-      return { success: false, message: 'Tiêu chí 2 & 3 Chưa đạt: Chưa thu đủ 1 tháng tiền cọc và 1 tháng tiền thuê đầu tại UC-PH-07 (EF-01). Không cho nhận phòng trước rồi nộp bù.' };
+    const initialPaymentStatus = getInitialPaymentStatus(contract, contracts, initialPaymentRecords);
+    if (!initialPaymentStatus.valid) {
+      return { success: false, message: `Chưa đủ điều kiện nhận phòng: ${initialPaymentStatus.message}` };
     }
 
     // Tiêu chí 4: Bàn giao nhận thực tế hoàn tất & UC-BG03 Đã xác nhận (hai bên đã ký tay)
@@ -2892,6 +2923,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // ==================== UC-HDT-02: LẬP DỰ THẢO HỢP ĐỒNG (4.5 → 4.8) ====================
   const createContractDraftHDT02 = (contractData: Omit<Contract, 'id' | 'status' | 'isSignedPaper' | 'version'>) => {
+    const binding = validateContractTenantLink(contractData, tenants);
+    if (!binding.valid) return { success: false, message: binding.message || 'Hồ sơ khách không hợp lệ.' };
+    if (!rooms.some(r => r.roomCode === contractData.roomCode)) {
+      return { success: false, message: 'Không tìm thấy phòng được chọn để lập hợp đồng.' };
+    }
     const nowStr = new Date().toISOString();
     const userName = currentUser?.fullName || 'Nguyễn Văn An (Chủ nhà)';
 
@@ -2973,6 +3009,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // ==================== UC-HDT-03: GỬI VÀ THEO DÕI KÝ (4.9 → 4.10) ====================
   const updateContractDraftHDT03 = (contractId: string, updates: Partial<Contract>, changeNote: string) => {
+    const existingDraft = contracts.find(c => c.id === contractId);
+    if (initialPaymentRecords.some(p => p.contractId === contractId) && existingDraft &&
+        ['roomCode', 'leaseId', 'tenantId', 'depositAmount', 'monthlyRent', 'firstMonthRentAmount'].some(key =>
+          key in updates && (updates as any)[key] !== (existingDraft as any)[key])) {
+      return { success: false, message: 'Đã xác nhận khoản thu ban đầu. Không được sửa phòng, lần thuê, khách hoặc số tiền trên hợp đồng; cần đối chiếu và xử lý khoản thu trước.' };
+    }
     const nowStr = new Date().toISOString();
     const userName = currentUser?.fullName || 'Nguyễn Văn An (Chủ nhà)';
 
@@ -3033,6 +3075,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const cancelContractDraftHDT03 = (contractId: string, reason: string) => {
+    if (initialPaymentRecords.some(p => p.contractId === contractId)) {
+      return { success: false, message: 'Hợp đồng đã có khoản tiền xác nhận. Cần xử lý hoàn/đối chiếu tiền trước khi hủy dự thảo.' };
+    }
     const nowStr = new Date().toISOString();
     const userName = currentUser?.fullName || 'Nguyễn Văn An (Chủ nhà)';
 
@@ -3085,8 +3130,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (signedRoom.status === 'Trống' && conflict) {
       return { success: false, message: 'Phòng đã có hợp đồng đã ký chờ nhận phòng. Vui lòng mở hợp đồng đó để xử lý.' };
     }
-    if (!tenants.some(t => t.id === contract.tenantId)) {
-      return { success: false, message: 'Chưa có hồ sơ khách thuê tương ứng với hợp đồng. Vui lòng liên kết đúng khách trước khi ký.' };
+    const binding = validateContractTenantLink(contract, tenants);
+    if (!binding.valid) {
+      return { success: false, message: binding.message || 'Hồ sơ khách chưa khớp hợp đồng.' };
+    }
+    if (binding.tenant?.verificationStatus === 'Không hợp lệ') {
+      return { success: false, message: 'Hồ sơ khách có kết quả xác minh không hợp lệ, không thể ghi nhận ký hợp đồng.' };
+    }
+
+    if (!signedDate || Number.isNaN(Date.parse(signedDate)) || !/^\d{4}-\d{2}-\d{2}$/.test(signedDate) ||
+        new Date(signedDate).toISOString().slice(0, 10) !== signedDate ||
+        signedDate > new Date().toISOString().slice(0, 10) ||
+        !proofFiles.some(f => f.trim())) {
+      return { success: false, message: 'Vui lòng nhập ngày ký và thông tin bản hợp đồng giấy đã ký.' };
+    }
+    const paymentStatus = getInitialPaymentStatus(contract, contracts, initialPaymentRecords, signedDate);
+    if (!paymentStatus.valid) {
+      return { success: false, message: `Không thể ghi nhận ký hợp đồng: ${paymentStatus.message}` };
     }
 
     const nowStr = new Date().toISOString();
@@ -3174,7 +3234,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setRooms(prev => prev.map(r => r.roomCode === contract.roomCode ? {
         ...r,
         pendingContractId: contract.id,
-        pendingLeaseId: contract.leaseId
+        pendingLeaseId: contract.leaseId,
+        // Remain vacant: tenant is linked through the pending signed contract,
+        // never marked as a resident before the check-in confirmation.
+        currentTenantId: undefined,
+        currentTenantName: undefined,
+        totalOccupants: 0
       } : r));
     }
 
@@ -3261,6 +3326,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, message: 'Không thể kích hoạt hợp đồng nối tiếp: phòng chưa có lần thuê và biên bản nhận phòng đã xác nhận liên kết với hợp đồng trước.' };
     }
 
+    const initialPaymentStatus = getInitialPaymentStatus(contract, contracts, initialPaymentRecords);
+    if (!initialPaymentStatus.valid) {
+      return { success: false, message: `Không thể ký hợp đồng nối tiếp: ${initialPaymentStatus.message}` };
+    }
+    if (!signedDate || Number.isNaN(Date.parse(signedDate)) || signedDate > new Date().toISOString().slice(0, 10) ||
+        !proofFiles.some(f => f.trim())) {
+      return { success: false, message: 'Cần có ngày ký thực tế và chứng cứ hợp đồng nối tiếp đã ký.' };
+    }
     const nowStr = new Date().toISOString();
     const userName = currentUser?.fullName || 'Nguyễn Văn An (Chủ nhà)';
 

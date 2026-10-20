@@ -58,7 +58,7 @@ const MainAppContent: React.FC = () => {
 
           {currentTab === 'tenants' && <TenantsView initialTenantId={target.tenantId} initialRoomCode={target.roomCode} initialLeaseId={target.leaseId} />}
 
-          {currentTab === 'contracts' && <ContractsView initialContractId={target.contractId} initialRoomCode={target.roomCode} initialLeaseId={target.leaseId} initialAction={target.action} onBackToRooms={(roomCode) => navigate('rooms', {roomCode})} />}
+          {currentTab === 'contracts' && <ContractsView initialContractId={target.contractId} initialRoomCode={target.roomCode} initialLeaseId={target.leaseId} initialAction={target.action} onBackToRooms={(roomCode) => navigate('rooms', {roomCode})} onOpenTenant={(record) => navigate('tenants', record)} />}
 
           {currentTab === 'billing' && (
             <BillingView />

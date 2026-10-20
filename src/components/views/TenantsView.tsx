@@ -116,6 +116,7 @@ export const TenantsView: React.FC<{initialTenantId?: string; initialRoomCode?: 
                 ['Kết quả xác minh',selectedTenant.verificationStatus],
                 ['Phòng (theo hợp đồng)',latestContract?.roomCode || 'Chưa có hợp đồng'],
                 ['Hợp đồng',latestContract?.id || 'Chưa có'],
+                ['Liên kết ký hợp đồng', latestContract?.isSignedPaper ? (!latestContract.actualCheckInDate ? 'Đã ký – chờ nhận phòng' : 'Đã ký – đã nhận phòng') : latestContract ? 'Chưa ký hợp đồng' : 'Chưa có hợp đồng'],
                 ['Trạng thái hợp đồng',latestContract?.status || 'Chưa có'],
                 ['Số người đang ở tại phòng',currentOccupancy?.total === null ? 'Chưa xác định (thiếu liên kết hồ sơ)' : currentOccupancy ? `${currentOccupancy.total} người (1 khách chính + ${activeCoTenantCount} người ở cùng)` : 'Không có lần thuê đang cư trú'],
                 ['Ghi chú',selectedTenant.notes || '—'],

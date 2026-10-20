@@ -1,3 +1,4 @@
+import { getInitialPaymentStatus } from '../../utils/initialPayments';
 import { toUserMessage } from '../../utils/userMessages';
 import { resolveRoomContract, resolveRoomTenantId, getLeaseContractChain, getConfirmedRoomHandover } from '../../utils/roomLinks';
 import { getRoomOccupancy } from '../../utils/occupancy';
@@ -494,9 +495,8 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
     !getConfirmedRoomHandover(relatedContract, contracts, handoverReports));
   const relatedSettlement = relatedContract ? settlementSlips.find(s => s.roomCode === relatedContract.roomCode &&
     s.leaseId === relatedContract.leaseId) : undefined;
-  const relatedInitialPayment = selectedRoom && relatedContract ? initialPaymentRecords.find(p =>
-    p.roomCode === selectedRoom.roomCode && p.leaseId === relatedContract.leaseId &&
-    p.contractId === relatedContract.id) : undefined;
+  const relatedPaymentStatus = getInitialPaymentStatus(relatedContract, contracts, initialPaymentRecords);
+  const relatedInitialPayment = relatedPaymentStatus.payment;
 
 
   return (
@@ -744,9 +744,9 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                                   {Boolean(getActiveRoomContract(room)) && <button
                                     onClick={() => { setSelectedRoom(room); setShowPayment07Modal(true); }}
                                     className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded text-[11px] font-semibold transition-colors cursor-pointer"
-                                    title="Ghi nhận cọc 1 tháng & thuê đầu 1 tháng "
+                                    title="Chỉ đối chiếu và ghi nhận tiền đã chuyển ngoài hệ thống; không thực hiện thanh toán ở website"
                                   >
-                                    Thu cọc/thuê </button>}
+                                    Đối chiếu cọc/thuê </button>}
                                   {Boolean(getActiveRoomContract(room)) && <button
                                     onClick={() => { setSelectedRoom(room); setActiveCheckInRoomCode(room.roomCode); setCheckInStage(0); setSubTab('checkin'); }}
                                     className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded text-[11px] font-semibold transition-colors cursor-pointer flex items-center gap-1"
@@ -793,13 +793,12 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
       {subTab === 'checkin' && (() => {
         const room = rooms.find(r => r.roomCode === activeCheckInRoomCode);
         const contract = room && getActiveRoomContract(room);
-        const payment = room && contract && initialPaymentRecords.find(p => p.leaseId === contract.leaseId &&
-          p.contractId === contract.id && p.roomCode === room.roomCode);
+        const paymentCheck = getInitialPaymentStatus(contract, contracts, initialPaymentRecords);
+        const payment = paymentCheck.payment;
         const report = room && contract && handoverReports.find(h => h.roomCode === room.roomCode &&
           h.leaseId === contract.leaseId && h.contractId === contract.id);
         const contractValid = !!contract && !!contract.isSignedPaper && ['Hiệu lực', 'Đã ký', 'Chờ hiệu lực'].includes(contract.status);
-        const paymentsValid = !!(room?.hasDeposit && room?.firstMonthRentPaid && contract?.firstMonthRentPaid && payment &&
-          payment.depositAmount === contract.depositAmount && payment.firstMonthRentAmount === contract.monthlyRent);
+        const paymentsValid = paymentCheck.valid;
         const handoverValid = !!report && report.status === 'Đã xác nhận' && report.tenantSignedPaper === 'Đã ký giấy' && report.ownerSignedPaper === 'Đã ký giấy';
         const btn = 'rounded-lg px-4 py-2 text-sm font-semibold transition-colors';
         return <div className="space-y-4">
@@ -815,7 +814,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
               <div><h3 className="font-semibold text-lg">Kiểm tra hợp đồng và khoản thu ban đầu</h3><p className="text-sm text-slate-500 mt-1">Chỉ tiếp tục khi hợp đồng đã ký và các khoản cần thu đã được xác nhận.</p></div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                 <div className="border rounded-xl p-4"><div className="text-slate-500">Hợp đồng</div><div className="font-semibold mt-1">{contract?.id || 'Chưa có hợp đồng'}</div><p className={contractValid?'text-emerald-700 mt-2':'text-red-700 mt-2'}>{contractValid?'Đã ký hợp lệ':'Chưa đáp ứng điều kiện'}</p></div>
-                <div className="border rounded-xl p-4"><div className="text-slate-500">Tiền cọc và tiền thuê đầu</div><div className="font-semibold mt-1">{payment ? `${payment.depositAmount.toLocaleString('vi-VN')}đ tiền cọc` : 'Chưa có chứng từ hợp lệ'}</div><p className={paymentsValid?'text-emerald-700 mt-2':'text-red-700 mt-2'}>{paymentsValid?'Đã xác nhận thu đủ':'Chưa xác nhận đầy đủ'}</p></div>
+                <div className="border rounded-xl p-4"><div className="text-slate-500">Tiền cọc và tiền thuê đầu</div><div className="font-semibold mt-1">{payment ? `${payment.depositAmount.toLocaleString('vi-VN')} đ cọc + ${payment.firstMonthRentAmount.toLocaleString('vi-VN')} đ tiền thuê kỳ đầu` : paymentCheck.message}</div><p className={paymentsValid?'text-emerald-700 mt-2':'text-red-700 mt-2'}>{paymentsValid?'Đã xác nhận thu đủ':'Chưa xác nhận đầy đủ'}</p></div>
               </div>
               <div className="flex flex-wrap gap-2 justify-end">
                 <button className={`${btn} border border-slate-300 text-slate-700`} onClick={()=>{setSelectedRoom(room);setShowPayment07Modal(true)}}>Xem / ghi nhận khoản thu</button>
@@ -990,8 +989,9 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                   <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-100">
                     <span className="text-slate-500 block text-[11px]">{selectedRoom.status === 'Trống' ? 'Khách theo hợp đồng (chưa nhận phòng):' : 'Khách đang thuê:'}</span>
                     <span className="font-bold text-slate-900 text-sm">
-                      {relatedTenant?.fullName || <span className="text-slate-400 font-normal italic">Chưa có hồ sơ khách liên kết</span>}
+                      {relatedTenant?.fullName || <span className="text-red-600 font-semibold italic">{relatedContract?.isSignedPaper ? 'Lỗi: hợp đồng đã ký chưa có hồ sơ khách phù hợp' : 'Chưa có hồ sơ khách liên kết'}</span>}
                     </span>
+                    {relatedTenant && relatedContract?.isSignedPaper && <span className="block text-[11px] text-blue-700 font-semibold mt-1">Hồ sơ {relatedTenant.id} · Hợp đồng {relatedContract.id} · {selectedRoom.status === 'Trống' ? 'Đã ký – chờ nhận phòng' : 'Đang cư trú'}</span>}
                   </div>
                   <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-100">
                     <span className="text-slate-500 block text-[11px]">Số người ở (Tổng số người):</span>
@@ -1149,6 +1149,11 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                 </div>
               </div>}
 
+              {relatedContract?.isSignedPaper && !relatedPaymentStatus.valid && (
+                <div role="alert" className="rounded-xl border border-red-300 bg-red-50 p-3 text-xs text-red-800 font-semibold">
+                  Phòng có hợp đồng đã ký nhưng chứng từ cọc và tiền thuê kỳ đầu chưa hợp lệ: {relatedPaymentStatus.message}. Cần đối chiếu trước khi nhận phòng.
+                </div>
+              )}
               {/* Payment data must be from the current signed lease. */}
               {relatedContract && <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
                 <div className="flex items-center justify-between">
@@ -2332,7 +2337,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                   <div>
                     <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-800"></span>
                     <h3 className="font-bold text-slate-900 text-base">
-                      Ghi nhận hoàn tất 1 tháng tiền cọc và 1 tháng tiền thuê đầu </h3>
+                      Đối chiếu tiền cọc và tiền thuê đầu đã nhận </h3>
                   </div>
                 </div>
                 <button
@@ -2359,10 +2364,10 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                 </div>
               ): (
                 <>
-                  {/* Biểu mẫu Thanh toán ban đầu */}
+                  {/* Biểu mẫu ghi nhận giao dịch thực tế đã hoàn tất ngoài hệ thống */}
                   <div className="p-3.5 bg-blue-50/80 border border-blue-200 rounded-xl space-y-2 text-slate-700">
                     <div className="flex justify-between items-center text-blue-950 font-bold border-b border-blue-200/60 pb-1.5">
-                      <span>Thông tin đối chiếu thanh toán:</span>
+                      <span>Thông tin đối chiếu giao dịch bên ngoài hệ thống:</span>
                       <span className="font-mono">Phòng: {selectedRoom.roomCode}</span>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-[11px]">
@@ -2371,7 +2376,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                       <div>Tiền cọc 1 tháng: <strong className="text-indigo-800">{depositAmt.toLocaleString('vi-VN')} đ</strong></div>
                       <div>Tiền thuê kỳ đầu 1 tháng: <strong className="text-blue-800">{rentAmt.toLocaleString('vi-VN')} đ</strong></div>
                       <div className="col-span-2 pt-1 border-t border-blue-200 flex justify-between text-xs font-bold text-blue-900">
-                        <span>Tổng số tiền cần chuyển khoản:</span>
+                        <span>Tổng tiền cần đối chiếu:</span>
                         <span>{totalReq.toLocaleString('vi-VN')} đ</span>
                       </div>
                     </div>
@@ -2381,6 +2386,10 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                       </div>
                     )}
                   </div>
+
+                  <p className="text-xs rounded-lg p-2 bg-amber-50 border border-amber-200 text-amber-900">
+                    Khoản cọc được chuyển ngoài hệ thống trực tiếp qua ngân hàng. Chức năng này chỉ ghi nhận chứng từ tiền đã nhận và đối chiếu, không tạo giao dịch chuyển tiền hoặc thu tiền qua website.
+                  </p>
 
                   {/* Chế độ đính chính thông tin chứng cứ */}
                   {pay07CorrectionMode ? (
@@ -2588,7 +2597,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                     }}
                     className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold cursor-pointer shadow-xs"
                   >
-                    Xác nhận đã thu đủ </button>
+                    Lưu đối chiếu đã nhận đủ </button>
                 )}
               </div>
             </div>
@@ -2609,11 +2618,11 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
 
         const depositCriteria: 'Đạt' | 'Chưa đạt' | 'Chưa xác minh' =
           checkInSimulateEF01 ? 'Chưa xác minh':
-          selectedRoom.hasDeposit ? 'Đạt': 'Chưa đạt';
+          getInitialPaymentStatus(targetContract, contracts, initialPaymentRecords).valid ? 'Đạt': 'Chưa đạt';
 
         const rentCriteria: 'Đạt' | 'Chưa đạt' | 'Chưa xác minh' =
           checkInSimulateEF01 ? 'Chưa xác minh':
-          selectedRoom.firstMonthRentPaid ? 'Đạt': 'Chưa đạt';
+          getInitialPaymentStatus(targetContract, contracts, initialPaymentRecords).valid ? 'Đạt': 'Chưa đạt';
 
         const handoverCriteria: 'Đạt' | 'Chưa đạt' | 'Chưa xác minh' =
           checkInSimulateEF01 ? 'Chưa xác minh':

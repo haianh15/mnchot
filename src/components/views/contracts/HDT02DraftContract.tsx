@@ -31,7 +31,7 @@ export const HDT02DraftContract: React.FC<HDT02Props> = ({
 
   const [selectedConditionId, setSelectedConditionId] = useState<string>(initialCondition?.id || '');
   const [selectedRoomCode, setSelectedRoomCode] = useState<string>(initialCondition?.roomCode || rooms[0]?.roomCode || 'P.103');
-  const [selectedTenantId, setSelectedTenantId] = useState<string>(initialCondition?.tenantId || tenants[0]?.id || '');
+  const [selectedTenantId, setSelectedTenantId] = useState<string>(initialCondition?.tenantId || '');
   const [selectedBatchCode, setSelectedBatchCode] = useState<string>(initialCondition?.batchCode || batchSchedules[0]?.batchCode || 'DOT-2026-K10');
   const [startDate, setStartDate] = useState<string>(initialCondition?.startDate || batchSchedules[0]?.startDate || '2026-10-01');
   const [endDate, setEndDate] = useState<string>(initialCondition?.endDate || batchSchedules[0]?.endDate || '2027-04-01');
@@ -54,9 +54,8 @@ export const HDT02DraftContract: React.FC<HDT02Props> = ({
     if (initialCondition) {
       setSelectedConditionId(initialCondition.id);
       setSelectedRoomCode(initialCondition.roomCode);
-      if (initialCondition.tenantId) {
-        setSelectedTenantId(initialCondition.tenantId);
-      }
+      // Không lấy lại khách đã chọn từ điều kiện/hợp đồng trước.
+      setSelectedTenantId(initialCondition.tenantId || '');
       setSelectedBatchCode(initialCondition.batchCode);
       setStartDate(initialCondition.startDate);
       setEndDate(initialCondition.endDate);
@@ -70,7 +69,7 @@ export const HDT02DraftContract: React.FC<HDT02Props> = ({
     const cond = leaseConditions.find(c => c.id === condId);
     if (cond) {
       setSelectedRoomCode(cond.roomCode);
-      if (cond.tenantId) setSelectedTenantId(cond.tenantId);
+      setSelectedTenantId(cond.tenantId || '');
       setSelectedBatchCode(cond.batchCode);
       setStartDate(cond.startDate);
       setEndDate(cond.endDate);
@@ -252,6 +251,7 @@ export const HDT02DraftContract: React.FC<HDT02Props> = ({
                   onChange={(e) => setSelectedTenantId(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg font-medium"
                 >
+                  <option value="">-- Chọn hồ sơ khách thuê trước khi lập hợp đồng --</option>
                   {tenants.map(t => (
                     <option key={t.id} value={t.id}>
                       {t.fullName} ({t.id}) {t.isPreliminary ? '[Sơ bộ]' : ''}

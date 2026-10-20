@@ -9,6 +9,7 @@ import { HDT01LeaseConditions } from './contracts/HDT01LeaseConditions';
 import { HDT02DraftContract } from './contracts/HDT02DraftContract';
 import { HDT03SendAndNegotiate } from './contracts/HDT03SendAndNegotiate';
 import { HDT04ReceiveSignedContract } from './contracts/HDT04ReceiveSignedContract';
+import { getInitialPaymentStatus } from '../../utils/initialPayments';
 import { HDT05BatchSchedules } from './contracts/HDT05BatchSchedules';
 import { HDT05ContractExpiry } from './contracts/HDT05ContractExpiry';
 import { ContractReturnTracking } from './contracts/ContractReturnTracking';
@@ -31,7 +32,7 @@ export type ContractTabKey =
   | 'renewal'
   | 'activate';
 
-export const ContractsView: React.FC<{initialContractId?: string; initialRoomCode?: string; initialAction?: 'create' | 'return-plans'; initialLeaseId?: string; onBackToRooms?: (roomCode: string) => void}> = ({initialContractId, initialRoomCode, initialAction, initialLeaseId, onBackToRooms}) => {
+export const ContractsView: React.FC<{initialContractId?: string; initialRoomCode?: string; initialAction?: 'create' | 'return-plans'; initialLeaseId?: string; onBackToRooms?: (roomCode: string) => void; onOpenTenant?: (target: {tenantId: string; roomCode: string; leaseId: string; contractId: string}) => void}> = ({initialContractId, initialRoomCode, initialAction, initialLeaseId, onBackToRooms, onOpenTenant}) => {
   const {
     contracts,
     leaseConditions,
@@ -96,7 +97,8 @@ export const ContractsView: React.FC<{initialContractId?: string; initialRoomCod
     [c.id, c.roomCode, c.tenantName].join(' ').toLowerCase().includes(searchContract.toLowerCase()) &&
     (settlementFilter === 'all' || requiresDepositSettlement(c, contracts, returnInspections, settlementSlips))
   );
-  const firstPayment = initialPaymentRecords.find(r => r.leaseId === selectedContract?.leaseId && r.roomCode === selectedContract?.roomCode);
+  const initialPaymentStatus = getInitialPaymentStatus(selectedContract, contracts, initialPaymentRecords);
+  const firstPayment = initialPaymentStatus.payment;
   const hasReturnConfirmation = returnInspections.some(i => i.leaseId === selectedContract?.leaseId && i.roomCode === selectedContract?.roomCode && i.step304Status === 'Đã nhận lại' && i.step305Confirmed);
   const hasCurrentReturnPlan = !!selectedContract && rooms.some(room =>
     room.roomCode === selectedContract.roomCode && room.status !== 'Trống' &&
@@ -176,7 +178,21 @@ export const ContractsView: React.FC<{initialContractId?: string; initialRoomCod
               {!largeContractOpen && <ContractDocument contract={selectedContract} tenant={selectedTenant} room={selectedRoom} />}
               <div className="rounded-lg bg-slate-50 p-3 border text-sm">
                 <p><span className="text-slate-500">Tình trạng ký bản giấy:</span> <strong>{selectedContract.isSignedPaper ? 'Đã ghi nhận ký' : 'Chưa ghi nhận ký'}</strong></p>
-                <p><span className="text-slate-500">Cọc gốc đã xác nhận:</span> {firstPayment ? `${firstPayment.depositAmount.toLocaleString('vi-VN')}đ` : 'Chưa có chứng từ thanh toán ban đầu'}</p>
+                <div className="mt-2 p-3 rounded-lg border border-blue-200 bg-blue-50 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-blue-900">Hồ sơ khách đứng tên hợp đồng</p>
+                    {selectedTenant ? <>
+                      <p className="font-medium text-slate-900">{selectedTenant.fullName} · {selectedTenant.id}</p>
+                      <p className="text-xs text-slate-600">{selectedContract.isSignedPaper ? (selectedContract.actualCheckInDate ? 'Đã ký hợp đồng và đã nhận phòng' : 'Đã ký hợp đồng – chưa nhận phòng') : 'Đã chọn hồ sơ cho dự thảo, chưa ghi nhận ký'}</p>
+                    </> : <p role="alert" className="text-sm text-red-700 font-semibold">Thiếu hồ sơ khách được liên kết. Cần đối chiếu lại hợp đồng, không tự tạo hồ sơ hoặc ghép sang khách khác.</p>}
+                  </div>
+                  {selectedTenant && onOpenTenant && <button type="button" className="bg-blue-600 text-white rounded-lg px-3 py-2 text-xs font-semibold" onClick={() => onOpenTenant({tenantId: selectedTenant.id, roomCode: selectedContract.roomCode, leaseId: selectedContract.leaseId, contractId: selectedContract.id})}>Xem hồ sơ khách thuê</button>}
+                </div>
+                <p><span className="text-slate-500">Tiền cọc đã đóng:</span> {firstPayment ? `${firstPayment.depositAmount.toLocaleString('vi-VN')} đ` : 'Chưa có chứng từ hợp lệ'}</p>
+                <p><span className="text-slate-500">Tiền thuê kỳ đầu đã đóng:</span> {firstPayment ? `${firstPayment.firstMonthRentAmount.toLocaleString('vi-VN')} đ · ${firstPayment.rentPeriodNote}` : 'Chưa có chứng từ hợp lệ'}</p>
+                {firstPayment && <p><span className="text-slate-500">Ngày và mã giao dịch:</span> {firstPayment.receivedDate} · {firstPayment.transactionCode}</p>}
+                {!initialPaymentStatus.valid && selectedContract.isSignedPaper && <p role="alert" className="text-red-700 font-semibold rounded-lg border border-red-200 bg-red-50 p-2">Hợp đồng đã ký nhưng thiếu chứng từ thanh toán hợp lệ: {initialPaymentStatus.message}. Cần đối chiếu hồ sơ cũ, không tự đánh dấu Đã thu.</p>}
+                {!initialPaymentStatus.valid && !selectedContract.isSignedPaper && <p className="text-amber-700 font-medium">Khách thanh toán ngoài hệ thống. Chủ nhà cần đối chiếu và ghi nhận cọc cùng tiền thuê kỳ đầu đã thực nhận trước khi ghi nhận ký hợp đồng.</p>}
                 {!!selectedContract.signedProofFiles?.length && <p><span className="text-slate-500">Tên tệp chứng cứ ký được ghi nhận:</span> {selectedContract.signedProofFiles.join(', ')}</p>}
               </div>
               <div className="rounded-xl border border-slate-200 p-3 bg-slate-50 space-y-2">
