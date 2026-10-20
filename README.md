@@ -31,3 +31,9 @@ Các tên, mã Use Case, mã quy tắc và ghi chú đặc tả chỉ phục v�
 ## Cập nhật 19/10 – Theo dõi trả phòng
 
 Danh sách theo dõi trả phòng đã chuyển vào **Quản lý hợp đồng**; Quản lý phòng chỉ giữ các thao tác chi tiết phòng, không có danh sách trùng. Xem `BAO_CAO_CHUYEN_THEO_DOI_TRA_PHONG.md`. Chạy `npm run test:returns` để kiểm tra liên kết.
+
+## Cập nhật luồng phòng – bàn giao (20/10/2026)
+
+Xem `BAO_CAO_SUA_LUONG_PHONG_BAN_GIAO_20_10_2026.md` để biết các sửa lỗi liên kết đúng hợp đồng/lần thuê, chứng cứ kiểm kê và trả phòng, đồng bộ quyết toán cọc. Chạy `npm run test:handover` để thực hiện các bài kiểm tra hồi quy sau khi cài dependencies.
+
+**Giới hạn:** dự án là bản demo dùng localStorage. Không sử dụng như hệ thống thanh toán/hồ sơ nghiệp vụ thật trước khi hoàn thiện backend, sao lưu và kiểm thử end-to-end.

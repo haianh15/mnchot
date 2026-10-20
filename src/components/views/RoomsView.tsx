@@ -235,7 +235,6 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
 
   // Return Check 08 Form ()
   const [returnChecked, setReturnChecked] = useState(false);
-  const [returnSimulateEF01, setReturnSimulateEF01] = useState(false);
   const [returnSimulateAF05, setReturnSimulateAF05] = useState(false);
   const [returnActualDate, setReturnActualDate] = useState(() => new Date().toLocaleDateString('en-CA'));
 
@@ -1985,15 +1984,6 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                         Người thực hiện: <strong className="text-slate-900">{currentUser?.fullName}</strong> ({currentUser?.role}) · Phiên hợp lệ </span>
                     </div>
                     {/* Toggle mô phỏng Exception Flow */}
-                    <label className="hidden flex items-center gap-1.5 text-slate-500 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={simulateEF01}
-                        onChange={(e) => setSimulateEF01(e.target.checked)}
-                        className="rounded border-slate-300 text-red-600 focus:ring-red-500"
-                      />
-                      <span className="text-[10px] font-medium text-slate-600">Mô phỏng lỗi tải </span>
-                    </label>
                   </div>
                 )}
 
@@ -3300,8 +3290,8 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
         const inspection = returnInspections.find(i => i.roomCode === selectedRoom.roomCode && i.leaseId === selectedRoom.currentLeaseId);
         
         // Mô phỏng kiểm thử
-        const step304Val = returnSimulateEF01 ? 'Chưa nhận lại': (inspection?.step304Status || 'Đã nhận lại');
-        const step305Val = returnSimulateEF01 ? false: (inspection?.step305Confirmed ?? true);
+        const step304Val = inspection?.step304Status || 'Chưa có kết quả';
+        const step305Val = Boolean(inspection?.step305Confirmed);
         const canVacate = step304Val === 'Đã nhận lại' && step305Val;
 
         return (
@@ -3484,15 +3474,6 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                     className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-blue-700 rounded text-xs font-medium cursor-pointer"
                   >
                     Xem hồ sơ bàn giao </button>
-                  <label className="hidden flex items-center gap-1 text-[11px] text-slate-500 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={returnSimulateEF01}
-                      onChange={(e) => setReturnSimulateEF01(e.target.checked)}
-                      className="rounded border-slate-300"
-                    />
-                    <span>Mô phỏng chưa nhận lại</span>
-                  </label>
                 </div>
 
                 <div className="flex items-center gap-2">

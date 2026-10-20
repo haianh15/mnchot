@@ -43,8 +43,10 @@ export function getLeaseContractChain(contract: Contract | undefined, contracts:
   while (cursor && !visited.has(cursor.id)) {
     chain.push(cursor);
     visited.add(cursor.id);
-    cursor = cursor.previousContractId
-      ? contracts.find(c => c.id === cursor!.previousContractId && c.roomCode === contract.roomCode)
+    cursor = cursor.previousContractId && cursor.contractType === 'Hợp đồng nối tiếp'
+      ? contracts.find(c => c.id === cursor!.previousContractId &&
+          c.roomCode === contract.roomCode && c.leaseId === contract.leaseId &&
+          c.id !== cursor!.id && c.isSignedPaper && c.contractType)
       : undefined;
   }
   return chain;

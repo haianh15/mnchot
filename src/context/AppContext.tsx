@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getConfirmedRoomHandover } from '../utils/roomLinks';
+import { hasValidHandoverSource, validateReturnConfirmation } from '../utils/handoverValidation';
 import {
   UserAccount,
   AuthSession,
@@ -190,13 +191,13 @@ interface AppContextType {
   returnInspections: ReturnInspection[];
   assetComparisonResults: AssetComparisonResult[];
   handoverReturnReports: HandoverReturnReport[];
-  saveInventoryBG01: (record: InventoryRecord) => void;
+  saveInventoryBG01: (record: InventoryRecord) => { success: boolean; message: string };
   saveHandoverConditionBG02: (condition: HandoverCondition) => { success: boolean; message: string };
   saveHandoverReportBG03: (report: HandoverReport) => void;
   confirmHandoverSignaturesBG03: (reportId: string, tenantSigned: boolean, ownerSigned: boolean, paperLocation?: string, scanUrl?: string) => void;
   recordIncidentBG04: (incident: AssetIncident) => void;
-  recordReturnInspectionBG09: (inspection: ReturnInspection) => void;
-  confirmReturnInspectionStep305: (roomCode: string, leaseId: string, evidence: string, photos?: string[], videoUrl?: string) => void;
+  recordReturnInspectionBG09: (inspection: ReturnInspection) => { success: boolean; message: string };
+  confirmReturnInspectionStep305: (roomCode: string, leaseId: string, evidence: string, photos?: string[], videoUrl?: string) => { success: boolean; message: string };
   correctReturnInspectionStep305: (roomCode: string, leaseId: string, newStatus: 'Đã nhận lại' | 'Chưa nhận lại', reason: string, evidence: string) => void;
   saveAssetComparisonResultBG07: (result: AssetComparisonResult) => void;
   initHandoverReturnReportDraftBG08: (report: HandoverReturnReport) => { success: boolean; message: string; report: HandoverReturnReport };
@@ -210,7 +211,7 @@ interface AppContextType {
     depositTrackingStatus: '5.8 hợp lệ – Đã thống nhất' | 'Chưa có 5.8/Chờ quyết toán' | 'Chưa thống nhất – Chờ xác nhận của khách' | 'Tranh chấp – Chờ xử lý' | 'Cần rà soát phiên bản';
     depositTrackingReason?: string;
   }) => void;
-  saveHandoverReturnReportBG11: (report: HandoverReturnReport) => void;
+  saveHandoverReturnReportBG11: (report: HandoverReturnReport) => { success: boolean; message: string };
   confirmFinalReturnReportBG11: (reportId: string, tenantSignedStatus: 'Khách đã ký' | 'Khách không ký', notSignReason?: string, notSignExchangeInfo?: string, paperLocation?: string, scanUrl?: string) => { success: boolean; message: string };
 
   // Tenants (QT03 - UC-HSKT-01 -> 05)
@@ -1610,10 +1611,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   };
 
+  // Never save one room's real paperwork against another contract/lease.
+  const verifyHandoverSource = (roomCode: string, leaseId?: string, contractId?: string) => {
+    return hasValidHandoverSource(rooms, contracts, roomCode, leaseId, contractId);
+  };
+
   // ==================== HANDOVER & ASSETS METHODS (QT02) ====================
   const saveInventoryBG01 = (record: InventoryRecord) => {
+    if (!verifyHandoverSource(record.roomCode, record.linkedLeaseId, record.linkedContractId))
+      return { success: false, message: 'Cần chọn hợp đồng đã ký đúng phòng và lần thuê trước khi lưu kiểm kê.' };
     setInventoryRecords(prev => {
-      const idx = prev.findIndex(r => r.roomCode === record.roomCode && r.expectedBatchCode === record.expectedBatchCode);
+      const idx = prev.findIndex(r => r.roomCode === record.roomCode &&
+        r.linkedLeaseId === record.linkedLeaseId && r.linkedContractId === record.linkedContractId);
       if (idx >= 0) {
         const updated = [...prev];
         updated[idx] = record;
@@ -1622,11 +1631,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return [record, ...prev];
     });
     logSecurity('INVENTORY_SAVED', `Room ${record.roomCode} inventory saved. Status: ${record.inventoryStatus}`);
+    return { success: true, message: 'Đã lưu kiểm kê đúng phòng và lần thuê.' };
   };
 
   const saveHandoverConditionBG02 = (condition: HandoverCondition) => {
+    if (!verifyHandoverSource(condition.roomCode, condition.linkedLeaseId, condition.linkedContractId))
+      return { success: false, message: 'Cần chọn hợp đồng đã ký đúng phòng và lần thuê trước khi lưu hiện trạng.' };
     setHandoverConditions(prev => {
-      const idx = prev.findIndex(c => c.id === condition.id || (c.roomCode === condition.roomCode && c.scope === condition.scope && c.assetName === condition.assetName));
+      const idx = prev.findIndex(c => c.roomCode === condition.roomCode &&
+        c.linkedLeaseId === condition.linkedLeaseId && c.linkedContractId === condition.linkedContractId &&
+        c.scope === condition.scope && c.assetName === condition.assetName);
       if (idx >= 0) {
         const updated = [...prev];
         updated[idx] = condition;
@@ -1679,8 +1693,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const recordReturnInspectionBG09 = (inspection: ReturnInspection) => {
+    if (!verifyHandoverSource(inspection.roomCode, inspection.leaseId, inspection.contractId))
+      return { success: false, message: 'Biên bản nhận lại phải gắn với hợp đồng đã ký đúng phòng/lần thuê.' };
+    const room = rooms.find(r => r.roomCode === inspection.roomCode);
+    if (room?.currentLeaseId !== inspection.leaseId)
+      return { success: false, message: 'Không thể lập kết quả trả phòng cho lần thuê không còn hiện hành.' };
+    const prior = returnInspections.find(i => i.roomCode === inspection.roomCode && i.leaseId === inspection.leaseId);
+    if (prior?.step305Confirmed)
+      return { success: false, message: 'Kết quả đã xác nhận. Muốn sửa phải dùng chức năng đính chính.' };
     setReturnInspections(prev => {
-      const idx = prev.findIndex(i => i.id === inspection.id);
+      const idx = prev.findIndex(i => i.roomCode === inspection.roomCode && i.leaseId === inspection.leaseId);
       if (idx >= 0) {
         const updated = [...prev];
         updated[idx] = inspection;
@@ -1688,6 +1710,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       return [inspection, ...prev];
     });
+    return { success: true, message: 'Đã lưu kết quả kiểm tra nhận lại phòng.' };
   };
 
   const confirmReturnInspectionStep305 = (
@@ -1697,6 +1720,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     photos?: string[],
     videoUrl?: string
   ) => {
+    const inspection = returnInspections.find(i => i.roomCode === roomCode && i.leaseId === leaseId);
+    const room = rooms.find(r => r.roomCode === roomCode);
+    if (!inspection || !verifyHandoverSource(roomCode, leaseId, inspection.contractId) || room?.currentLeaseId !== leaseId)
+      return { success: false, message: 'Chưa có hồ sơ kiểm tra đã lưu cho đúng phòng và lần thuê.' };
+    const validationError = validateReturnConfirmation(inspection, evidence);
+    if (validationError) return { success: false, message: validationError };
     setReturnInspections(prev => prev.map(i => {
       if (i.roomCode === roomCode && i.leaseId === leaseId) {
         return {
@@ -1715,6 +1744,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return i;
     }));
     logSecurity('BG09_STEP305_CONFIRMED', `Handover return confirmed 3.05 for room ${roomCode}`);
+    return { success: true, message: 'Đã xác nhận nhận lại phòng theo hồ sơ kiểm tra đã lưu.' };
   };
 
   const correctReturnInspectionStep305 = (
@@ -1757,6 +1787,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const initHandoverReturnReportDraftBG08 = (report: HandoverReturnReport) => {
+    if (!verifyHandoverSource(report.roomCode, report.leaseId, report.contractId) ||
+        rooms.find(r => r.roomCode === report.roomCode)?.currentLeaseId !== report.leaseId)
+      return { success: false, message: 'Chỉ được lập biên bản trả phòng cho lần thuê đang ở thực tế.', report };
     const existing = handoverReturnReports.find(r => r.roomCode === report.roomCode && r.leaseId === report.leaseId);
     if (existing) {
       return { success: true, message: 'Đã có biên bản trả phòng hiện hành. Hệ thống mở lại biên bản hiện có (AF-01).', report: existing };
@@ -1784,6 +1817,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       depositTrackingReason?: string;
     }
   ) => {
+    const report = handoverReturnReports.find(r => r.id === reportId);
+    const slip = settlementSlips.find(s => s.id === settlementData.depositSettlementId &&
+      s.roomCode === report?.roomCode && s.leaseId === report?.leaseId &&
+      s.version === settlementData.depositSettlementVersion && !s.reviewRequired);
+    if (!report || !slip) return;
     setHandoverReturnReports(prev => prev.map(r => {
       if (r.id !== reportId) return r;
       return {
@@ -1802,6 +1840,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const saveHandoverReturnReportBG11 = (report: HandoverReturnReport) => {
+    if (!verifyHandoverSource(report.roomCode, report.leaseId, report.contractId))
+      return { success: false, message: 'Thiếu hợp đồng và lần thuê hợp lệ của biên bản trả phòng.' };
+    const prior = handoverReturnReports.find(r => r.roomCode === report.roomCode && r.leaseId === report.leaseId);
+    if (prior?.status === 'Đã xác nhận')
+      return { success: false, message: 'Biên bản đã xác nhận, không thể ghi đè bằng bản nháp.' };
+    if (report.status !== 'Nháp') {
+      const insp = returnInspections.find(i => i.roomCode === report.roomCode && i.leaseId === report.leaseId && i.step305Confirmed);
+      const comp = assetComparisonResults.find(r => r.roomCode === report.roomCode && r.leaseId === report.leaseId && !r.hasPendingWork);
+      const slip = settlementSlips.find(s => s.id === report.depositSettlementId && s.roomCode === report.roomCode &&
+        s.leaseId === report.leaseId && s.version === report.depositSettlementVersion && !s.reviewRequired &&
+        s.tenantFeedback === 'Đồng ý' && s.calculationStatus === 'Đã tính' &&
+        ['Khách đồng ý', 'Hoàn tất', 'Đã có 5.8 – chờ ký biên bản'].includes(s.status));
+      if (!insp || !comp || !slip) return { success: false, message: 'Cần xác nhận nhận lại, hoàn tất đối chiếu tài sản và đồng bộ quyết toán cọc đúng phiên bản.' };
+    }
     setHandoverReturnReports(prev => {
       const idx = prev.findIndex(r => r.id === report.id);
       if (idx >= 0) {
@@ -1811,6 +1863,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       return [report, ...prev];
     });
+    return { success: true, message: 'Đã lưu biên bản trả phòng hợp lệ.' };
   };
 
   const confirmFinalReturnReportBG11 = (
@@ -1824,8 +1877,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const target = handoverReturnReports.find(r => r.id === reportId);
     if (!target) return { success: false, message: 'Không tìm thấy biên bản trả phòng.' };
     if (target.status !== 'Đã lập') {
-      return { success: false, message: 'Biên bản phải ở trạng thái ĐÃ LẬP mới được xác nhận 3.24.' };
+      return { success: false, message: 'Biên bản phải ở trạng thái ĐÃ LẬP mới được xác nhận.' };
     }
+    const insp = returnInspections.find(i => i.roomCode === target.roomCode && i.leaseId === target.leaseId && i.step305Confirmed);
+    const comp = assetComparisonResults.find(r => r.roomCode === target.roomCode && r.leaseId === target.leaseId && !r.hasPendingWork);
+    const slip = settlementSlips.find(s => s.id === target.depositSettlementId && s.roomCode === target.roomCode && s.leaseId === target.leaseId &&
+      s.version === target.depositSettlementVersion && !s.reviewRequired && s.tenantFeedback === 'Đồng ý' &&
+      s.calculationStatus === 'Đã tính' && ['Khách đồng ý', 'Hoàn tất', 'Đã có 5.8 – chờ ký biên bản'].includes(s.status));
+    if (!insp || !comp || !slip || !(paperLocation || target.paperLocation)?.trim() ||
+      !(tenantSignedStatus === 'Khách đã ký' || (tenantSignedStatus === 'Khách không ký' && notSignReason?.trim())))
+      return { success: false, message: 'Thiếu đối chiếu, quyết toán cọc đúng phiên bản hoặc bằng chứng ký giấy.' };
     setHandoverReturnReports(prev => prev.map(r => {
       if (r.id !== reportId) return r;
       return {

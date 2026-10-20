@@ -10,7 +10,8 @@
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
     "test:links": "node tests/roomLinks.test.cjs",
-    "test:returns": "node tests/returnTracking.test.cjs"
+    "test:returns": "node tests/returnTracking.test.cjs",
+    "test:handover": "node tests/roomLinks.test.cjs && node tests/returnTracking.test.cjs && node tests/handoverIntegrity.test.cjs && node tests/handoverValidation.test.cjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
