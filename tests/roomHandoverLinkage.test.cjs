@@ -30,7 +30,7 @@ const report={id:'report1',reportNumber:'BB-P101-L1',roomCode:'P.101',leaseId:'L
 let passed=0;
 function check(label, fn) { fn(); passed++; console.log('PASS',label); }
 function scope(overrides={}) {
-  const base={rooms:[room],contracts:[original],initialPaymentRecords:[payment],inventoryRecords:[inventory],handoverConditions:[condition],handoverReports:[],assetComparisonResults:[],incidents:[], currentUser:{fullName:'Chủ nhà'},logSecurity:()=>{}};
+  const base={rooms:[room],contracts:[original],initialPaymentRecords:[payment],inventoryRecords:[inventory],handoverConditions:[condition],handoverReports:[],handoverReturnReports:[],assetComparisonResults:[],incidents:[], currentUser:{fullName:'Chủ nhà'},logSecurity:()=>{}};
   const ctx={...base,...overrides};
   ctx.verifyHandoverSource=(roomCode,leaseId,contractId)=>validSource(ctx.rooms,ctx.contracts,roomCode,leaseId,contractId);
   ctx.setHandoverReports=updater=>{ctx.handoverReports=updater(ctx.handoverReports)};
@@ -65,7 +65,8 @@ check('Phòng không có biên bản ký thật không được hoàn tất tr�
 });
 check('Trả phòng được ghi Trống đúng lần thuê sau khi có biên bản thật',()=>{
   const c=scope({handoverReports:[{...report,status:'Đã xác nhận',tenantSignedPaper:'Đã ký giấy',ownerSignedPaper:'Đã ký giấy'}],
-    returnInspections:[{id:'r1',roomCode:'P.101',contractId:'HD-1',leaseId:'L1',step304Status:'Đã nhận lại',step305Confirmed:true,inspectionDate:'2026-10-20'}],
+    returnInspections:[{id:'r1',roomCode:'P.101',contractId:'HD-1',leaseId:'L1',step304Status:'Đã nhận lại',step305Confirmed:true,assetsCheckedFully:true,inspectionDate:'2026-10-20'}],
+    handoverReturnReports:[{id:'ret1',roomCode:'P.101',contractId:'HD-1',leaseId:'L1',status:'Nháp'}],
     returnPlans:[],roomHistory:[]});
   c.getConfirmedRoomHandover=(contract,arr,reports)=> reports.find(r=>r.contractId===contract?.id && r.status==='Đã xác nhận');
   c.setRooms=updater=>{c.rooms=updater(c.rooms)};c.setReturnPlans=updater=>{c.returnPlans=updater(c.returnPlans)};

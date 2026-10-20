@@ -1502,10 +1502,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!inspection || inspection.step304Status !== 'Đã nhận lại') {
       return { success: false, message: 'EF-01: Chưa có kết quả nhận lại thực tế tại ASIS-02 bước 3.04 (3.04 != Đã nhận lại). Giữ trạng thái phòng hiện tại.' };
     }
-    if (!inspection.step305Confirmed) {
+    if (!inspection.step305Confirmed || !inspection.assetsCheckedFully) {
       return { success: false, message: 'EF-01: Kết quả 3.04 = Đã nhận lại nhưng chưa có xác nhận độc lập tại bước 3.05 của Chủ nhà (người xác nhận và thời điểm/bằng chứng). Vui lòng xác nhận 3.05 tại ASIS-02 trước khi cập nhật Trống (BR-UC.PH.08-01).' };
     }
 
+    // Phiếu có thể lập Nháp từ khi bắt đầu bàn giao; chỉ cho chuyển Trống
+    // sau khi kiểm tra tài sản và xác nhận đã nhận lại phòng thực tế.
+    if (!handoverReturnReports.some(r => r.roomCode === roomCode && r.leaseId === leaseId &&
+      r.contractId === occupiedContract?.id)) {
+      return { success: false, message: 'Bàn giao đã xác nhận nhưng chưa lập phiếu trả phòng. Vui lòng lập phiếu trả ở phân hệ Bàn giao trước khi cập nhật phòng Trống.' };
+    }
     const returnDate = actualReturnDate || inspection.inspectionDate || new Date().toISOString().split('T')[0];
     setRooms(prev => prev.map(r => r.roomCode === roomCode && r.currentLeaseId === leaseId ? {
       ...r,
@@ -1866,6 +1872,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const existing = handoverReturnReports.find(r => r.roomCode === report.roomCode && r.leaseId === report.leaseId);
     if (existing) {
       return { success: true, message: 'Đã có biên bản trả phòng hiện hành. Hệ thống mở lại biên bản hiện có (AF-01).', report: existing };
+    }
+    // Lập phiếu trả phòng ngay khi bắt đầu bàn giao trả; chưa cần nhận lại xong.
+    // Phiếu NHÁP là nơi ghi nhận diễn biến bàn giao, không phải bằng chứng đã nhận lại.
+    const currentContract = contracts.find(c => c.id === report.contractId &&
+      c.roomCode === report.roomCode && c.leaseId === report.leaseId);
+    if (!currentContract || !getConfirmedRoomHandover(currentContract, contracts, handoverReports)) {
+      return { success: false, message: 'Cần biên bản nhận phòng đã xác nhận của đúng lần thuê trước khi lập phiếu trả.', report };
+    }
+    if (!report.date || !report.giverName?.trim() || !report.receiverName?.trim()) {
+      return { success: false, message: 'Vui lòng nhập ngày lập, bên bàn giao và bên nhận trước khi lưu phiếu nháp.', report };
     }
     const draftReport: HandoverReturnReport = {
       ...report,

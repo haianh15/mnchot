@@ -118,7 +118,10 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
     handleRoomChange(initialRoomCode);
     // From Room Details, open the matching lease's handover form, including when
     // the legacy occupied room is missing a paper report that must be reconciled.
-    if (initialMode === 'return') setActiveTab(handoverReturnReports.some(r => r.roomCode === initialRoomCode && r.leaseId === initialLeaseId) ? 'return_room_bg09' : 'init_report_bg08');
+    if (initialMode === 'return') {
+      // Bắt đầu bàn giao trả bằng phiếu trả phòng Nháp, không chờ nhận lại xong.
+      setActiveTab('init_report_bg08');
+    }
     else if (initialLeaseId || initialMode === 'receive' || initialMode === 'view') setActiveTab('handover_bg03');
   }, [initialRoomCode, initialLeaseId, initialContractId, initialMode]);
   // Toast feedback
@@ -620,7 +623,11 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
               tab==='init_report_bg08' ? ['compare_bg06','result_bg07','init_report_bg08','return_room_bg09','deposit_check_bg10','final_report_bg11'].includes(activeTab) :
               ['incident_add_bg04','incident_search_bg05'].includes(activeTab);
             const notApplicable = tab === 'init_report_bg08' && (!selectedRoom || selectedRoom.status === 'Trống');
-            return <button key={tab} disabled={notApplicable} title={notApplicable ? 'Phòng chưa có người nhận ở; không có lượt thuê đang trả' : undefined} onClick={()=>setActiveTab(tab)} className={`rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed ${activeGroup?'bg-blue-600 text-white':'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>{label}</button>
+            return <button key={tab} disabled={notApplicable} title={notApplicable ? 'Phòng chưa có người nhận ở; không có lượt thuê đang trả' : undefined} onClick={()=>{
+              if (tab === 'init_report_bg08') {
+                setActiveTab('init_report_bg08');
+              } else setActiveTab(tab);
+            }} className={`rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed ${activeGroup?'bg-blue-600 text-white':'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>{label}</button>
           })}
         </div>
         <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-900" aria-live="polite">
@@ -2608,11 +2615,11 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                 <button
                   onClick={() => {
                     setActiveTab('init_report_bg08');
-                    showToast('info', "Mở: Khởi tạo biên bản trả phòng.");
+                    showToast('info', 'Lập phiếu trả phòng Nháp và tiếp tục ghi nhận bàn giao thực tế.');
                   }}
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold cursor-pointer flex items-center gap-1.5 shadow-xs"
                 >
-                  <span>Tạo biên bản trả phòng </span>
+                  <span>Tiếp tục bàn giao trả phòng </span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
@@ -2627,6 +2634,9 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
       {selectedRoomCode && !linkedRoomMismatch && targetContract && activeTab === 'init_report_bg08' && (() => {
         const hasReceiveReport = Boolean(existingReport);
         const isReceiveReportConfirmed = Boolean(getConfirmedRoomHandover(targetContract, contracts, handoverReports));
+        // Cho lập Nháp ngay lúc bắt đầu bàn giao trả, không cần kết quả nhận lại.
+        const canCreateReturnSlip = Boolean(isReceiveReportConfirmed && selectedRoom?.status !== 'Trống' &&
+          targetContract.roomCode === selectedRoomCode && targetContract.leaseId === selectedLeaseId);
 
         const selectedContract = contracts.find(c => c.id === bg08SelectedContractId && c.roomCode === selectedRoomCode && c.leaseId === selectedLeaseId) || targetContract;
         const isHistoricContractConflict = Boolean(
@@ -2650,7 +2660,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                   <h2 className="text-sm font-bold text-slate-900">Khởi tạo biên bản trả phòng (Thao tác): {selectedRoomCode}</h2>
                 </div>
                 <p className="text-slate-500 mt-0.5">
-                  Khởi tạo biên bản trả phòng sau sự kiện khách tiến hành bàn giao. Hồ sơ ban đầu lưu ở trạng thái <strong>NHÁP</strong>, chưa phải bản ký chính thức. </p>
+                  Lập phiếu trả phòng <strong>Nháp ngay khi bắt đầu bàn giao</strong>; ghi nhận kiểm kê và kết quả thực tế sau đó. Chỉ xác nhận kết thúc thuê khi đã nhận lại phòng đủ điều kiện. </p>
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
@@ -2670,6 +2680,16 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                 )}
               </div>
             </div>
+
+            {!canCreateReturnSlip && !existingReturnReport && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs space-y-2">
+                <strong>Chưa có hồ sơ nhận phòng đã xác nhận</strong>
+                <p>Cần đối chiếu biên bản nhận phòng gốc của đúng lần thuê trước khi lập phiếu trả phòng Nháp. Không cần hoàn tất bàn giao trả phòng để lập phiếu.</p>
+                <button type="button" className="px-3 py-1.5 rounded bg-amber-600 text-white font-semibold" onClick={() => setActiveTab('handover_bg03')}>
+                  Xem biên bản nhận phòng
+                </button>
+              </div>
+            )}
 
             {/* Check Source BG03 ( &  & 05) */}
             {!isReceiveReportConfirmed && (
@@ -2691,7 +2711,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                   </button>
                 </div>
                 <p>
-                  Chưa tìm thấy hoặc biên bản nhận phòng chưa có đủ 2 chữ ký tay xác nhận. Hệ thống vẫn cho phép khởi tạo biên bản trả phòng ở trạng thái <strong>Nháp</strong> để ghi nhận thực tế, nhưng sẽ <strong>gắn cờ Thiếu biên bản nhận</strong> và khóa đối chiếu hoàn tất/xác nhận biên bản cuối cùng cho đến khi hồ sơ gốc hợp lệ. </p>
+                  Cần bổ sung biên bản nhận phòng đủ chữ ký để xác minh đúng lần thuê. Sau khi đối chiếu được hồ sơ nhận phòng, có thể lập phiếu trả Nháp ngay khi bắt đầu bàn giao. </p>
               </div>
             )}
 
@@ -2728,8 +2748,8 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                 </div>
                 <button
                   onClick={() => {
-                    showToast('info', `Mở biên bản trả phòng hiện hành ${existingReturnReport.reportNumber}.`);
-                    setActiveTab('final_report_bg11');
+                    showToast('info', `Tiếp tục bàn giao với phiếu ${existingReturnReport.reportNumber}.`);
+                    setActiveTab('return_room_bg09');
                   }}
                   className="px- py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shrink-0 cursor-pointer"
                 >
@@ -2868,16 +2888,20 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                 {existingReturnReport ? (
                   <button
                     onClick={() => {
-                      showToast('info', `Mở biên bản trả phòng hiện hành ${existingReturnReport.reportNumber}.`);
-                      setActiveTab('final_report_bg11');
+                      showToast('info', `Tiếp tục bàn giao với phiếu ${existingReturnReport.reportNumber}.`);
+                      setActiveTab('return_room_bg09');
                     }}
                     className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg font-semibold cursor-pointer"
                   >
                     Mở biên bản Nháp hiện có </button>
                 ) : (
                   <button
-                    disabled={isHistoricContractConflict}
+                    disabled={isHistoricContractConflict || !canCreateReturnSlip}
                     onClick={() => {
+                      if (!canCreateReturnSlip) {
+                        showToast('error', 'Cần có biên bản nhận phòng đã xác nhận của đúng lần thuê trước khi lập phiếu trả Nháp.');
+                        return;
+                      }
                       if (isHistoricContractConflict) {
                         showToast('error', ': Không cho lưu biên bản trả chính thức cho hợp đồng lịch sử khi phòng đã có lần thuê mới.');
                         return;
@@ -2909,14 +2933,15 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
 
                       const res = initHandoverReturnReportDraftBG08(newRep);
                       showToast(res.success ? 'success' : 'error', toUserMessage(res.message));
+                      if (res.success) setActiveTab('return_room_bg09');
                     }}
                     className={`px-4 py-2 rounded-lg font-semibold cursor-pointer shadow-xs ${
-                      !isHistoricContractConflict
+                      !isHistoricContractConflict && canCreateReturnSlip
                         ? 'bg-blue-600 hover:bg-blue-700 text-white'
                         : 'bg-slate-300 text-slate-500 cursor-not-allowed'
                     }`}
                   >
-                    Khởi tạo biên bản Nháp </button>
+                    Lập phiếu trả phòng (Nháp) </button>
                 )}
 
                 <button
@@ -2979,20 +3004,15 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
               )}
             </div>
 
-            {/* : Không tìm thấy biên bản trả phòng đang xử lý */}
+            {/* Phiếu Nháp được tạo ngay từ đầu bàn giao trả, không phải đợi 3.05. */}
             {!existingReturnReport && (
-              <div className="p- bg-amber-50 border border-amber-300 rounded-xl text-amber-900 text-xs flex items-start gap-2.5 shadow-sm">
-                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <strong className="block font-bold">: Chưa tìm thấy biên bản trả phòng đang xử lý </strong>
-                  <p>
-                    Cần lập biên bản trả phòng trước khi ghi nhận kết quả nhận lại thực tế. </p>
-                  <button
-                    onClick={() => setActiveTab('init_report_bg08')}
-                    className="mt-1 px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded font-semibold cursor-pointer"
-                  >
-                    Chuyển sang Khởi tạo biên bản trả phòng </button>
-                </div>
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-blue-900 text-xs space-y-2">
+                <strong className="block">Chưa lập phiếu trả phòng</strong>
+                <p>Hãy lập phiếu Nháp từ khi bắt đầu bàn giao trả, rồi ghi nhận tình trạng tài sản và kết quả nhận lại thực tế vào đúng lần thuê. Phiếu Nháp không có nghĩa đã nhận lại phòng.</p>
+                <button type="button" onClick={() => setActiveTab('init_report_bg08')}
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded font-semibold">
+                  Lập phiếu trả phòng (Nháp)
+                </button>
               </div>
             )}
 
@@ -3301,6 +3321,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                       bg09EvidenceVideoUrl
                     );
                     showToast(result.success ? 'success' : 'error', result.message);
+                    if (result.success) setActiveTab('init_report_bg08');
                   }}
                   className={`px-4 py-2 rounded-lg font-semibold cursor-pointer shadow-xs flex items-center gap-1.5 ${
                     is305Confirmed
