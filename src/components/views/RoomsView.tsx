@@ -1,6 +1,6 @@
 import { getInitialPaymentStatus } from '../../utils/initialPayments';
 import { toUserMessage } from '../../utils/userMessages';
-import { resolveRoomContract, resolveRoomTenantId, getLeaseContractChain, getConfirmedRoomHandover } from '../../utils/roomLinks';
+import { resolveRoomContract, resolveRoomTenantId, getLeaseContractChain, getConfirmedRoomHandover, getVacantRoomNextStep } from '../../utils/roomLinks';
 import { getRoomOccupancy } from '../../utils/occupancy';
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
@@ -79,6 +79,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
 
   // Shared room-to-lease resolver also supports signed leases awaiting check-in.
   const getActiveRoomContract = (room: Room) => resolveRoomContract(room, contracts, returnInspections);
+  const getVacantNextStep = (room: Room) => getVacantRoomNextStep(room, contracts, returnInspections, handoverReports);
   const getActiveRoomTenantId = (room: Room) =>
     resolveRoomTenantId(room, getActiveRoomContract(room), tenants);
   const getCurrentRoomHandover = (room: Room) => {
@@ -735,10 +736,10 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                               {room.status === 'Trống' ? (
                                 <>
                                   <button
-                                    onClick={() => openLinkedRecord('contracts', room)}
+                                    onClick={() => openLinkedRecord(getVacantNextStep(room).tab, room)}
                                     className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white border border-blue-700 rounded text-[11px] font-semibold transition-colors cursor-pointer"
                                   >
-                                    {getActiveRoomContract(room) ? 'Xem hợp đồng đã ký' : 'Lập hợp đồng'}
+                                    {getVacantNextStep(room).label}
                                   </button>
                                   {Boolean(getActiveRoomContract(room)) && <button
                                     onClick={() => { setSelectedRoom(room); setShowPayment07Modal(true); }}
@@ -1064,9 +1065,10 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                     className="text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1 hover:underline cursor-pointer"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
-                    {getConfirmedRoomHandover(relatedContract, contracts, handoverReports)
-                      ? 'Xem biên bản nhận phòng' : selectedRoom.status === 'Trống'
-                        ? 'Lập biên bản nhận phòng' : 'Bổ sung biên bản nhận phòng'}
+                    {selectedRoom.status === 'Trống'
+                      ? getVacantNextStep(selectedRoom).label
+                      : getConfirmedRoomHandover(relatedContract, contracts, handoverReports)
+                        ? 'Xem biên bản nhận phòng' : 'Bổ sung biên bản nhận phòng'}
                   </button>
                 </div>
                 <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-100 text-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -2229,13 +2231,22 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                         Các hồ sơ liên quan để đối chiếu (Main Flow ): </span>
                       <div className="flex flex-wrap items-center gap-2">
                         {targetRoom.status === 'Trống' ? (
-                          <button
+                          <>
+                            <button
+                              onClick={() => {
+                                setShowCheckRentableModal(false);
+                                openLinkedRecord(getVacantNextStep(targetRoom).tab, targetRoom);
+                              }}
+                              className="px-3 py-1.5 bg-blue-600 text-white hover:bg-blue-700 rounded-lg text-xs font-semibold"
+                            >{getVacantNextStep(targetRoom).label}</button>
+                            {pendingContract && <button
                               onClick={() => {
                                 setShowCheckRentableModal(false);
                                 openLinkedRecord('contracts', targetRoom);
                               }}
-                              className="px-3 py-1.5 bg-blue-600 text-white hover:bg-blue-700 rounded-lg text-xs font-semibold"
-                            >{pendingContract ? 'Xem hợp đồng đã ký' : 'Lập hợp đồng'}</button>
+                              className="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-blue-700 border border-slate-300 rounded-lg text-xs font-semibold"
+                            >Xem hợp đồng đã ký</button>}
+                          </>
                         ) : (activeContract || getActiveRoomContract(targetRoom)) && (
                           <button
                             onClick={() => {

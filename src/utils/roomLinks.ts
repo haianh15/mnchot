@@ -61,3 +61,21 @@ export function getConfirmedRoomHandover(
     r.status === 'Đã xác nhận' && r.tenantSignedPaper === 'Đã ký giấy' &&
     r.ownerSignedPaper === 'Đã ký giấy')).find(Boolean);
 }
+
+/**
+ * Nút thao tác tiếp theo trên phòng Trống bám vào hợp đồng ĐÃ KÝ (không dùng
+ * hợp đồng nháp). Ký hợp đồng chưa có nghĩa là khách đã nhận phòng.
+ */
+export function getVacantRoomNextStep(
+  room: Room, contracts: Contract[], returnInspections: ReturnInspection[], reports: HandoverReport[]
+): { label: string; tab: 'contracts' | 'handover' } {
+  const signedContract = room.status === 'Trống'
+    ? resolveRoomContract(room, contracts, returnInspections) : undefined;
+  if (!signedContract?.isSignedPaper) {
+    return { label: 'Lập hợp đồng', tab: 'contracts' };
+  }
+  if (getConfirmedRoomHandover(signedContract, contracts, reports)) {
+    return { label: 'Xác nhận nhận phòng', tab: 'handover' };
+  }
+  return { label: 'Lập biên bản nhận phòng', tab: 'handover' };
+}
