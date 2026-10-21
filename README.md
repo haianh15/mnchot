@@ -64,3 +64,17 @@ Quy trình ký hợp đồng → bàn giao → nhận phòng → đang thuê →
 Giữ nguyên bản B làm nền và bổ sung hai module từ A: `PaymentNoticesAView.tsx` (lập thông báo thu công nợ theo phòng/kỳ) và `DebtsAView.tsx` (công nợ xem theo kỳ hoặc gom phòng). Luồng Thu tiền của B được bổ sung thông tin ngày hẹn từ A và chống thu trùng theo QR gộp. **Xem `BAO_CAO_HOP_NHAT_CHUC_NANG_A_VAO_B_21_10_2026.md` để biết chức năng, nguyên tắc tránh cộng trùng và giới hạn kiểm thử.**
 
 Chạy kiểm thử: `node --test tests/*.test.cjs`.
+
+
+## Cập nhật 21/10/2026 — Đồng bộ Thanh toán Công nợ với Thông báo thu công nợ
+
+- Tại Công nợ, bấm **Thanh toán** ở một kỳ, nhiều kỳ được chọn, nhóm phòng/lượt thuê hoặc trang căn cứ nợ: mở **Thông báo thanh toán → Thu công nợ**.
+- Nếu khoản đã thuộc **một thông báo thu công nợ đang hiệu lực**: vào thẳng **Chi tiết** của đúng thông báo, dùng QR, tài khoản và tổng tiền đã phát hành.
+- Nếu chưa có thông báo gộp: mở bước **Chọn tháng nợ** trong chức năng Lập thông báo thu công nợ đã điền đúng phòng, lượt thuê, kỳ nợ; Chủ nhà xác nhận lập thông báo và mới được vào Chi tiết. Không tự phát hành QR ở Công nợ.
+- Nếu nhiều khoản đang nằm ở **nhiều thông báo gộp khác nhau**: yêu cầu xử lý riêng từng kỳ, không tạo thu trùng.
+- Danh sách công nợ gộp theo **phòng + mã lượt thuê** để không lẫn nợ của khách cũ với khách mới cùng phòng.
+- Trang Chi tiết thu công nợ hiện mã thông báo kỳ nguồn, số tiền, trạng thái và các ngày hẹn trả ghi nhận trong Công nợ; cùng đọc một kho `paymentNotices`/`debtPromises`.
+- Xác nhận thu tiền và hoàn tác thu nhầm tiếp tục dùng **một** `PaymentReceipt`/`noticeId` và logic B; cập nhật đồng thời trạng thái chứng từ nợ gộp và các kỳ nợ gốc. Hiện nghiệp vụ B yêu cầu nhận **đúng đủ** số tiền QR, chưa hỗ trợ thu một phần.
+- QR nhắc nợ trong Công nợ không tạo mã chuyển khoản mới; chỉ hiện mã từ một thông báo thu công nợ tương ứng, còn hiệu lực và khớp đầy đủ các kỳ đang chọn. Lịch sử nhắc nợ vẫn được giữ; QR cũ đã thanh toán/thay thế sẽ không được dùng làm QR thanh toán mới.
+
+**Kiểm thử:** `node --test tests/*.test.cjs` — 45/45 đạt, gồm 11 ca cho điều hướng liên kết công nợ. Kiểm tra cú pháp 53/53 tệp TS/TSX đạt. Chưa xác minh được bản build và trình duyệt trực tiếp do môi trường thiếu thư viện npm; cần chạy `npm install && npm run build` trước triển khai.

@@ -2,6 +2,7 @@ import { toUserMessage } from '../../utils/userMessages';
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { PaymentNotice, DebtHistoryReminder, DebtPromise, Contract, Room } from '../../types';
+import { resolveDebtPaymentRoute } from '../../utils/debtPaymentRouting';
 import {
   AlertTriangle, Phone, MessageCircle, UserCheck, Calendar,
   Clock, Plus, Search, FileText, CheckCircle2, AlertCircle, X,
@@ -109,7 +110,7 @@ const parseDueDateISO = (dateStr?: string, fallback = '2026-10-05'): string => {
 };
 
 export interface DebtsViewProps {
-  onNavigate?: (tab: any, record?: { roomCode?: string; contractId?: string; tenantId?: string; leaseId?: string; billId?: string; noticeId?: string }) => void;
+  onNavigate?: (tab: any, record?: { roomCode?: string; contractId?: string; tenantId?: string; leaseId?: string; billId?: string; noticeId?: string; debtSourceNoticeIds?: string[] }) => void;
 }
 
 export const DebtsView: React.FC<DebtsViewProps> = ({ onNavigate }) => {
@@ -326,6 +327,31 @@ export const DebtsView: React.FC<DebtsViewProps> = ({ onNavigate }) => {
     return items;
   }, [paymentNotices, rooms, contracts, paymentReceipts, settlementSlips, todayMs]);
 
+  // Các nút Thanh toán của Công nợ đều đến Thông báo thanh toán > Thu công nợ.
+  // Không thu trực tiếp ở đây, không tự phát hành QR trước khi chủ nhà xác nhận.
+  const openDebtPayment = (items: PeriodDebtItem[]) => {
+    if (!onNavigate || !items.length) return;
+    const first = items[0];
+    if (items.some(i => i.roomCode !== first.roomCode || i.leaseId !== first.leaseId)) {
+      showToast('error', 'Chỉ thanh toán các khoản của cùng phòng và cùng lượt thuê.');
+      return;
+    }
+    // Bản ghi DEBT lịch sử chỉ tồn tại khi không có kỳ nguồn tương ứng.
+    if (items.length === 1 && items[0].originalNotice.noticeType === 'DEBT') {
+      onNavigate('notices', { noticeId: items[0].noticeId });
+      return;
+    }
+    const route = resolveDebtPaymentRoute(paymentNotices, first.roomCode, first.leaseId, items.map(i => i.noticeId));
+    if (route.mode === 'detail') {
+      onNavigate('notices', { noticeId: route.noticeId });
+    } else if (route.mode === 'create') {
+      onNavigate('notices', { roomCode: route.roomCode, leaseId: route.leaseId, debtSourceNoticeIds: route.sourceNoticeIds });
+    } else {
+      showToast(route.mode === 'split' ? 'info' : 'error', route.message);
+      if (route.mode === 'split') setViewMode('grouped_by_room');
+    }
+  };
+
   // Danh sách các kỳ công nợ QUÁ HẠN chưa thu
   const overdueDebtList = useMemo(() => {
     if (simulateEF01) return [];
@@ -384,6 +410,7 @@ export const DebtsView: React.FC<DebtsViewProps> = ({ onNavigate }) => {
   const groupedByRoomList = useMemo(() => {
     const map = new Map<string, {
       roomCode: string;
+      leaseId: string;
       tenantName: string;
       isRoomVacant: boolean;
       totalRoomDebt: number;
@@ -392,10 +419,12 @@ export const DebtsView: React.FC<DebtsViewProps> = ({ onNavigate }) => {
     }>();
 
     overdueDebtList.forEach(item => {
-      const existing = map.get(item.roomCode);
+      const groupKey = `${item.roomCode}::${item.leaseId}`;
+      const existing = map.get(groupKey);
       if (!existing) {
-        map.set(item.roomCode, {
+        map.set(groupKey, {
           roomCode: item.roomCode,
+          leaseId: item.leaseId,
           tenantName: item.tenantName,
           isRoomVacant: item.isRoomVacant,
           totalRoomDebt: item.uncollectedBalance,
@@ -417,7 +446,7 @@ export const DebtsView: React.FC<DebtsViewProps> = ({ onNavigate }) => {
     if (selectedPeriodIds.length === 0) return null;
     const firstItem = overdueDebtList.find(i => selectedPeriodIds.includes(i.id)) ||
       allPeriodDebtItems.find(i => selectedPeriodIds.includes(i.id));
-    return firstItem ? firstItem.roomCode : null;
+    return firstItem ? `${firstItem.roomCode}::${firstItem.leaseId}` : null;
   }, [selectedPeriodIds, overdueDebtList, allPeriodDebtItems]);
 
   // Toggle selection for a single period item - GIỚI HẠN CHỈ TRONG CÙNG MỘT PHÒNG
@@ -428,7 +457,7 @@ export const DebtsView: React.FC<DebtsViewProps> = ({ onNavigate }) => {
     if (!item) return;
 
     // Nếu chưa chọn kỳ nào hoặc kỳ thuộc cùng phòng với phòng đang chọn
-    if (!selectedRoomCode || selectedRoomCode === item.roomCode) {
+    if (!selectedRoomCode || selectedRoomCode === `${item.roomCode}::${item.leaseId}`) {
       setSelectedPeriodIds(prev =>
         prev.includes(item.id) ? prev.filter(x => x !== item.id) : [...prev, item.id]
       );
@@ -445,7 +474,7 @@ export const DebtsView: React.FC<DebtsViewProps> = ({ onNavigate }) => {
   const toggleSelectAllVisible = () => {
     if (overdueDebtList.length === 0) return;
     if (selectedRoomCode) {
-      const roomVisibleIds = overdueDebtList.filter(i => i.roomCode === selectedRoomCode).map(i => i.id);
+      const roomVisibleIds = overdueDebtList.filter(i => `${i.roomCode}::${i.leaseId}` === selectedRoomCode).map(i => i.id);
       const isRoomAllSelected = roomVisibleIds.length > 0 && roomVisibleIds.every(id => selectedPeriodIds.includes(id));
       if (isRoomAllSelected) {
         setSelectedPeriodIds([]);
@@ -455,15 +484,16 @@ export const DebtsView: React.FC<DebtsViewProps> = ({ onNavigate }) => {
     } else {
       // Chưa chọn phòng nào: Chọn tất cả các kỳ của phòng đầu tiên hiển thị
       const firstRoom = overdueDebtList[0].roomCode;
-      const roomVisibleIds = overdueDebtList.filter(i => i.roomCode === firstRoom).map(i => i.id);
+      const firstLease = overdueDebtList[0].leaseId;
+      const roomVisibleIds = overdueDebtList.filter(i => i.roomCode === firstRoom && i.leaseId === firstLease).map(i => i.id);
       setSelectedPeriodIds(roomVisibleIds);
       showToast('info', `Đã chọn tất cả ${roomVisibleIds.length} kỳ nợ của Phòng ${firstRoom} (giới hạn theo phòng)`);
     }
   };
 
   // Toggle selection for all periods of a specific room
-  const toggleSelectRoom = (roomCode: string) => {
-    const roomPeriodIds = overdueDebtList.filter(i => i.roomCode === roomCode).map(i => i.id);
+  const toggleSelectRoom = (roomCode: string, leaseId: string) => {
+    const roomPeriodIds = overdueDebtList.filter(i => i.roomCode === roomCode && i.leaseId === leaseId).map(i => i.id);
     const isRoomAllSelected = roomPeriodIds.length > 0 && roomPeriodIds.every(id => selectedPeriodIds.includes(id));
     if (isRoomAllSelected) {
       setSelectedPeriodIds([]);
@@ -503,62 +533,33 @@ export const DebtsView: React.FC<DebtsViewProps> = ({ onNavigate }) => {
     return overdueDebtList[0] || null;
   }, [selectedPeriodDebtItems, allPeriodDebtItems, selectedDebtId, overdueDebtList]);
 
-  // Thông tin VietQR tương ứng với lần nhắc nợ đang mở (hỗ trợ gửi ngoài cho khách hàng)
+  // Chỉ dùng QR chính thức của Thông báo thanh toán > Thu công nợ.
+  // Không tự tạo mã chuyển khoản khác ngay trong Công nợ (tránh trùng QR/khoản phải thu).
   const reminderQrDetails = useMemo(() => {
-    if (!activeSelectedDebt) {
-      return {
-        bankName: 'MB Bank',
-        accountNumber: '',
-        accountHolder: '',
-        bankCode: 'MB',
-        transferContent: '',
-        amount: 0,
-        qrUrl: '',
-        tenantPhone: ''
-      };
-    }
-
-    const snapshot = activeSelectedDebt.originalNotice?.qrBankSnapshot;
-    const defaultBank = activeBankAccount || (bankAccounts && bankAccounts[0]) || {
-      bankName: 'MB Bank',
-      accountNumber: '0987654321',
-      accountHolder: 'CHỦ NHÀ'
-    };
-
-    const bankName = snapshot?.bankName || defaultBank.bankName || ''; 
-    const accountNumber = snapshot?.accountNumber || defaultBank.accountNumber || '';
-    const accountHolder = snapshot?.accountHolder || defaultBank.accountHolder || '';
-    const amount = totalSelectedDebt > 0 ? totalSelectedDebt : activeSelectedDebt.uncollectedBalance;
-
-    const roomClean = activeSelectedDebt.roomCode.replace(/\s+/g, '').toUpperCase();
-    const periodsList = selectedPeriodDebtItems.length > 0 ? selectedPeriodDebtItems : [activeSelectedDebt];
-    const periodTokens = periodsList
-      .map(p => p.periodCode.replace(/Kỳ\s*/i, '').replace('/', ''))
-      .join(' ');
-    const transferContent = snapshot?.transferContent || `${roomClean} TT NO ${periodTokens}`.trim();
-
+    const items = selectedPeriodDebtItems.length > 0 ? selectedPeriodDebtItems : (activeSelectedDebt ? [activeSelectedDebt] : []);
+    const first = items[0];
+    const route = first && items.every(i => i.roomCode === first.roomCode && i.leaseId === first.leaseId)
+      ? resolveDebtPaymentRoute(paymentNotices, first.roomCode, first.leaseId, items.map(i => i.noticeId)) : null;
+    const official = route?.mode === 'detail' ? paymentNotices.find(n => n.id === route.noticeId) : undefined;
+    // Mã QR chỉ dành cho toàn bộ thông báo gộp, không hiện số tiền khác nếu đang chọn một phần kỳ nợ.
+    const samePeriods = !!(official?.debtNoticeIds?.length && official.debtNoticeIds.length === items.length &&
+      items.every(i => official.debtNoticeIds?.includes(i.noticeId)));
+    const snapshot = samePeriods ? official?.qrBankSnapshot : undefined;
+    const bankName = snapshot?.bankName || '';
+    const accountNumber = snapshot?.accountNumber || '';
+    const accountHolder = snapshot?.accountHolder || '';
     const bankCode = getBankCodeFromName(bankName);
-    const qrUrl = bankCode && accountNumber
-      ? `https://img.vietqr.io/image/${bankCode}-${encodeURIComponent(accountNumber)}-compact2.png?amount=${amount}&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(accountHolder)}`
-      : '';
-
-    const room = rooms.find(r => r.roomCode === activeSelectedDebt.roomCode);
-    const tenant = tenants?.find(t => t.id === room?.currentTenantId || t.fullName === activeSelectedDebt.tenantName);
-    const tenantPhone = activeSelectedDebt.contract?.tenantPhone ||
-      contracts.find(c => c.roomCode === activeSelectedDebt.roomCode)?.tenantPhone ||
-      tenant?.phoneNumber || '';
-
-    return {
-      bankName,
-      accountNumber,
-      accountHolder,
-      bankCode,
-      transferContent,
-      amount,
-      qrUrl,
-      tenantPhone
-    };
-  }, [activeSelectedDebt, selectedPeriodDebtItems, totalSelectedDebt, activeBankAccount, bankAccounts, rooms, contracts, tenants]);
+    const amount = snapshot?.amount || 0;
+    const transferContent = snapshot?.transferContent || '';
+    const qrUrl = official?.status === 'Đang hiệu lực' && official.paymentStatus === 'Chưa thu' && samePeriods &&
+      bankCode && accountNumber && snapshot?.amount === official.totalAmount
+      ? `https://img.vietqr.io/image/${bankCode}-${encodeURIComponent(accountNumber)}-compact2.png?amount=${amount}&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(accountHolder)}` : '';
+    const room = rooms.find(r => r.roomCode === first?.roomCode);
+    const tenant = tenants?.find(t => (t.id === room?.currentTenantId || t.fullName === first?.tenantName));
+    const tenantPhone = first?.contract?.tenantPhone ||
+      contracts.find(c => c.roomCode === first?.roomCode && c.leaseId === first.leaseId)?.tenantPhone || tenant?.phoneNumber || '';
+    return { bankName, accountNumber, accountHolder, bankCode, transferContent, amount, qrUrl, tenantPhone };
+  }, [activeSelectedDebt, selectedPeriodDebtItems, paymentNotices, rooms, contracts, tenants]);
 
   // Soạn sẵn tin nhắn nhắc nợ gửi khách hàng (hỗ trợ gửi ngoài qua Zalo / SMS / Messenger)
   const getCustomerMessageText = (customDebt?: PeriodDebtItem, customQr?: typeof reminderQrDetails) => {
@@ -576,17 +577,17 @@ export const DebtsView: React.FC<DebtsViewProps> = ({ onNavigate }) => {
 Kính gửi: Anh/Chị ${debt.tenantName} (Phòng ${debt.roomCode})
 Ban Quản lý xin gửi thông tin nhắc thanh toán các kỳ công nợ hiện còn chưa thu:
 - Các kỳ nợ: ${periodNames}
-- Tổng số tiền cần thanh toán: ${qr.amount.toLocaleString('vi-VN')} đ
+- Tổng dư nợ đang nhắc: ${periodsList.reduce((sum,p)=>sum+p.uncollectedBalance,0).toLocaleString('vi-VN')} đ
 - Hạn thanh toán: ${formatDateDMY(debt.dueDate)}
 
-THÔNG TIN CHUYỂN KHOẢN THANH TOÁN:
+${qr.qrUrl ? `THÔNG TIN THU CÔNG NỢ (THEO THÔNG BÁO ĐÃ PHÁT HÀNH):
 - Ngân hàng: ${qr.bankName}
 - Số tài khoản: ${qr.accountNumber}
 - Chủ tài khoản: ${qr.accountHolder}
-- Số tiền: ${qr.amount.toLocaleString('vi-VN')} đ
-- Nội dung CK: ${qr.transferContent}
+- Số tiền trên thông báo: ${qr.amount.toLocaleString('vi-VN')} đ
+- Nội dung CK: ${qr.transferContent}` : 'Vui lòng nhận thông báo thanh toán chính thức tại mục Thu công nợ trước khi chuyển khoản.'}
 
-(Quý khách vui lòng quét mã VietQR kèm theo hoặc chuyển khoản chính xác thông tin trên để hệ thống tự động gạch nợ. Trân trọng cảm ơn!)`;
+(Vui lòng chỉ sử dụng thông tin chuyển khoản trên Thông báo thu công nợ còn hiệu lực. Trân trọng cảm ơn!)`;
   };
 
   // Tải ảnh mã VietQR xuống thiết bị để gửi khách ngoài
@@ -664,44 +665,29 @@ THÔNG TIN CHUYỂN KHOẢN THANH TOÁN:
     });
   };
 
-  // Thông tin VietQR tương ứng khi xem lại một lần nhắc nợ lịch sử trong Tab 2
+  // Lịch sử nhắc nợ không tự phát sinh QR khác với thông báo thu công nợ.
+  // QR đã thanh toán/thay thế sẽ không được đưa ra để khách chuyển khoản lần nữa.
   const historyQrDetails = useMemo(() => {
     if (!historyQrModalReminder) return null;
-    const item = allPeriodDebtItems.find(i => i.noticeId === historyQrModalReminder.noticeId || i.roomCode === historyQrModalReminder.roomCode);
-    const snapshot = item?.originalNotice?.qrBankSnapshot;
-    const defaultBank = activeBankAccount || (bankAccounts && bankAccounts[0]) || {
-      bankName: 'MB Bank',
-      accountNumber: '0987654321',
-      accountHolder: 'CHỦ NHÀ'
-    };
-    const bankName = snapshot?.bankName || defaultBank.bankName || ''; 
-    const accountNumber = snapshot?.accountNumber || defaultBank.accountNumber || '';
-    const accountHolder = snapshot?.accountHolder || defaultBank.accountHolder || '';
-    const amount = item?.uncollectedBalance || item?.totalAmount || 0;
+    const item = allPeriodDebtItems.find(i => i.noticeId === historyQrModalReminder.noticeId && i.leaseId === historyQrModalReminder.leaseId);
+    const official = paymentNotices.find(n => n.noticeType === 'DEBT' &&
+      n.status === 'Đang hiệu lực' && n.paymentStatus === 'Chưa thu' &&
+      n.roomCode === historyQrModalReminder.roomCode && n.leaseId === historyQrModalReminder.leaseId &&
+      (n.debtNoticeIds?.includes(historyQrModalReminder.noticeId) || n.id === historyQrModalReminder.noticeId));
+    const snapshot = official?.qrBankSnapshot;
+    const bankName = snapshot?.bankName || '';
+    const accountNumber = snapshot?.accountNumber || '';
+    const accountHolder = snapshot?.accountHolder || '';
+    const amount = snapshot?.amount || 0;
+    const transferContent = snapshot?.transferContent || '';
     const bankCode = getBankCodeFromName(bankName);
-    const roomClean = historyQrModalReminder.roomCode.replace(/\s+/g, '').toUpperCase();
-    const transferContent = snapshot?.transferContent || `${roomClean} TT NO`.trim();
-    const qrUrl = bankCode && accountNumber
-      ? `https://img.vietqr.io/image/${bankCode}-${encodeURIComponent(accountNumber)}-compact2.png?amount=${amount}&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(accountHolder)}`
-      : '';
+    const qrUrl = official && bankCode && accountNumber && snapshot?.amount === official.totalAmount
+      ? `https://img.vietqr.io/image/${bankCode}-${encodeURIComponent(accountNumber)}-compact2.png?amount=${amount}&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(accountHolder)}` : '';
     const room = rooms.find(r => r.roomCode === historyQrModalReminder.roomCode);
     const tenant = tenants?.find(t => t.id === room?.currentTenantId);
-    const tenantPhone = item?.contract?.tenantPhone ||
-      contracts.find(c => c.roomCode === historyQrModalReminder.roomCode)?.tenantPhone ||
-      tenant?.phoneNumber || '';
-
-    return {
-      item,
-      bankName,
-      accountNumber,
-      accountHolder,
-      bankCode,
-      amount,
-      transferContent,
-      qrUrl,
-      tenantPhone
-    };
-  }, [historyQrModalReminder, allPeriodDebtItems, activeBankAccount, bankAccounts, rooms, contracts, tenants]);
+    const tenantPhone = item?.contract?.tenantPhone || contracts.find(c => c.roomCode === historyQrModalReminder.roomCode && c.leaseId === historyQrModalReminder.leaseId)?.tenantPhone || tenant?.phoneNumber || '';
+    return { item, bankName, accountNumber, accountHolder, bankCode, amount, transferContent, qrUrl, tenantPhone, officialNoticeId: official?.id };
+  }, [historyQrModalReminder, allPeriodDebtItems, paymentNotices, rooms, contracts, tenants]);
 
   // Open modal helpers
   const openReminderModal = (item?: PeriodDebtItem) => {
@@ -735,7 +721,7 @@ THÔNG TIN CHUYỂN KHOẢN THANH TOÁN:
   // Summary statistics (sau bù cọc đúng khoản theo bản B)
   const totalOverduePeriodsCount = overdueDebtList.length;
   const totalOverdueAmount = overdueDebtList.reduce((sum, item) => sum + item.uncollectedBalance, 0);
-  const totalDebtorRoomsCount = groupedByRoomList.length;
+  const totalDebtorRoomsCount = new Set(overdueDebtList.map(i => i.roomCode)).size;
 
   // Kỳ nợ quá hạn lâu nhất
   const oldestOverdueDebt = overdueDebtList[0];
@@ -746,12 +732,12 @@ THÔNG TIN CHUYỂN KHOẢN THANH TOÁN:
   // Reminders and Promises cho khoản nợ đang chọn
   const activeNoticeReminders = useMemo(() => {
     if (!activeSelectedDebt) return [];
-    return debtReminders.filter(r => r.noticeId === activeSelectedDebt.noticeId || r.roomCode === activeSelectedDebt.roomCode);
+    return debtReminders.filter(r => r.noticeId === activeSelectedDebt.noticeId || (r.roomCode === activeSelectedDebt.roomCode && r.leaseId === activeSelectedDebt.leaseId));
   }, [debtReminders, activeSelectedDebt]);
 
   const activeNoticePromises = useMemo(() => {
     if (!activeSelectedDebt) return [];
-    return debtPromises.filter(p => p.noticeId === activeSelectedDebt.noticeId || p.roomCode === activeSelectedDebt.roomCode);
+    return debtPromises.filter(p => p.noticeId === activeSelectedDebt.noticeId || (p.roomCode === activeSelectedDebt.roomCode && p.leaseId === activeSelectedDebt.leaseId));
   }, [debtPromises, activeSelectedDebt]);
 
   // Đánh giá căn cứ xử lý nợ kéo dài (UC-CN-04)
@@ -808,7 +794,7 @@ THÔNG TIN CHUYỂN KHOẢN THANH TOÁN:
     });
 
     if (lastResult.success) {
-      showToast('success', `Đã lưu thành công lịch sử nhắc nợ cho ${targetItems.length} kỳ của Phòng ${primaryItem.roomCode}! Mã QR thanh toán nợ đã được xuất kèm.`);
+      showToast('success', `Đã lưu lịch sử nhắc nợ cho ${targetItems.length} kỳ của Phòng ${primaryItem.roomCode}. Thanh toán qua thông báo thu công nợ chính thức.`);
       setRemSavedSuccess(true);
       setSavedReminderDetails({
         loggedAt: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ' + formatDateDMY(new Date().toISOString().split('T')[0]),
@@ -913,7 +899,7 @@ THÔNG TIN CHUYỂN KHOẢN THANH TOÁN:
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Theo dõi chi tiết công nợ quá hạn độc lập theo từng kỳ, đôn đốc nhắc nợ và ghi nhận ngày hẹn thanh toán.
+            Theo dõi chi tiết nợ theo từng kỳ; nút Thanh toán dẫn tới Thông báo thanh toán → Thu công nợ, dùng cùng thông báo, số tiền và trạng thái. Nhắc nợ và ngày hẹn trả vẫn ghi lịch sử tại đây.
           </p>
         </div>
 
@@ -1061,7 +1047,7 @@ THÔNG TIN CHUYỂN KHOẢN THANH TOÁN:
                   {totalDebtorRoomsCount} phòng
                 </span>
                 <span className="text-[10px] text-slate-400">
-                  {groupedByRoomList.map(g => g.roomCode).join(', ') || 'Không có phòng nợ'}
+                  {[...new Set(groupedByRoomList.map(g => g.roomCode))].join(', ') || 'Không có phòng nợ'}
                 </span>
               </div>
 
@@ -1215,11 +1201,15 @@ THÔNG TIN CHUYỂN KHOẢN THANH TOÁN:
                 </span>
               </div>
               <div className="flex items-center gap-2">
+                <button type="button" onClick={() => openDebtPayment(selectedPeriodDebtItems)}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold flex items-center gap-1.5 cursor-pointer">
+                  <Wallet className="w-3.5 h-3.5" /> Thanh toán ({selectedPeriodDebtItems.length} kỳ)
+                </button>
                 <button
                   type="button"
                   onClick={() => openReminderModal()}
                   className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer"
-                  title="Ghi nhật ký nhắc nợ cho các kỳ đã chọn và chuyển sang lấy mã QR thanh toán"
+                  title="Ghi nhật ký nhắc nợ; thanh toán dùng QR của thông báo Thu công nợ"
                 >
                   <Phone className="w-3.5 h-3.5" />
                   Nhắc nợ ({selectedPeriodIds.length} kỳ)
@@ -1372,11 +1362,16 @@ THÔNG TIN CHUYỂN KHOẢN THANH TOÁN:
 
                             {/* 10. Hành động */}
                             <td className="py-2.5 px-3 text-right space-x-1 whitespace-nowrap">
+                              <button type="button" onClick={() => openDebtPayment([item])}
+                                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-semibold cursor-pointer"
+                                title="Mở chi tiết thanh toán trong Thông báo thanh toán → Thu công nợ">
+                                Thanh toán
+                              </button>
                               <button
                                 type="button"
                                 onClick={() => openReminderModal(item)}
                                 className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded text-[11px] font-semibold cursor-pointer"
-                                title="Ghi nhật ký nhắc nợ và xuất mã QR thanh toán kèm theo"
+                                title="Ghi nhật ký nhắc nợ; lấy QR chính thức tại Thông báo thu công nợ"
                               >
                                 Nhắc nợ
                               </button>
@@ -1424,12 +1419,13 @@ THÔNG TIN CHUYỂN KHOẢN THANH TOÁN:
                 </div>
               ) : (
                 groupedByRoomList.map(grp => {
-                  const isExpanded = expandedRooms[grp.roomCode] ?? true;
+                  const groupKey = `${grp.roomCode}::${grp.leaseId}`;
+                  const isExpanded = expandedRooms[groupKey] ?? true;
                   const isRoomSelected = grp.periods.length > 0 && grp.periods.every(p => selectedPeriodIds.includes(p.id));
 
                   return (
                     <div
-                      key={grp.roomCode}
+                      key={groupKey}
                       className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden"
                     >
                       {/* Room Header Strip */}
@@ -1440,17 +1436,17 @@ THÔNG TIN CHUYỂN KHOẢN THANH TOÁN:
                           <input
                             type="checkbox"
                             checked={isRoomSelected}
-                            onChange={() => toggleSelectRoom(grp.roomCode)}
+                            onChange={() => toggleSelectRoom(grp.roomCode, grp.leaseId)}
                             className="rounded border-slate-300 text-blue-600 cursor-pointer"
                             title="Tích chọn tất cả các kỳ nợ của phòng này"
                           />
                           <span
-                            onClick={() => toggleRoomExpand(grp.roomCode)}
+                            onClick={() => toggleRoomExpand(groupKey)}
                             className="font-mono text-base font-bold text-blue-800 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-xs cursor-pointer"
                           >
                             {grp.roomCode}
                           </span>
-                          <div onClick={() => toggleRoomExpand(grp.roomCode)} className="cursor-pointer">
+                          <div onClick={() => toggleRoomExpand(groupKey)} className="cursor-pointer">
                             <span className="font-bold text-slate-900 text-sm">{grp.tenantName}</span>
                             {grp.isRoomVacant && (
                               <span className="ml-2 px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-100 text-amber-800">
@@ -1458,19 +1454,24 @@ THÔNG TIN CHUYỂN KHOẢN THANH TOÁN:
                               </span>
                             )}
                             <div className="text-[11px] text-slate-500 mt-0.5">
-                              Gồm <strong>{grp.periods.length} kỳ nợ</strong> · Quá hạn lâu nhất: <strong>+{grp.maxOverdueDays} ngày</strong>
+                              Lượt thuê: <strong>{grp.leaseId}</strong> · Gồm <strong>{grp.periods.length} kỳ nợ</strong> · Quá hạn lâu nhất: <strong>+{grp.maxOverdueDays} ngày</strong>
                             </div>
                           </div>
                         </div>
 
                         <div className="flex items-center gap-3">
                           <div className="text-right">
-                            <span className="text-[10px] uppercase font-bold text-slate-400 block">Tổng dư nợ phòng</span>
+                            <span className="text-[10px] uppercase font-bold text-slate-400 block">Dư nợ lượt thuê</span>
                             <span className="text-base font-bold font-mono text-red-700">
                               {grp.totalRoomDebt.toLocaleString('vi-VN')} đ
                             </span>
                           </div>
 
+                          <button type="button" onClick={() => openDebtPayment(grp.periods)}
+                            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
+                            title="Thanh toán các kỳ của đúng phòng và lượt thuê này">
+                            Thanh toán
+                          </button>
                           <button
                             type="button"
                             onClick={() => {
@@ -1497,7 +1498,7 @@ THÔNG TIN CHUYỂN KHOẢN THANH TOÁN:
 
                           <button
                             type="button"
-                            onClick={() => toggleRoomExpand(grp.roomCode)}
+                            onClick={() => toggleRoomExpand(groupKey)}
                             className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200 cursor-pointer"
                           >
                             {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -1567,6 +1568,11 @@ THÔNG TIN CHUYỂN KHOẢN THANH TOÁN:
                                       {item.uncollectedBalance.toLocaleString('vi-VN')} đ
                                     </td>
                                     <td className="py-2 px-3 text-right space-x-1 whitespace-nowrap">
+                                      <button type="button" onClick={() => openDebtPayment([item])}
+                                        className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-semibold cursor-pointer"
+                                        title="Mở chi tiết thanh toán trong Thông báo thanh toán → Thu công nợ">
+                                        Thanh toán
+                                      </button>
                                       <button
                                         type="button"
                                         onClick={() => openReminderModal(item)}
@@ -1917,7 +1923,11 @@ THÔNG TIN CHUYỂN KHOẢN THANH TOÁN:
               </div>
 
               {activeSelectedDebt && (
-                <div className="flex items-center gap-3 text-[11px]">
+                <div className="flex items-center gap-3 text-[11px] flex-wrap">
+                  <button type="button" onClick={() => openDebtPayment([activeSelectedDebt])}
+                    className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
+                    Thanh toán tại Thông báo thu công nợ →
+                  </button>
                   <span>Hợp đồng: <strong className="font-mono text-slate-900">{activeSelectedDebt.contractId || '—'}</strong></span>
                   <span>Kỳ nợ: <strong className="font-mono text-purple-800">{activeSelectedDebt.periodCode}</strong></span>
                   <span>Hạn gốc: <strong className="font-mono text-slate-900">{formatDateDMY(activeSelectedDebt.dueDate)}</strong></span>
@@ -1963,7 +1973,7 @@ THÔNG TIN CHUYỂN KHOẢN THANH TOÁN:
 
                 {/* Danh sách các kỳ nợ khác của cùng phòng (nếu có) */}
                 {(() => {
-                  const otherPeriods = overdueDebtList.filter(i => i.roomCode === activeSelectedDebt.roomCode);
+                  const otherPeriods = overdueDebtList.filter(i => i.roomCode === activeSelectedDebt.roomCode && i.leaseId === activeSelectedDebt.leaseId);
                   if (otherPeriods.length <= 1) return null;
                   return (
                     <div className="p-4 border border-amber-200 bg-amber-50/60 rounded-xl space-y-2 text-xs">
@@ -2137,7 +2147,7 @@ THÔNG TIN CHUYỂN KHOẢN THANH TOÁN:
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-900 text-base">
-                    {remSavedSuccess ? 'Mã VietQR xuất kèm lần nhắc nợ' : 'Ghi nhận lịch sử nhắc nợ & Xuất mã QR'}
+                    {remSavedSuccess ? 'Đã lưu nhắc nợ · Xem thanh toán chính thức' : 'Ghi nhận lịch sử nhắc nợ'}
                   </h3>
                   <span className="text-[11px] font-semibold text-purple-700 font-mono">
                     {selectedPeriodDebtItems.length > 0 ? `${selectedPeriodDebtItems.length} kỳ nợ` : activeSelectedDebt.periodCode} · Phòng {activeSelectedDebt.roomCode}
@@ -2191,7 +2201,7 @@ THÔNG TIN CHUYỂN KHOẢN THANH TOÁN:
                     Quy định ràng buộc mã QR công nợ:
                   </strong>
                   <p className="text-amber-900/90 leading-relaxed">
-                    Mã QR thanh toán <strong>chỉ được hiển thị và xuất kèm khi ấn Lưu lịch sử nhắc nợ</strong>. Hệ thống nghiêm cấm và không hỗ trợ lấy mã QR riêng lẻ khi không lưu lịch sử đôn đốc nợ.
+                    Mã QR chính thức được quản lý trong <strong>Thông báo thanh toán → Thu công nợ</strong>. Việc lưu lịch sử nhắc nợ không tạo thêm QR hay nghĩa vụ thanh toán mới.
                   </p>
                 </div>
 
@@ -2305,7 +2315,7 @@ THÔNG TIN CHUYỂN KHOẢN THANH TOÁN:
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-600 leading-relaxed">
-                    Mã VietQR chuyển khoản chính xác <strong className="font-mono text-red-700 font-bold">{totalSelectedDebt.toLocaleString('vi-VN')} đ</strong> sẽ được <strong>tự động mở khóa kèm thông tin tài khoản và nút gửi Zalo</strong> ngay khi bạn bấm nút <strong>"Lưu lịch sử nhắc & Mở mã QR"</strong> bên dưới.
+                    Mã QR thanh toán lấy từ <strong>Thông báo thanh toán → Thu công nợ</strong>, không tạo QR riêng trong Công nợ. Sau khi lưu nhắc nợ, bạn có thể mở thông báo chính thức để thanh toán.
                   </p>
                 </div>
 
@@ -2315,19 +2325,19 @@ THÔNG TIN CHUYỂN KHOẢN THANH TOÁN:
                     onClick={handleCloseReminderModal}
                     className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium cursor-pointer transition-colors"
                   >
-                    Hủy (Không lưu & Không lấy QR)
+                    Hủy (Không lưu)
                   </button>
                   <button
                     type="submit"
                     className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-semibold cursor-pointer shadow-xs flex items-center gap-1.5 transition-colors"
                   >
                     <CheckCircle2 className="w-4 h-4" />
-                    Lưu lịch sử nhắc & Mở mã QR
+                    Lưu lịch sử nhắc nợ
                   </button>
                 </div>
               </form>
             ) : (
-              /* TRƯỜNG HỢP 2: ĐÃ LƯU LỊCH SỬ NHẮC NỢ THÀNH CÔNG -> HIỂN THỊ MỤC MÃ QR ĐÃ ĐƯỢC XUẤT KÈM */
+              /* Sau lưu nhắc nợ chỉ hiển thị QR nếu đã có thông báo thu công nợ hợp lệ */
               <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
                 {/* Thông báo đã ghi nhận thành công */}
                 <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1.5 text-xs text-emerald-950">
@@ -2336,19 +2346,23 @@ THÔNG TIN CHUYỂN KHOẢN THANH TOÁN:
                     <span>ĐÃ LƯU LỊCH SỬ NHẮC NỢ VÀO HỆ THỐNG THÀNH CÔNG</span>
                   </div>
                   <p className="text-[11px] text-emerald-900 leading-relaxed">
-                    Đã ghi nhận lần đôn đốc qua kênh <strong>{savedReminderDetails?.channel || remChannel}</strong> cho <strong>Phòng {activeSelectedDebt.roomCode}</strong> ({savedReminderDetails?.periods || activeSelectedDebt.periodCode}). Mã VietQR thanh toán nợ tương ứng đã được xuất kèm hợp lệ:
+                    Đã ghi nhận lần đôn đốc qua kênh <strong>{savedReminderDetails?.channel || remChannel}</strong> cho <strong>Phòng {activeSelectedDebt.roomCode}</strong> ({savedReminderDetails?.periods || activeSelectedDebt.periodCode}). Việc thanh toán sẽ thực hiện trên thông báo thu công nợ chính thức:
                   </p>
                 </div>
 
-                {/* MỤC MÃ QR THANH TOÁN (ĐÃ MỞ KHÓA KÈM LỊCH SỬ NHẮC NỢ) */}
+                <button type="button" onClick={() => { setShowReminderModal(false); openDebtPayment(selectedPeriodDebtItems.length ? selectedPeriodDebtItems : [activeSelectedDebt]); }}
+                  className="w-full px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 rounded-xl text-white text-xs font-bold cursor-pointer">
+                  Mở Chi tiết thanh toán tại Thông báo thanh toán → Thu công nợ
+                </button>
+                {/* QR hợp lệ chỉ được lấy từ thông báo Thu công nợ */}
                 <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm space-y-4 text-center">
                   <div className="flex items-center justify-between text-xs border-b border-slate-100 pb-2">
                     <span className="font-bold text-slate-800 flex items-center gap-1.5">
                       <QrCode className="w-4 h-4 text-emerald-600" />
-                      Mã VietQR thanh toán nợ kèm lần nhắc này
+                      Mã VietQR của thông báo thu công nợ đang hiệu lực
                     </span>
                     <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded">
-                      Đã xác thực & xuất kèm
+                      Dùng chung thông báo
                     </span>
                   </div>
 
@@ -2447,7 +2461,7 @@ THÔNG TIN CHUYỂN KHOẢN THANH TOÁN:
                     </div>
                   ) : (
                     <div className="p-6 text-slate-400">
-                      Chưa có thông tin số tài khoản ngân hàng để tạo mã QR. Vui lòng thiết lập tại mục Cấu hình tài khoản.
+                      Chưa có mã QR thu công nợ tương ứng với toàn bộ các kỳ đang chọn. Hãy mở Thông báo thanh toán → Thu công nợ để lập hoặc xem thông báo chính thức.
                     </div>
                   )}
                 </div>
@@ -2727,7 +2741,13 @@ THÔNG TIN CHUYỂN KHOẢN THANH TOÁN:
               </table>
             </div>
 
-            <div className="flex justify-end pt-3 border-t border-slate-100">
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+              {historyQrDetails.officialNoticeId && (
+                <button type="button" onClick={() => { setHistoryQrModalReminder(null); onNavigate?.('notices', { noticeId: historyQrDetails.officialNoticeId }); }}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold cursor-pointer">
+                  Xem Chi tiết thanh toán thu công nợ →
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setShowAllInvoicesModal(false)}
@@ -2849,7 +2869,7 @@ THÔNG TIN CHUYỂN KHOẢN THANH TOÁN:
               </div>
             ) : (
               <div className="p-6 text-center text-slate-400">
-                Chưa có thông tin tài khoản ngân hàng để tạo mã QR.
+                Không có QR thu công nợ đang hiệu lực cho khoản nợ này. Nếu đã thu hoặc thay thế thông báo, không sử dụng mã QR cũ để chuyển khoản.
               </div>
             )}
 

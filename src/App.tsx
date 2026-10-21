@@ -20,7 +20,7 @@ const MainAppContent: React.FC = () => {
   const [currentTab, setCurrentTab] = useState<NavTabKey>('rooms');
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [target, setTarget] = useState<{roomCode?: string; contractId?: string; tenantId?: string; leaseId?: string; billId?: string; noticeId?: string; action?: 'create' | 'return-plans'; handoverMode?: 'receive' | 'return' | 'view'}>({});
+  const [target, setTarget] = useState<{roomCode?: string; contractId?: string; tenantId?: string; leaseId?: string; billId?: string; noticeId?: string; debtSourceNoticeIds?: string[]; action?: 'create' | 'return-plans'; handoverMode?: 'receive' | 'return' | 'view'}>({});
   const navigate = (tab: NavTabKey, record: typeof target = {}) => { setTarget(record); setCurrentTab(tab); };
   const authenticated = currentSession?.type === 'admin' && currentSession.expiresAt > Date.now();
 
@@ -67,6 +67,7 @@ const MainAppContent: React.FC = () => {
             <PaymentNoticesView
               initialBillId={target.billId}
               initialNoticeId={target.noticeId}
+              initialDebtRequest={target.debtSourceNoticeIds ? { roomCode: target.roomCode || '', leaseId: target.leaseId || '', sourceNoticeIds: target.debtSourceNoticeIds } : undefined}
               onNavigateToReceipts={(noticeId) => navigate('receipts', { noticeId })}
             />
           )}

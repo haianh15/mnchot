@@ -2,6 +2,7 @@ import { toUserMessage } from '../../utils/userMessages';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { PaymentNotice, PeriodBill, PaymentNoticeItem } from '../../types';
+import { resolveDebtPaymentRoute } from '../../utils/debtPaymentRouting';
 import {
   QrCode, Share2, Download, CheckCircle2, AlertCircle, RefreshCw,
   Landmark, Calendar, Plus, Eye, Copy, ArrowRight, X, ShieldAlert,
@@ -37,9 +38,10 @@ interface PaymentNoticesViewProps {
   onNavigateToReceipts?: (noticeId: string) => void;
   initialBillId?: string;
   initialNoticeId?: string;
+  initialDebtRequest?: { roomCode: string; leaseId: string; sourceNoticeIds: string[] };
 }
 
-export const PaymentNoticesView: React.FC<PaymentNoticesViewProps> = ({ onNavigateToReceipts, initialBillId, initialNoticeId }) => {
+export const PaymentNoticesView: React.FC<PaymentNoticesViewProps> = ({ onNavigateToReceipts, initialBillId, initialNoticeId, initialDebtRequest }) => {
   const {
     paymentNotices,
     periodBills,
@@ -48,6 +50,7 @@ export const PaymentNoticesView: React.FC<PaymentNoticesViewProps> = ({ onNaviga
     issuePeriodNoticeFromA,
     createDebtPaymentNotice,
     replacePaymentNotice07_2,
+    debtPromises,
     rooms,
     contracts
   } = useApp();
@@ -119,6 +122,16 @@ export const PaymentNoticesView: React.FC<PaymentNoticesViewProps> = ({ onNaviga
       setSelectedNotice(paymentNotices[0]);
     }
   }, [paymentNotices, selectedNotice]);
+
+  // Thông báo là một bản ghi chung của Công nợ / Thu công nợ / Thu tiền.
+  // Khi xác nhận hoặc hoàn tác thu, chi tiết đang mở phải lấy trạng thái mới nhất.
+  useEffect(() => {
+    setSelectedNotice(previous => {
+      if (!previous) return previous;
+      const latest = paymentNotices.find(n => n.id === previous.id);
+      return latest && latest !== previous ? latest : previous;
+    });
+  }, [paymentNotices]);
 
   // List of all unique period codes from period notices and bills
   const allPeriodCodes = useMemo(() => {
@@ -440,6 +453,44 @@ export const PaymentNoticesView: React.FC<PaymentNoticesViewProps> = ({ onNaviga
 
     return Array.from(roomMap.values());
   }, [paymentNotices, activeDebtNoticeIdsSet, contracts, rooms]);
+
+  // Điểm đến từ Công nợ khi chưa có thông báo thu gộp: đi vào bước chọn
+  // tháng nợ của đúng phòng/lượt thuê, sau khi chủ nhà xác nhận phát hành sẽ
+  // mở ngay Chi tiết thanh toán (không sinh QR/nghĩa vụ tự động).
+  const consumedDebtRequest = useRef<string | null>(null);
+  useEffect(() => {
+    if (!initialDebtRequest?.sourceNoticeIds?.length) return;
+    const requestKey = `${initialDebtRequest.roomCode}|${initialDebtRequest.leaseId}|${initialDebtRequest.sourceNoticeIds.join(',')}`;
+    if (consumedDebtRequest.current === requestKey) return;
+    consumedDebtRequest.current = requestKey;
+    setMainTab('debt');
+    const route = resolveDebtPaymentRoute(paymentNotices, initialDebtRequest.roomCode,
+      initialDebtRequest.leaseId, initialDebtRequest.sourceNoticeIds);
+    if (route.mode === 'detail') {
+      const existing = paymentNotices.find(n => n.id === route.noticeId);
+      if (existing) { setSelectedNotice(existing); setActiveView('detail'); }
+      return;
+    }
+    if (route.mode !== 'create') {
+      alert(toUserMessage(route.message));
+      setActiveView('list');
+      return;
+    }
+    const room = roomsWithOverdueDebt.find(r => r.roomCode === route.roomCode && r.leaseId === route.leaseId);
+    if (!room || !route.sourceNoticeIds.every(id => room.notices.some(n => n.id === id))) {
+      alert(toUserMessage('Khoản nợ không còn đủ điều kiện để lập thông báo. Hãy kiểm tra các kỳ nợ và thông báo hiện có.'));
+      setActiveView('list');
+      return;
+    }
+    setActiveView('list');
+    setSelectedDebtRoomCode(room.roomCode);
+    setSelectedDebtLeaseId(room.leaseId);
+    setSelectedDebtNoticeIds(route.sourceNoticeIds);
+    setDebtWizardRoomSearch(room.roomCode);
+    setDebtWizardStep(2);
+    setSelectedDebtBankAccountId(activeBankAccount?.id || bankAccounts?.[0]?.id || '');
+    setShowDebtWizard(true);
+  }, [initialDebtRequest, paymentNotices, roomsWithOverdueDebt, activeBankAccount, bankAccounts]);
 
   // Filtered rooms in Wizard Step 1
   const wizardFilteredRooms = roomsWithOverdueDebt.filter(r => {
@@ -1447,6 +1498,35 @@ export const PaymentNoticesView: React.FC<PaymentNoticesViewProps> = ({ onNaviga
                         {p}
                       </span>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Đọc trạng thái, số tiền và hẹn trả từ đúng các kỳ nợ nguồn. */}
+              {selectedNotice.noticeType === 'DEBT' && !!selectedNotice.debtNoticeIds?.length && (
+                <div className="p-3 bg-white border border-orange-200 rounded-xl text-xs space-y-2">
+                  <strong className="text-orange-900 block">Đối chiếu các kỳ nợ nguồn trong Công nợ</strong>
+                  <div className="divide-y divide-slate-100">
+                    {selectedNotice.debtNoticeIds.map(sourceId => {
+                      const source = paymentNotices.find(n => n.id === sourceId);
+                      const latestPromise = [...debtPromises].filter(p => p.noticeId === sourceId && p.hasPromiseDate && p.promisedDate)
+                        .sort((a,b) => b.loggedAt.localeCompare(a.loggedAt))[0];
+                      return (
+                        <div key={sourceId} className="py-2 flex flex-wrap justify-between gap-2 items-center">
+                          <div>
+                            <span className="font-bold text-slate-900">{source?.periodCode || sourceId}</span>
+                            <span className="ml-2 text-slate-500">{source?.noticeCode || 'Chứng từ gốc không còn tồn tại'}</span>
+                            {latestPromise?.promisedDate && <div className="text-blue-700 text-[11px]">Hẹn trả: {formatDateDMY(latestPromise.promisedDate)}</div>}
+                          </div>
+                          <div className="text-right">
+                            <span className="font-mono font-semibold text-slate-800">{source ? `${source.totalAmount.toLocaleString('vi-VN')} đ` : '—'}</span>
+                            <div className={source?.paymentStatus === 'Đã thu' ? 'text-emerald-700 font-bold' : 'text-orange-700 font-bold'}>
+                              {source?.paymentStatus || 'Cần đối chiếu'}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
