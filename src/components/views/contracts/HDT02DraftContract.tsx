@@ -1,3 +1,4 @@
+import { findRepresentativeRoomConflict } from '../../../utils/representativeRoom';
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../../context/AppContext';
 import { Contract, LeaseConditionDraft } from '../../../types';
@@ -25,6 +26,8 @@ export const HDT02DraftContract: React.FC<HDT02Props> = ({
     batchSchedules,
     rooms,
     tenants,
+    returnInspections,
+    leaseStartEvents,
     createContractDraftHDT02,
     currentUser
   } = useApp();
@@ -48,6 +51,7 @@ export const HDT02DraftContract: React.FC<HDT02Props> = ({
   
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [createdContractSuccess, setCreatedContractSuccess] = useState<string | null>(null);
+  const [createContractError, setCreateContractError] = useState<string | null>(null);
 
   // Sync if initialCondition changes
   useEffect(() => {
@@ -160,6 +164,12 @@ export const HDT02DraftContract: React.FC<HDT02Props> = ({
       propertyAddress: propertyAddress.trim() || undefined,
     });
 
+    if (!res.success) {
+      setCreateContractError(res.message);
+      setCreatedContractSuccess(null);
+      return;
+    }
+    setCreateContractError(null);
     if (res.success && res.contractId) {
       setCreatedContractSuccess(res.contractId);
       if (onContractCreated) {
@@ -191,6 +201,12 @@ export const HDT02DraftContract: React.FC<HDT02Props> = ({
           </div>
         )}
       </div>
+
+      {createContractError && (
+        <div role="alert" className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800">
+          {createContractError}
+        </div>
+      )}
 
       {/* Main Grid: Form Left, Preview/Rules Right */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -253,11 +269,12 @@ export const HDT02DraftContract: React.FC<HDT02Props> = ({
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg font-medium"
                 >
                   <option value="">-- Chọn hồ sơ khách thuê trước khi lập hợp đồng --</option>
-                  {tenants.map(t => (
-                    <option key={t.id} value={t.id}>
-                      {t.fullName} ({t.id}) {t.isPreliminary ? '[Sơ bộ]' : ''}
-                    </option>
-                  ))}
+                  {tenants.map(t => {
+                    const conflict = findRepresentativeRoomConflict({roomCode: selectedRoomCode, tenantId: t.id}, rooms, contracts, tenants, returnInspections, leaseStartEvents);
+                    return <option key={t.id} value={t.id} disabled={Boolean(conflict)}>
+                      {t.fullName} ({t.id}) {t.isPreliminary ? '[Sơ bộ]' : ''}{conflict ? ` · Đang đại diện ${conflict.roomCode}` : ''}
+                    </option>;
+                  })}
                 </select>
               </div>
             </div>

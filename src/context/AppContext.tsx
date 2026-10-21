@@ -8,6 +8,7 @@ import { getRoomOccupancy } from '../utils/occupancy';
 import { hasValidHandoverSource, validateReturnConfirmation } from '../utils/handoverValidation';
 import { canCreateRenewalContract, blocksNewLeaseOnVacantRoom } from '../utils/contractEligibility';
 import { getPendingSignedRoomContract, pendingSignedContractsForRoom, reconcileRoomWorkflowLinks } from '../utils/roomLifecycle';
+import { findRepresentativeRoomConflict } from '../utils/representativeRoom';
 import {
   UserAccount,
   AuthSession,
@@ -1207,6 +1208,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!contract || contract.leaseId !== leaseId) {
       return { success: false, message: 'Không tìm thấy hợp đồng giấy duy nhất đang chờ nhận phòng đúng lần thuê. Vui lòng kiểm tra liên kết hợp đồng.' };
     }
+    const representativeConflict = findRepresentativeRoomConflict({ ...contract, excludeContractId: contract.id }, rooms, contracts, tenants, returnInspections, leaseStartEvents);
+    if (representativeConflict) return { success: false, message: representativeConflict.message };
     const report = [signedReportOverride, ...handoverReports].find(h => h && h.roomCode === roomCode && h.leaseId === leaseId &&
       h.contractId === contract?.id && (!handoverReportId || h.id === handoverReportId) &&
       h.status === 'Đã xác nhận' && h.tenantSignedPaper === 'Đã ký giấy' && h.ownerSignedPaper === 'Đã ký giấy');
@@ -2680,6 +2683,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!hasActualChange) {
       return { success: false, message: 'AF-03: Dữ liệu mới hoàn toàn trùng khớp với hồ sơ hiện tại. Không có thay đổi thực tế để cập nhật.' };
     }
+    // An identity edit must not disguise a representative already assigned to another room.
+    if (updatedFields.idNumber && updatedFields.idNumber !== tenant.idNumber) {
+      const duplicatedId = tenants.find(t => t.id !== tenantId && t.idNumber &&
+        t.idNumber.replace(/\D/g, '') === updatedFields.idNumber!.replace(/\D/g, ''));
+      if (duplicatedId) return { success: false, message: `CCCD này đã gắn với hồ sơ ${duplicatedId.fullName} (${duplicatedId.id}). Không được tạo thêm danh tính người đại diện khác.` };
+    }
 
     // Cập nhật hồ sơ gốc
     const nowIso = new Date().toISOString();
@@ -2797,7 +2806,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
-    // 4. Kiểm tra hồ sơ khách nếu có
+    // 4. Một người đại diện không được có hai phòng chưa kết thúc lượt thuê.
+    const representativeConflict = condition.roomCode ? findRepresentativeRoomConflict({
+      roomCode: condition.roomCode,
+      tenantId: condition.tenantId,
+      tenantIdNumber: condition.prospectiveIdNumber,
+      tenantName: condition.prospectiveTenantName,
+      tenantPhone: condition.prospectivePhone
+    }, rooms, contracts, tenants, returnInspections, leaseStartEvents) : undefined;
+    if (representativeConflict) blockingErrors.push(representativeConflict.message);
+
+    // 5. Kiểm tra hồ sơ khách nếu có
     if (condition.tenantId) {
       const tenant = tenants.find(t => t.id === condition.tenantId);
       if (tenant && (tenant.isPreliminary || tenant.verificationStatus === 'Chưa xác minh')) {
@@ -2824,6 +2843,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Kiểm tra tính hợp lệ sơ bộ
     const checkRes = checkLeaseConditionHDT01(conditionData);
+    if (checkRes.blockingErrors.length) return {
+      success: false, conditionId: conditionData.id || '', version: 0,
+      message: checkRes.blockingErrors.join('; ')
+    };
 
     let savedId = conditionData.id;
     let savedVersion = 1;
@@ -3011,6 +3034,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const createContractDraftHDT02 = (contractData: Omit<Contract, 'id' | 'status' | 'isSignedPaper' | 'version'>) => {
     const binding = validateContractTenantLink(contractData, tenants);
     if (!binding.valid) return { success: false, message: binding.message || 'Hồ sơ khách không hợp lệ.' };
+    const representativeConflict = findRepresentativeRoomConflict(contractData, rooms, contracts, tenants, returnInspections, leaseStartEvents);
+    if (representativeConflict) return { success: false, message: representativeConflict.message };
     const roomForDraft = rooms.find(r => r.roomCode === contractData.roomCode);
     if (!roomForDraft) return { success: false, message: 'Không tìm thấy phòng được chọn để lập hợp đồng.' };
     if (roomForDraft.status !== 'Trống') return { success: false, message: 'Phòng đang có khách. Không lập hợp đồng lần đầu cho lượt thuê mới khi chưa trả phòng.' };
@@ -3101,6 +3126,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // ==================== UC-HDT-03: GỬI VÀ THEO DÕI KÝ (4.9 → 4.10) ====================
   const updateContractDraftHDT03 = (contractId: string, updates: Partial<Contract>, changeNote: string) => {
     const existingDraft = contracts.find(c => c.id === contractId);
+    if (!existingDraft) return { success: false, message: 'Không tìm thấy dự thảo hợp đồng.' };
+    if ('roomCode' in updates || 'tenantId' in updates || 'tenantIdNumber' in updates || 'tenantPhone' in updates) {
+      const representativeConflict = findRepresentativeRoomConflict({ ...existingDraft, ...updates, excludeContractId: contractId }, rooms, contracts, tenants, returnInspections, leaseStartEvents);
+      if (representativeConflict) return { success: false, message: representativeConflict.message };
+    }
     if (initialPaymentRecords.some(p => p.contractId === contractId) && existingDraft &&
         ['roomCode', 'leaseId', 'tenantId', 'depositAmount', 'monthlyRent', 'firstMonthRentAmount'].some(key =>
           key in updates && (updates as any)[key] !== (existingDraft as any)[key])) {
@@ -3136,6 +3166,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const sendContractToTenantHDT03 = (contractId: string) => {
+    const target = contracts.find(c => c.id === contractId);
+    if (!target || !['Nháp', 'Chờ khách ký'].includes(target.status))
+      return { success: false, message: 'Không tìm thấy dự thảo còn được phép gửi ký.' };
+    const representativeConflict = findRepresentativeRoomConflict({ ...target, excludeContractId: contractId }, rooms, contracts, tenants, returnInspections, leaseStartEvents);
+    if (representativeConflict) return { success: false, message: representativeConflict.message };
     const nowStr = new Date().toISOString();
     const userName = currentUser?.fullName || 'Nguyễn Văn An (Chủ nhà)';
     const today = nowStr.split('T')[0];
@@ -3224,6 +3259,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!binding.valid) {
       return { success: false, message: binding.message || 'Hồ sơ khách chưa khớp hợp đồng.' };
     }
+    const representativeConflict = findRepresentativeRoomConflict({
+      ...contract,
+      tenantIdNumber: verifyInfo?.idNumber || contract.tenantIdNumber,
+      excludeContractId: contract.id
+    }, rooms, contracts, tenants, returnInspections, leaseStartEvents);
+    if (representativeConflict) return { success: false, message: representativeConflict.message };
     if (binding.tenant?.verificationStatus === 'Không hợp lệ') {
       return { success: false, message: 'Hồ sơ khách có kết quả xác minh không hợp lệ, không thể ghi nhận ký hợp đồng.' };
     }
@@ -3354,6 +3395,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }) => {
     const prevContract = contracts.find(c => c.id === params.previousContractId);
     if (!prevContract) return { success: false, message: 'Không tìm thấy hợp đồng cũ.' };
+    const representativeConflict = findRepresentativeRoomConflict(params, rooms, contracts, tenants, returnInspections, leaseStartEvents);
+    if (representativeConflict) return { success: false, message: representativeConflict.message };
     const todayLocal = new Date().toLocaleDateString('sv-SE');
     if (!canCreateRenewalContract(prevContract, rooms, contracts, todayLocal))
       return { success: false, message: 'Chỉ được lập hợp đồng nối tiếp cho khách hiện tại khi phòng Sắp trả hoặc hợp đồng đã hết hạn, và chưa có hợp đồng nối tiếp.' };
@@ -3433,6 +3476,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, message: `Không thể kích hoạt gia hạn: lần thuê hiện tại chưa đủ hồ sơ hoặc liên kết khách không khớp. ${readiness.missing.join('; ')}` };
     }
 
+    const representativeConflict = findRepresentativeRoomConflict({ ...contract, excludeContractId: contract.id }, rooms, contracts, tenants, returnInspections, leaseStartEvents);
+    if (representativeConflict) return { success: false, message: representativeConflict.message };
     if (!signedDate || Number.isNaN(Date.parse(signedDate)) || signedDate > new Date().toISOString().slice(0, 10) ||
         !proofFiles.some(f => f.trim())) {
       return { success: false, message: 'Cần có ngày ký thực tế và chứng cứ hợp đồng nối tiếp đã ký.' };

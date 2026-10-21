@@ -1,3 +1,4 @@
+import { findRepresentativeRoomConflict } from '../../../utils/representativeRoom';
 import { toUserMessage } from '../../../utils/userMessages';
 import React, { useEffect, useState } from 'react';
 import { useApp } from '../../../context/AppContext';
@@ -27,6 +28,8 @@ export const HDT01LeaseConditions: React.FC<HDT01Props> = ({
     batchSchedules,
     rooms,
     tenants,
+    returnInspections,
+    leaseStartEvents,
     contracts,
     saveLeaseConditionHDT01,
     checkLeaseConditionHDT01,
@@ -154,7 +157,8 @@ export const HDT01LeaseConditions: React.FC<HDT01Props> = ({
       endDate: formEndDate,
       monthlyRent: formMonthlyRent,
       depositAmount: formMonthlyRent,
-      tenantId: formTenantId || undefined
+      tenantId: formTenantId || undefined,
+      prospectiveTenantName: formProspectiveName, prospectivePhone: formProspectivePhone, prospectiveIdNumber: formProspectiveId
     });
     setCheckResultState(res);
   };
@@ -170,7 +174,8 @@ export const HDT01LeaseConditions: React.FC<HDT01Props> = ({
       endDate: formEndDate,
       monthlyRent: formMonthlyRent,
       depositAmount: formMonthlyRent,
-      tenantId: formTenantId || undefined
+      tenantId: formTenantId || undefined,
+      prospectiveTenantName: formProspectiveName, prospectivePhone: formProspectivePhone, prospectiveIdNumber: formProspectiveId
     });
 
     if (!checkRes.isValid) {
@@ -200,6 +205,8 @@ export const HDT01LeaseConditions: React.FC<HDT01Props> = ({
 
     if (res.success) {
       setShowEditModal(false);
+      alert(toUserMessage(res.message));
+    } else {
       alert(toUserMessage(res.message));
     }
   };
@@ -533,11 +540,12 @@ export const HDT01LeaseConditions: React.FC<HDT01Props> = ({
                       className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs"
                     >
                       <option value="">-- Chưa liên kết (Khách mới) --</option>
-                      {tenants.map(t => (
-                        <option key={t.id} value={t.id}>
-                          {t.fullName} ({t.id}) - {t.phoneNumber}
-                        </option>
-                      ))}
+                      {tenants.map(t => {
+                        const conflict = findRepresentativeRoomConflict({roomCode: formRoomCode, tenantId: t.id}, rooms, contracts, tenants, returnInspections, leaseStartEvents);
+                        return <option key={t.id} value={t.id} disabled={Boolean(conflict)}>
+                          {t.fullName} ({t.id}) - {t.phoneNumber}{conflict ? ` · Đang đại diện ${conflict.roomCode}` : ''}
+                        </option>;
+                      })}
                     </select>
                   </div>
                 </div>

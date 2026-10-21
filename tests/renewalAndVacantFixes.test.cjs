@@ -5,6 +5,7 @@ const ts = require('/opt/nvm/versions/node/v22.16.0/lib/node_modules/typescript'
 const {loadTs} = require('./loadTs.cjs');
 const exp = loadTs('src/utils/contractEligibility.ts');
 const {canCreateRenewalContract,blocksNewLeaseOnVacantRoom}=exp;
+const {findRepresentativeRoomConflict} = loadTs('src/utils/representativeRoom.ts');
 const signed = {id:'HD-101',contractType:'Hợp đồng lần đầu',roomCode:'P.101',leaseId:'L1',tenantId:'TEN1',endDate:'2027-03-01',status:'Hiệu lực',isSignedPaper:true,actualCheckInDate:'2026-09-01'};
 const occupied={roomCode:'P.101',status:'Đang thuê',currentLeaseId:'L1',currentContractId:'HD-101',currentTenantId:'TEN1'};
 const tests=[];const test=(label,cb)=>{cb();tests.push(label);console.log('PASS',label)};
@@ -22,7 +23,7 @@ const getFn=name=>{let found;function visit(n){if(ts.isVariableDeclaration(n)&&n
 // Actual context handler is run, so UI hiding is not the only enforcement.
 const fcode=getFn('createRenewalContractHDT06');
 const invoke=(room,oldContract=signed,extra=[])=>{
- const ctx={contracts:[oldContract,...extra],rooms:[room],canCreateRenewalContract, currentUser:{fullName:'Chủ nhà'},logSecurity:()=>{},setContracts:cb=>ctx.contracts=cb(ctx.contracts),Date};
+ const ctx={contracts:[oldContract,...extra],rooms:[room],tenants:[],returnInspections:[],leaseStartEvents:[],findRepresentativeRoomConflict,canCreateRenewalContract, currentUser:{fullName:'Chủ nhà'},logSecurity:()=>{},setContracts:cb=>ctx.contracts=cb(ctx.contracts),Date};
  return vm.runInNewContext(fcode,ctx)({previousContractId:oldContract.id,roomCode:'P.101',tenantId:'TEN1',tenantName:'Khách',batchCode:'B',startDate:'2027-03-01',endDate:'2027-09-01',monthlyRent:3500000,terms:'Gia hạn'});
 };
 test('Handler thực tế chặn tạo nối tiếp cho phòng Trống',()=>assert.equal(invoke({...occupied,status:'Trống'}).success,false));
@@ -38,17 +39,17 @@ const old = signed;
 const vacantRoom = {...occupied,status:'Trống',currentLeaseId:undefined,currentContractId:undefined,currentTenantId:undefined};
 const condition={roomCode:'P.101',batchCode:'B1',startDate:'2026-10-01',endDate:'2027-04-01',monthlyRent:3500000,depositAmount:3500000};
 test('HDT01 cho tạo điều kiện thuê mới P101 khi HĐ cũ từng có khách và phòng Trống',()=>{
-  const ctx={rooms:[vacantRoom],contracts:[old],batchSchedules:[{batchCode:'B1',isConfirmed:true}],tenants:[],blocksNewLeaseOnVacantRoom, returnInspections:[],leaseStartEvents:[],Date};
+  const ctx={rooms:[vacantRoom],contracts:[old],batchSchedules:[{batchCode:'B1',isConfirmed:true}],tenants:[],findRepresentativeRoomConflict,blocksNewLeaseOnVacantRoom, returnInspections:[],leaseStartEvents:[],Date};
   const res=vm.runInNewContext(checkFn,ctx)(condition);assert.equal(res.isValid,true,JSON.stringify(res.blockingErrors));
 });
 test('HDT01 không cho tạo điều kiện thuê mới khi P909 đã ký đang chờ nhận',()=>{
-  const ctx={rooms:[{roomCode:'P.909',status:'Trống'}],contracts:[{...old,roomCode:'P.909',leaseId:'L909',actualCheckInDate:undefined,status:'Đã ký'}],batchSchedules:[{batchCode:'B1',isConfirmed:true}],tenants:[],blocksNewLeaseOnVacantRoom, returnInspections:[],leaseStartEvents:[],Date};
+  const ctx={rooms:[{roomCode:'P.909',status:'Trống'}],contracts:[{...old,roomCode:'P.909',leaseId:'L909',actualCheckInDate:undefined,status:'Đã ký'}],batchSchedules:[{batchCode:'B1',isConfirmed:true}],tenants:[],findRepresentativeRoomConflict,blocksNewLeaseOnVacantRoom, returnInspections:[],leaseStartEvents:[],Date};
   const res=vm.runInNewContext(checkFn,ctx)({...condition,roomCode:'P.909'});assert.equal(res.isValid,false);
 });
 const createFn=getFn('createContractDraftHDT02');
 test('HDT02 cấp mã lượt thuê P101 kế tiếp không trùng hợp đồng lịch sử',()=>{
   const ctx={rooms:[vacantRoom],contracts:[{...old,leaseId:'THUE-101-L1'}], tenants:[], currentUser:{fullName:'Chủ nhà'},Date,
-    validateContractTenantLink:()=>({valid:true}),blocksNewLeaseOnVacantRoom,returnInspections:[],leaseStartEvents:[],
+    validateContractTenantLink:()=>({valid:true}),findRepresentativeRoomConflict,blocksNewLeaseOnVacantRoom,returnInspections:[],leaseStartEvents:[],
     logSecurity:()=>{},setContracts:cb=>ctx.contracts=cb(ctx.contracts)};
   const res=vm.runInNewContext(createFn,ctx)({...condition,tenantId:'TEN2',tenantName:'Khách mới',contractType:'Hợp đồng lần đầu',leaseId:'',terms:'Nội dung',firstMonthRentAmount:3500000});
   assert.equal(res.success,true, res.message);assert.equal(ctx.contracts[0].leaseId,'THUE-101-L2');assert.equal(ctx.contracts[0].tenantId,'TEN2');

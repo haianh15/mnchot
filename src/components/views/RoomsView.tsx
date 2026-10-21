@@ -748,12 +748,6 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                                     {getVacantNextStep(room).label}
                                   </button>
                                   {Boolean(getActiveRoomContract(room)) && <button
-                                    onClick={() => { setSelectedRoom(room); setShowPayment07Modal(true); }}
-                                    className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded text-[11px] font-semibold transition-colors cursor-pointer"
-                                    title="Chỉ đối chiếu và ghi nhận tiền đã chuyển ngoài hệ thống; không thực hiện thanh toán ở website"
-                                  >
-                                    Đối chiếu cọc/thuê </button>}
-                                  {Boolean(getActiveRoomContract(room)) && <button
                                     onClick={() => { setSelectedRoom(room); setActiveCheckInRoomCode(room.roomCode); setCheckInStage(0); setSubTab('checkin'); }}
                                     className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded text-[11px] font-semibold transition-colors cursor-pointer flex items-center gap-1"
                                     title="Kiểm tra điều kiện nhận phòng "
