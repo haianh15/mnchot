@@ -133,7 +133,8 @@ export const HDT02DraftContract: React.FC<HDT02Props> = ({
 
     const matchedCond = leaseConditions.find(c => c.id === selectedConditionId);
 
-    const leaseId = 'THUE-' + selectedRoomCode.replace(/\D/g, '') + '-L' + Math.floor(Math.random() * 9 + 1);
+    // Mã lượt thuê sẽ cấp tại AppContext theo số thứ tự chưa từng sử dụng.
+    const leaseId = '';
 
     const res = createContractDraftHDT02({
       contractType: 'Hợp đồng lần đầu',

@@ -26,7 +26,7 @@ test('Xác nhận đủ chữ ký và ngày nhận gọi cùng nguồn kiểm tr
 });
 test('Kiểm tra phòng đang Trống, mã phòng và hợp đồng đúng lần thuê', () => {
   assert(checkin.includes("room.status !== 'Trống'"));
-  assert(checkin.includes('c.roomCode === roomCode && c.leaseId === leaseId'));
+  assert(checkin.includes('getPendingSignedRoomContract(room, contracts, returnInspections, leaseStartEvents)'));
   assert(checkin.includes('h.contractId === contract?.id'));
 });
 test('Kiểm tra hồ sơ khách, chứng từ cọc + thuê đầu, chữ ký trên biên bản', () => {

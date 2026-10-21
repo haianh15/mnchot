@@ -15,11 +15,8 @@ function getFunction(name) {
   assert.ok(target, `Source business function not found: ${name}`);
   return ts.transpileModule(`const testFunction = ${target};`, {compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText + '\ntestFunction;';
 }
-const sourceGuardText = read('src/utils/handoverValidation.ts');
-const sourceGuardJs = ts.transpileModule(sourceGuardText,{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText;
-const sourceCtx = {module: {exports:{}}, exports:{}};
-vm.runInNewContext(sourceGuardJs, sourceCtx);
-const validSource = sourceCtx.module.exports.hasValidHandoverSource || sourceCtx.exports.hasValidHandoverSource;
+const {loadTs} = require('./loadTs.cjs');
+const validSource = loadTs('src/utils/handoverValidation.ts').hasValidHandoverSource;
 assert.equal(typeof validSource, 'function');
 const original = {id:'HD-1',roomCode:'P.101',leaseId:'L1',isSignedPaper:true,contractType:'Hợp đồng lần đầu',status:'Đã ký',depositAmount:4000000,firstMonthRentAmount:4000000};
 const room={roomCode:'P.101',currentLeaseId:'L1',currentContractId:'HD-1',status:'Đang thuê'};

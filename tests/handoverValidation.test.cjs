@@ -3,9 +3,8 @@ const fs = require('node:fs');
 let ts; try { ts = require('typescript'); } catch { ts = require('/opt/nvm/versions/node/v22.16.0/lib/node_modules/typescript'); }
 const Module = require('node:module');
 const path = require('node:path');
-const file = 'src/utils/handoverValidation.ts';
-const js = ts.transpileModule(fs.readFileSync(file,'utf8'), {compilerOptions: {module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
-const m = new Module(file, module); m.paths = module.paths; m._compile(js, path.resolve('src/utils/handoverValidation.js'));
+const {loadTs} = require('./loadTs.cjs');
+const m = {exports:loadTs('src/utils/handoverValidation.ts')};
 const {hasValidHandoverSource,validateReturnConfirmation} = m.exports;
 const room = {roomCode:'P.101',status:'Đang thuê',currentLeaseId:'LEASE-A'};
 const contract = {id:'HD-A',roomCode:'P.101',leaseId:'LEASE-A',isSignedPaper:true,status:'Hiệu lực'};

@@ -3,10 +3,8 @@ const fs = require('node:fs');
 let ts;
 try { ts = require('typescript'); } catch { ts = require('/opt/nvm/versions/node/v22.16.0/lib/node_modules/typescript'); }
 const vm = require('node:vm');
-const file = fs.readFileSync(__dirname + '/../src/utils/roomLinks.ts','utf8');
-const js = ts.transpileModule(file,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
-const moduleExports = {};
-vm.runInNewContext(js,{exports: moduleExports, require});
+const {loadTs} = require('./loadTs.cjs');
+const moduleExports = loadTs('src/utils/roomLinks.ts');
 const {resolveRoomContract, resolveRoomTenantId} = moduleExports;
 const vacancy = {roomCode:'P.505',status:'Trống',totalOccupants:0};
 const pending = {id:'HD505',roomCode:'P.505',leaseId:'THUE-505-L2',tenantId:'new',signedDate:'2026-10-19',status:'Chờ hiệu lực',isSignedPaper:true};
@@ -23,5 +21,5 @@ test('Lần thuê cũ đã trả phòng không trở lại thành hợp đồng 
 test('Khi đã nhận phòng, chỉ mở hợp đồng khớp lease',()=>{const occupied={...vacancy,status:'Đang thuê',currentLeaseId:'THUE-505-L2',currentContractId:'HD505',currentTenantId:'new'};const c=resolveRoomContract(occupied,[past,pending,wrongRoom],[]);assert.equal(c.id,'HD505');assert.equal(resolveRoomTenantId(occupied,c,tenants),'new')});
 test('Không chuyển hồ sơ sang khách khác nếu room và contract xung đột',()=>{const occupied={...vacancy,status:'Đang thuê',currentLeaseId:'THUE-505-L2',currentContractId:'HD505',currentTenantId:'old'};assert.equal(resolveRoomTenantId(occupied,pending,tenants),undefined)});
 test('Hợp đồng khác lần thuê không được dùng làm nguồn cho phòng có khách',()=>{const occupied={...vacancy,status:'Đang thuê',currentLeaseId:'THUE-505-L3'};assert.equal(resolveRoomContract(occupied,[pending,past],[]),undefined)});
-test('Ưu tiên hợp đồng chờ nhận đã được liên kết chính xác',()=>{const pending2={...pending,id:'HD505SECOND',signedDate:'2026-10-20'};assert.equal(resolveRoomContract({...vacancy,pendingContractId:'HD505'},[pending,pending2],[]).id,'HD505')});
+test('Hai hợp đồng giấy khác nhau cùng chờ phải đối chiếu, không tùy tiện chọn một',()=>{const pending2={...pending,id:'HD505SECOND',signedDate:'2026-10-20'};assert.equal(resolveRoomContract({...vacancy,pendingContractId:'HD505'},[pending,pending2],[]),undefined)});
 console.log('TOTAL',tests);

@@ -3,10 +3,8 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 let ts;
 try { ts = require('typescript'); } catch { ts = require('/opt/nvm/versions/node/v22.16.0/lib/node_modules/typescript'); }
-const source = fs.readFileSync('src/utils/roomLinks.ts','utf8');
-const transpiled = ts.transpileModule(source, {compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022}}).outputText;
-const moduleExports = {};
-vm.runInNewContext(transpiled, {exports: moduleExports, require});
+const {loadTs} = require('./loadTs.cjs');
+const moduleExports = loadTs('src/utils/roomLinks.ts');
 const {getVacantRoomNextStep} = moduleExports;
 const vacant = {roomCode:'P.999',status:'Trống',pendingContractId:'HD-P999',pendingLeaseId:'LEASE-P999'};
 const signed = {id:'HD-P999',roomCode:'P.999',leaseId:'LEASE-P999',status:'Chờ hiệu lực',isSignedPaper:true,tenantId:'T999'};

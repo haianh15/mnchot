@@ -43,3 +43,7 @@ Xem `BAO_CAO_SUA_LUONG_PHONG_BAN_GIAO_20_10_2026.md` để biết các sửa l�
 Đã rà soát lại liên kết mã phòng/hợp đồng/lần thuê, hồ sơ nhận phòng kế thừa, kết quả trả phòng, xác nhận ký giấy, dữ liệu kiểm kê, hiện trạng và đối chiếu cọc. Xem `BAO_CAO_KIEM_TRA_SUA_LIEN_KET_PHONG_BAN_GIAO_20_10.md`.
 
 Sau khi `npm install`, chạy `npm run test:handover` (có thêm 29 trường hợp kiểm tra), cùng `npm run test:occupancy`, `npm run test:settlement` và `npm run test:contract`.
+
+## Đồng bộ vòng đời phòng toàn hệ thống (21/10/2026)
+
+Quy trình ký hợp đồng → bàn giao → nhận phòng → đang thuê → trả phòng → lập lần thuê mới/gia hạn dùng chung bộ xử lý `src/utils/roomLifecycle.ts`. Tất cả phòng và hợp đồng được đối chiếu theo mã phòng, mã hợp đồng, `leaseId`, chứng từ và sự kiện nhận/trả thực tế. Không có nhánh điều kiện riêng cho mã phòng P.101, P.909 hoặc phòng mẫu khác. Xem báo cáo `BAO_CAO_DONG_BO_LOGIC_TOAN_BO_PHONG_21_10_2026.md` và chạy `node tests/globalRoomWorkflow.test.cjs` để kiểm tra.

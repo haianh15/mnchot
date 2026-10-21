@@ -1,8 +1,9 @@
-import type { Room, Contract, ReturnInspection } from '../types';
+import type { Room, Contract, ReturnInspection, LeaseStartEvent } from '../types';
+import { getPendingSignedRoomContract, pendingSignedContractsForRoom } from './roomLifecycle';
 
 /** A signed source is only writable against its own room/lease/contract. */
 export function hasValidHandoverSource(
-  rooms: Room[], contracts: Contract[], roomCode: string, leaseId?: string, contractId?: string
+  rooms: Room[], contracts: Contract[], roomCode: string, leaseId?: string, contractId?: string, inspections: ReturnInspection[] = [], starts: LeaseStartEvent[] = []
 ): boolean {
   if (!roomCode || !leaseId || !contractId) return false;
   const room = rooms.find(r => r.roomCode === roomCode);
@@ -10,8 +11,13 @@ export function hasValidHandoverSource(
     c.leaseId === leaseId && c.isSignedPaper && !['Nháp', 'Đã hủy', 'Chờ khách ký'].includes(c.status));
   if (!room || !contract) return false;
   // No historical lease may masquerade as the current guest's paperwork.
-  const activeLease = room.currentLeaseId || room.pendingLeaseId;
-  return !activeLease || activeLease === leaseId;
+  if (room.status === 'Trống') {
+    // Chỉ hợp đồng giấy đang chờ nhận phòng của phòng này được ghi biên bản.
+    // Trả xong một lần thuê thì biên bản cũ KHÔNG được dùng để nhận phòng mới.
+    if (pendingSignedContractsForRoom(roomCode, contracts, inspections, starts).length !== 1) return false;
+    return getPendingSignedRoomContract(room, contracts, inspections, starts)?.id === contractId;
+  }
+  return room.currentLeaseId === leaseId;
 }
 
 /** 0 is a legitimate meter reading; absence is not. Never accept demo evidence. */

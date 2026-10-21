@@ -4,16 +4,9 @@ const path = require('node:path');
 const vm = require('node:vm');
 let ts;
 try { ts = require('typescript') } catch { ts = require('/opt/nvm/versions/node/v22.16.0/lib/node_modules/typescript') }
-function importTs(relativeFile, imports = {}) {
-  const file = path.join(__dirname, '..', relativeFile);
-  const source = fs.readFileSync(file, 'utf8');
-  const {outputText} = ts.transpileModule(source, {compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022}});
-  const exports = {};
-  vm.runInNewContext(outputText, {exports, require: x => { if(x in imports) return imports[x]; throw new Error('Unexpected dependency '+x); }});
-  return exports;
-}
-const links = importTs('src/utils/roomLinks.ts');
-const { getRoomOccupancy } = importTs('src/utils/occupancy.ts', {'./roomLinks':links});
+const {loadTs} = require('./loadTs.cjs');
+const links = loadTs('src/utils/roomLinks.ts');
+const { getRoomOccupancy } = loadTs('src/utils/occupancy.ts');
 let done = 0;
 function test(name, fn) {fn(); done++; console.log('PASS', name)}
 const room = {roomCode:'P.301',status:'Đang thuê',currentLeaseId:'LEASE-A',currentTenantId:'T-A',currentContractId:'H-A',totalOccupants:99};

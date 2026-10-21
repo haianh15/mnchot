@@ -1,12 +1,8 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 let ts; try { ts = require('typescript'); } catch { ts = require('/opt/nvm/versions/node/v22.16.0/lib/node_modules/typescript'); }
-const source = fs.readFileSync('src/utils/roomLinks.ts', 'utf8');
-const js = ts.transpileModule(source, {compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText;
-const Module = require('node:module');
-const m = new Module('virtual-room-links', module);
-m.paths = module.paths;
-m._compile(js, 'virtual-room-links.js');
+const {loadTs} = require('./loadTs.cjs');
+const m = {exports:loadTs('src/utils/roomLinks.ts')};
 const { getConfirmedRoomHandover, getLeaseContractChain } = m.exports;
 const original = {id:'hd-A', roomCode:'P.101', leaseId:'L1', contractType:'Hợp đồng lần đầu', isSignedPaper:true};
 const renewal = {id:'hd-R',roomCode:'P.101', leaseId:'L1', contractType:'Hợp đồng nối tiếp', isSignedPaper:true, previousContractId:'hd-A'};

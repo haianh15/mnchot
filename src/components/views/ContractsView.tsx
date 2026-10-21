@@ -10,6 +10,7 @@ import { HDT02DraftContract } from './contracts/HDT02DraftContract';
 import { HDT03SendAndNegotiate } from './contracts/HDT03SendAndNegotiate';
 import { HDT04ReceiveSignedContract } from './contracts/HDT04ReceiveSignedContract';
 import { getInitialPaymentStatus } from '../../utils/initialPayments';
+import { canCreateRenewalContract } from '../../utils/contractEligibility';
 import { HDT05BatchSchedules } from './contracts/HDT05BatchSchedules';
 import { ContractReturnTracking } from './contracts/ContractReturnTracking';
 import { HDT06RenewalContract } from './contracts/HDT06RenewalContract';
@@ -212,7 +213,8 @@ export const ContractsView: React.FC<{initialContractId?: string; initialRoomCod
                 {onBackToRooms && <button onClick={()=>onBackToRooms(selectedContract.roomCode)} className="px-3 py-2 rounded-lg border">Xem phòng</button>}
                 {selectedContract.status==='Nháp' && <button onClick={()=>setActiveTab('negotiate')} className="px-3 py-2 rounded-lg border">Điều chỉnh dự thảo</button>}
                 {['Nháp','Chờ khách ký'].includes(selectedContract.status) && <button onClick={()=>handleSelectContractForSign(selectedContract)} className="px-3 py-2 rounded-lg border">Ghi nhận ký</button>}
-                {['Hiệu lực','Đã ký','Chờ hiệu lực'].includes(selectedContract.status) && <button onClick={()=>setActiveTab('renewal')} className="px-3 py-2 rounded-lg border">Lập hợp đồng nối tiếp</button>}
+                {canCreateRenewalContract(selectedContract, rooms, contracts, new Date().toLocaleDateString('sv-SE')) &&
+                  <button onClick={()=>setActiveTab('renewal')} className="px-3 py-2 rounded-lg border">Lập hợp đồng nối tiếp</button>}
               </div>
             </>}
           </div>
@@ -293,6 +295,7 @@ export const ContractsView: React.FC<{initialContractId?: string; initialRoomCod
 
         {activeTab === 'renewal' && (
           <HDT06RenewalContract
+            initialContractId={selectedContractId}
             onNavigateToTab={handleNavigateToTab}
           />
         )}

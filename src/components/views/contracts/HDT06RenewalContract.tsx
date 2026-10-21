@@ -2,6 +2,7 @@ import { toUserMessage } from '../../../utils/userMessages';
 import React, { useState } from 'react';
 import { useApp } from '../../../context/AppContext';
 import { Contract } from '../../../types';
+import { canCreateRenewalContract } from '../../../utils/contractEligibility';
 import {
   RotateCcw, ShieldCheck, CheckCircle2, AlertCircle, ArrowRight,
   Clock, DollarSign, Calendar, Building, User, FileText, Check
@@ -10,36 +11,42 @@ import {
 interface HDT06Props {
   onNavigateToTab?: (tab: 'conditions' | 'draft' | 'negotiate' | 'sign' | 'schedules' | 'renewal' | 'activate') => void;
   onSelectContractForActivation?: (contractId: string) => void;
+  initialContractId?: string;
 }
 
 export const HDT06RenewalContract: React.FC<HDT06Props> = ({
   onNavigateToTab,
-  onSelectContractForActivation
+  onSelectContractForActivation,
+  initialContractId
 }) => {
   const {
     contracts,
+    rooms,
     batchSchedules,
     createRenewalContractHDT06
   } = useApp();
 
-  // Active contracts that can be renewed
-  const activeContracts = contracts.filter(c => c.status === 'Hiệu lực');
+  // Chỉ phòng Sắp trả hoặc hợp đồng đã hết hạn; không gia hạn phòng Trống.
+  const todayLocal = new Date().toLocaleDateString('sv-SE');
+  const activeContracts = contracts.filter(c => canCreateRenewalContract(c, rooms, contracts, todayLocal));
 
   // Existing renewal drafts
   const renewalContracts = contracts.filter(c => c.contractType === 'Hợp đồng nối tiếp');
 
   const [selectedOldContractId, setSelectedOldContractId] = useState<string>(
-    activeContracts[0]?.id || ''
+    activeContracts.find(c => c.id === initialContractId)?.id || activeContracts[0]?.id || ''
   );
   const [renewalBatchCode, setRenewalBatchCode] = useState<string>(
     batchSchedules[1]?.batchCode || batchSchedules[0]?.batchCode || 'DOT-2026-K11'
   );
-  const [newRent, setNewRent] = useState<number>(3800000);
+  const [newRent, setNewRent] = useState<number>(
+    activeContracts.find(c => c.id === initialContractId)?.monthlyRent || activeContracts[0]?.monthlyRent || 3800000
+  );
   const [renewalTerms, setRenewalTerms] = useState<string>(
     'Hợp đồng gia hạn nối tiếp tiếp tục thuê phòng. Kế thừa toàn bộ khoản cọc gốc ban đầu, không thu cọc mới. Thanh toán chuyển khoản định kỳ hàng tháng.'
   );
 
-  const selectedOldContract = contracts.find(c => c.id === selectedOldContractId);
+  const selectedOldContract = activeContracts.find(c => c.id === selectedOldContractId) || activeContracts[0];
   const selectedBatch = batchSchedules.find(b => b.batchCode === renewalBatchCode);
 
   const handleSelectOldContract = (contractId: string) => {
@@ -53,6 +60,10 @@ export const HDT06RenewalContract: React.FC<HDT06Props> = ({
   const handleCreateRenewal = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedOldContract || !selectedBatch) return;
+    if (!canCreateRenewalContract(selectedOldContract, rooms, contracts, todayLocal)) {
+      alert('Phòng chưa Sắp trả, hợp đồng chưa hết hạn hoặc đã có hợp đồng nối tiếp.');
+      return;
+    }
 
     // Check if renewal contract already drafted for this contract
     const existingRenewal = contracts.find(c => c.previousContractId === selectedOldContract.id && c.status !== 'Đã hủy');
@@ -120,10 +131,11 @@ export const HDT06RenewalContract: React.FC<HDT06Props> = ({
                 Chọn hợp đồng hiện hành đang hiệu lực cần gia hạn <span className="text-red-500">*</span>
               </label>
               <select
-                value={selectedOldContractId}
+                value={selectedOldContract?.id || ''}
                 onChange={(e) => handleSelectOldContract(e.target.value)}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg font-mono font-bold text-xs"
               >
+                {activeContracts.length === 0 && <option value="">Chưa có hợp đồng đủ điều kiện gia hạn</option>}
                 {activeContracts.map(c => {
                   const hasRenewal = contracts.some(r => r.previousContractId === c.id && r.status !== 'Đã hủy');
                   return (
@@ -221,7 +233,8 @@ export const HDT06RenewalContract: React.FC<HDT06Props> = ({
             <div className="pt-3 border-t border-slate-200 flex justify-end">
               <button
                 type="submit"
-                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold flex items-center gap-1.5 cursor-pointer shadow-sm text-xs"
+                disabled={!selectedOldContract}
+                className="px-5 py-2.5 disabled:opacity-50 disabled:cursor-not-allowed bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold flex items-center gap-1.5 cursor-pointer shadow-sm text-xs"
               >
                 <RotateCcw className="w-4 h-4" />
                 Lập hợp đồng nối tiếp (Nháp) </button>

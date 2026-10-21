@@ -2,6 +2,7 @@ import { getInitialPaymentStatus } from '../../utils/initialPayments';
 import { toUserMessage } from '../../utils/userMessages';
 import { resolveRoomContract, resolveRoomTenantId, getLeaseContractChain, getConfirmedRoomHandover, getVacantRoomNextStep } from '../../utils/roomLinks';
 import { getRoomOccupancy } from '../../utils/occupancy';
+import { pendingSignedContractsForRoom } from '../../utils/roomLifecycle';
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Room, ContractExpiryBadge, TenantFeedbackBadge, RoomHistoryLog } from '../../types';
@@ -78,8 +79,8 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
   }, [initialRoomCode]);
 
   // Shared room-to-lease resolver also supports signed leases awaiting check-in.
-  const getActiveRoomContract = (room: Room) => resolveRoomContract(room, contracts, returnInspections);
-  const getVacantNextStep = (room: Room) => getVacantRoomNextStep(room, contracts, returnInspections, handoverReports);
+  const getActiveRoomContract = (room: Room) => resolveRoomContract(room, contracts, returnInspections, leaseStartEvents);
+  const getVacantNextStep = (room: Room) => getVacantRoomNextStep(room, contracts, returnInspections, handoverReports, leaseStartEvents);
   const getActiveRoomTenantId = (room: Room) =>
     resolveRoomTenantId(room, getActiveRoomContract(room), tenants);
   const getCurrentRoomHandover = (room: Room) => {
@@ -146,6 +147,10 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
     const contract = getActiveRoomContract(room);
     const tenantId = getActiveRoomTenantId(room);
     if (tab === 'contracts' && !contract && room.status === 'Trống') {
+      if (pendingSignedContractsForRoom(room.roomCode, contracts, returnInspections, leaseStartEvents).length > 1) {
+        showToast('error', 'Phòng có nhiều hợp đồng giấy cùng chờ nhận. Hãy đối chiếu và xử lý hợp đồng trùng trong Quản lý hợp đồng trước.');
+        return;
+      }
       closeRoomDetails();
       onNavigate('contracts', { roomCode: room.roomCode, action: 'create' });
       return;
@@ -168,11 +173,12 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
       showToast('error', 'Chưa có hợp đồng đã ký nên chưa thể lập biên bản nhận phòng.');
       return;
     }
-    const handover = tab === 'handover' ? getCurrentRoomHandover(room) : undefined;
+    // Bàn giao nhận phải đi theo HĐ mới đã ký, không lấy biên bản của lượt thuê trước.
+    const handover = tab === 'handover' && room.status !== 'Trống' ? getCurrentRoomHandover(room) : undefined;
     closeRoomDetails();
     onNavigate(tab, { roomCode: room.roomCode,
-      contractId: handover?.contractId || contract.id, tenantId,
-      leaseId: handover?.leaseId || contract.leaseId,
+      contractId: room.status === 'Trống' ? contract.id : (handover?.contractId || contract.id), tenantId,
+      leaseId: room.status === 'Trống' ? contract.leaseId : (handover?.leaseId || contract.leaseId),
       handoverMode: tab === 'handover' ? (room.status === 'Trống' ? 'receive' : 'view') : undefined });
   };
   // Modals for Actions & Links in Chi tiết phòng

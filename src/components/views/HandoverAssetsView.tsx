@@ -60,6 +60,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
     handoverReports,
     incidents,
     returnInspections,
+    leaseStartEvents,
     assetComparisonResults,
     handoverReturnReports,
     settlementSlips,
@@ -158,9 +159,9 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
 
   // Helper: target room
   const selectedRoom = rooms.find(r => r.roomCode === selectedRoomCode)!;
+  const resolvedContract = selectedRoom ? resolveRoomContract(selectedRoom, contracts, returnInspections, leaseStartEvents) : undefined;
   const selectedLeaseId = initialRoomCode === selectedRoomCode && initialLeaseId
-    ? initialLeaseId : (selectedRoom?.currentLeaseId || selectedRoom?.pendingLeaseId);
-  const resolvedContract = selectedRoom ? resolveRoomContract(selectedRoom, contracts, returnInspections) : undefined;
+    ? initialLeaseId : (selectedRoom?.status === 'Trống' ? resolvedContract?.leaseId : selectedRoom?.currentLeaseId);
   const targetContract = contracts.find(c => c.roomCode === selectedRoomCode &&
     c.leaseId === selectedLeaseId && c.id === (initialRoomCode === selectedRoomCode && initialContractId
       ? initialContractId : (selectedRoom?.currentContractId || selectedRoom?.pendingContractId))) ||
@@ -168,10 +169,8 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
   const activeCurrentContract = contracts.find(c => c.id === selectedRoom?.currentContractId && c.roomCode === selectedRoomCode);
   const permittedRenewalChain = getLeaseContractChain(activeCurrentContract, contracts);
   const pendingHandoverMatch = Boolean(initialLeaseId && selectedRoom?.status === 'Trống' &&
-    selectedRoom?.pendingLeaseId === initialLeaseId &&
-    selectedRoom?.pendingContractId === initialContractId &&
-    contracts.some(c => c.id === initialContractId && c.roomCode === selectedRoomCode &&
-      c.leaseId === initialLeaseId && c.isSignedPaper));
+    resolvedContract?.id === initialContractId && resolvedContract?.leaseId === initialLeaseId &&
+    resolvedContract.isSignedPaper);
   const linkedRoomMismatch = Boolean(initialRoomCode === selectedRoomCode && (
     (initialLeaseId && selectedRoom?.currentLeaseId !== initialLeaseId &&
       !pendingHandoverMatch &&
@@ -405,9 +404,9 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
     setSelectedRoomCode(roomCode);
     setInventoryReviewed(false);
     const room = rooms.find(r => r.roomCode === roomCode);
-    const nextContract = room ? resolveRoomContract(room, contracts, returnInspections) : undefined;
+    const nextContract = room ? resolveRoomContract(room, contracts, returnInspections, leaseStartEvents) : undefined;
     const nextLeaseId = initialRoomCode === roomCode && initialLeaseId
-      ? initialLeaseId : (room?.currentLeaseId || room?.pendingLeaseId);
+      ? initialLeaseId : (room?.status === 'Trống' ? nextContract?.leaseId : room?.currentLeaseId);
     const receiveContractId = getLeaseContractChain(nextContract, contracts)
       .map(c => handoverReports.find(r => r.roomCode === roomCode && r.leaseId === nextLeaseId && r.contractId === c.id &&
         r.status === 'Đã xác nhận')).find(Boolean)?.contractId || nextContract?.id;
@@ -1290,7 +1289,9 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
               </div>
               {!canSaveOfficially106 && (
                 <div className="p-2 bg-amber-50 border border-amber-200 rounded text-amber-900 text-[11px]">
-                  ⚠️ <strong>Chưa đủ điều kiện bắt buộc:</strong> Chỉ cho phép <em>Xem trước / Lưu nháp</em> hồ sơ chuẩn bị. Khóa quyền Lưu Đã lập ở và bàn giao nhận phòng cho đến khi đủ tất cả 5 điều kiện. </div>
+                  ⚠️ <strong>Chưa đủ điều kiện bắt buộc:</strong> Chỉ cho phép <em>Xem trước / Lưu nháp</em> cho đến khi đủ các điều kiện ở trên.
+                  <div className="mt-1">Cần bổ sung: {[!cond1ContractValid && 'Hợp đồng đã ký', !cond2DepositPaid && 'Chứng từ cọc', !cond3FirstRentPaid && 'Chứng từ thuê kỳ đầu', !cond4InventoryReady && 'Kiểm kê BG01', !cond5MetersReady && 'Hiện trạng và ảnh công tơ BG02'].filter(Boolean).join('; ') || 'Biên bản gốc đã tồn tại / hợp đồng nối tiếp dùng biên bản gốc'}.</div>
+                </div>
               )}
             </div>
 
