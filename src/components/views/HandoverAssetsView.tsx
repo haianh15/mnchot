@@ -109,8 +109,6 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
 
   // Selected room for active operations
   const [selectedRoomCode, setSelectedRoomCode] = useState<string>(initialRoomCode || '');
-  // Biên bản đã xác nhận chưa đồng nghĩa khách đã thực sự nhận phòng.
-  const [actualCheckInDate, setActualCheckInDate] = useState(new Date().toISOString().slice(0, 10));
 
   useEffect(() => {
     if (!initialRoomCode) return;
@@ -263,12 +261,16 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
   const isInheritedReceiveReport = Boolean(existingReport && existingReport.contractId !== targetContract?.id);
   const matchingTenant = tenants.find(t => t.id === targetContract?.tenantId);
   const [showSignPaperModal, setShowSignPaperModal] = useState(false);
+  const [checkInDateForHandover, setCheckInDateForHandover] = useState('');
+  const [activateRoomOnSignature, setActivateRoomOnSignature] = useState(false);
   const [signPaperTenant, setSignPaperTenant] = useState<boolean>(existingReport?.tenantSignedPaper === 'Đã ký giấy');
   const [signPaperOwner, setSignPaperOwner] = useState<boolean>(existingReport?.ownerSignedPaper === 'Đã ký giấy');
   const [paperLocation, setPaperLocation] = useState<string>(existingReport?.paperLocation || '');
   const [signedDocumentScanUrl, setSignedDocumentScanUrl] = useState<string>(existingReport?.signedDocumentScanUrl || '');
   // Never carry signature indicators or evidence from another room/lease.
   useEffect(() => {
+    setCheckInDateForHandover('');
+    setActivateRoomOnSignature(false);
     setSignPaperTenant(existingReport?.tenantSignedPaper === 'Đã ký giấy');
     setSignPaperOwner(existingReport?.ownerSignedPaper === 'Đã ký giấy');
     setPaperLocation(existingReport?.paperLocation || '');
@@ -1260,27 +1262,6 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
               </div>
             </div>
 
-            {existingReport?.status === 'Đã xác nhận' && selectedRoom?.status === 'Trống' && !isInheritedReceiveReport && (
-              <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 space-y-2 text-blue-900">
-                <strong className="block text-sm">Biên bản đã xác nhận — chờ xác nhận khách nhận phòng</strong>
-                <p>Biên bản đã ký không tự chuyển trạng thái phòng. Khi khách thực tế nhận phòng, xác nhận ngày nhận để đồng bộ phòng, hợp đồng và hồ sơ khách.</p>
-                <div className="flex flex-wrap gap-2 items-end">
-                  <label className="font-semibold flex flex-col gap-1">Ngày khách thực tế nhận phòng
-                    <input type="date" value={actualCheckInDate} max={new Date().toISOString().slice(0, 10)}
-                      onChange={e => setActualCheckInDate(e.target.value)}
-                      className="rounded-lg border border-blue-300 bg-white px-3 py-2 text-slate-900 font-mono" />
-                  </label>
-                  <button type="button" onClick={() => {
-                    const result = confirmCheckInPH05(selectedRoomCode, targetContract.leaseId,
-                      actualCheckInDate, existingReport.id, `v${existingReport.version}`);
-                    showToast(result.success ? 'success' : 'error', result.message);
-                  }} className="rounded-lg bg-blue-600 px-4 py-2 text-white font-bold hover:bg-blue-700">
-                    Xác nhận đã nhận phòng
-                  </button>
-                </div>
-              </div>
-            )}
-
             {/* Khối kiểm tra điều kiện tiên quyết bắt buộc (Thao tác thực hiện) */}
             <div className="p- bg-slate-50 border border-slate-200 rounded-xl space-y-2">
               <span className="font-bold text-slate-800 text-[11px] block uppercase tracking-wider">
@@ -1404,6 +1385,30 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
               <div className="p-2 bg-slate-50 border border-slate-200 rounded text-center text-[10px] text-slate-500">
                 * Phần mềm không có nút In, Xuất để in hoặc ký điện tử. User chuẩn bị bản giấy ngoài hệ thống theo đúng thông tin đã ghi nhận. </div>
             </div>
+
+            {existingReport?.status === 'Đã xác nhận' && selectedRoom?.status === 'Trống' &&
+              targetContract?.leaseId === existingReport.leaseId && targetContract?.id === existingReport.contractId && (
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-2 text-xs">
+                <p className="font-semibold text-blue-900">Biên bản đã ký. Khách đã nhận phòng thực tế chưa?</p>
+                <p className="text-blue-800">Nếu khách đã nhận, xác nhận ngày nhận phòng để chuyển phòng sang Đang thuê và liên kết đúng hợp đồng, hồ sơ khách.</p>
+                <label className="block font-semibold text-slate-700">Ngày nhận phòng thực tế
+                  <input type="date" value={checkInDateForHandover} onChange={e => setCheckInDateForHandover(e.target.value)}
+                    className="block mt-1 px-3 py-2 rounded-lg border border-slate-300 bg-white" />
+                </label>
+                <button className="rounded-lg bg-blue-600 text-white px-4 py-2 font-semibold disabled:opacity-50"
+                  disabled={!checkInDateForHandover}
+                  onClick={() => {
+                    const res = confirmCheckInPH05(selectedRoomCode, existingReport.leaseId,
+                      checkInDateForHandover, existingReport.id, `v${existingReport.version || 1}`);
+                    showToast(res.success ? 'success' : 'error', res.message);
+                    if (res.success) setCheckInDateForHandover('');
+                  }}>Xác nhận nhận phòng</button>
+              </div>
+            )}
+            {existingReport?.status === 'Đã lập' && selectedRoom?.status === 'Trống' &&
+              <p className="rounded-lg bg-blue-50 border border-blue-200 p-2 text-xs text-blue-800">
+                Biên bản đã lập nhưng chưa xác nhận đủ chữ ký. Ghi nhận chữ ký và xác nhận khách đã nhận phòng để hoàn tất luồng nhận phòng.
+              </p>}
 
             {/* Action Buttons for BG03 */}
             <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100">
@@ -3001,13 +3006,6 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
           bg09FinalWater !== '' && Number.isFinite(bg09FinalWater) && bg09FinalWater >= 0 &&
           Boolean(bg09Evidence.trim()) && Boolean(targetContract?.id && selectedLeaseId);
         const is305Confirmed = Boolean(returnInspectionTarget?.step305Confirmed);
-        // Số lượng bàn giao lúc nhận: lấy từ kiểm kê nguồn đã liên kết đúng lần thuê.
-        // Không dùng số lượng danh mục làm số đã nhận và không cho sửa tại phiếu trả.
-        const receivedInventory = inventoryRecords.find(rec =>
-          rec.roomCode === selectedRoomCode && rec.linkedLeaseId === selectedLeaseId &&
-          rec.linkedContractId === originalReceiveContractId &&
-          rec.inventoryStatus === 'Đã hoàn tất');
-        const receiveQuantityByName = new Map((receivedInventory?.items || []).map(asset => [asset.name, asset.actualQuantity]));
 
         return (
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-4 text-xs">
@@ -3096,7 +3094,6 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                     <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-semibold uppercase text-[10px]">
                       <th className="py-2.5 px-3">Tài sản / Thiết bị</th>
                       <th className="py-2.5 px-3">Trạng thái kiểm tra</th>
-                      <th className="py-2.5 px-3 text-center" scope="col">Số lượng đã có (khi nhận)</th>
                       <th className="py-2.5 px-3 text-center">SL Thực tế</th>
                       <th className="py-2.5 px-3">Tình trạng vật lý</th>
                       <th className="py-2.5 px-3">Lý do nếu chưa/không thể kiểm tra</th>
@@ -3118,9 +3115,6 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                             <option value="Đã kiểm tra">Đã kiểm tra</option>
                             <option value="Chưa kiểm tra">Chưa kiểm tra / Không thể kiểm tra</option>
                           </select>
-                        </td>
-                        <td className="py-2 px-3 text-center font-mono font-bold text-blue-700 bg-blue-50/40" title="Số lượng từ biên bản kiểm kê khi nhận phòng">
-                          {receiveQuantityByName.has(item.name) ? receiveQuantityByName.get(item.name) : <span className="text-slate-400 font-normal" title="Chưa có số lượng nhận phòng để đối chiếu">—</span>}
                         </td>
                         <td className="py-2 px-3 text-center">
                           <input
@@ -4567,6 +4561,20 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
               </div>
             </div>
 
+            {signPaperTenant && signPaperOwner && selectedRoom?.status === 'Trống' && !isInheritedReceiveReport && (
+              <div className="space-y-2 rounded-lg border border-blue-200 bg-blue-50 p-3">
+                <label className="flex gap-2 items-start text-blue-900 font-semibold">
+                  <input type="checkbox" checked={activateRoomOnSignature} onChange={e => setActivateRoomOnSignature(e.target.checked)} />
+                  Khách đã nhận phòng thực tế; đồng thời xác nhận nhận phòng sau khi lưu chữ ký.
+                </label>
+                {activateRoomOnSignature &&
+                  <label className="block text-slate-700 font-semibold">Ngày nhận phòng thực tế
+                    <input type="date" className="block mt-1 rounded-lg border border-slate-300 p-2 bg-white"
+                      value={checkInDateForHandover} onChange={e => setCheckInDateForHandover(e.target.value)} />
+                  </label>}
+              </div>
+            )}
+
             <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
               <button
                 onClick={() => setShowSignPaperModal(false)}
@@ -4575,10 +4583,15 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                 Hủy </button>
               <button
                 onClick={() => {
-                  const res = confirmHandoverSignaturesBG03(existingReport.id, signPaperTenant, signPaperOwner, paperLocation, signedDocumentScanUrl);
+                  if (activateRoomOnSignature && signPaperTenant && signPaperOwner && !checkInDateForHandover) {
+                    showToast('error', 'Vui lòng nhập ngày khách nhận phòng thực tế.'); return;
+                  }
+                  const res = confirmHandoverSignaturesBG03(existingReport.id, signPaperTenant, signPaperOwner,
+                    paperLocation, signedDocumentScanUrl,
+                    activateRoomOnSignature && signPaperTenant && signPaperOwner ? checkInDateForHandover : undefined);
                   if (!res.success) { showToast('error', res.message); return; }
                   if (signPaperTenant && signPaperOwner) {
-                    showToast('success', 'Đã ghi nhận cả 2 bên đã ký tay! Biên bản chuyển sang trạng thái ĐÃ XÁC NHẬN.');
+                    showToast('success', res.message);
                   } else {
                     showToast('info', 'Đã cập nhật tình trạng ký tay từng bên. Biên bản giữ trạng thái Đã lập cho đến khi cả hai bên đều ký.');
                   }

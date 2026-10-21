@@ -200,7 +200,7 @@ interface AppContextType {
   saveInventoryBG01: (record: InventoryRecord) => { success: boolean; message: string };
   saveHandoverConditionBG02: (condition: HandoverCondition) => { success: boolean; message: string };
   saveHandoverReportBG03: (report: HandoverReport) => { success: boolean; message: string };
-  confirmHandoverSignaturesBG03: (reportId: string, tenantSigned: boolean, ownerSigned: boolean, paperLocation?: string, scanUrl?: string) => { success: boolean; message: string };
+  confirmHandoverSignaturesBG03: (reportId: string, tenantSigned: boolean, ownerSigned: boolean, paperLocation?: string, scanUrl?: string, actualCheckInDate?: string) => { success: boolean; message: string };
   recordIncidentBG04: (incident: AssetIncident) => { success: boolean; message: string };
   recordReturnInspectionBG09: (inspection: ReturnInspection) => { success: boolean; message: string };
   confirmReturnInspectionStep305: (roomCode: string, leaseId: string, evidence: string, photos?: string[], videoUrl?: string) => { success: boolean; message: string };
@@ -1182,14 +1182,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // UC-PH-05: Kiểm tra điều kiện nhận phòng & xác nhận hoàn tất nhận phòng
-  const confirmCheckInPH05 = (roomCode: string, leaseId: string, actualCheckInDate: string, handoverReportId?: string, handoverVersion?: string) => {
+  const confirmCheckInPH05 = (roomCode: string, leaseId: string, actualCheckInDate: string, handoverReportId?: string, handoverVersion?: string, signedReportOverride?: HandoverReport) => {
     const room = rooms.find(r => r.roomCode === roomCode);
     if (!room || room.status !== 'Trống') {
       return { success: false, message: 'Chỉ có thể xác nhận nhận phòng khi phòng đang trống và tồn tại hồ sơ nguồn hợp lệ.' };
     }
     const contract = contracts.find(c => c.roomCode === roomCode && c.leaseId === leaseId &&
       c.isSignedPaper && ['Đã ký', 'Chờ hiệu lực', 'Hiệu lực'].includes(c.status));
-    const report = handoverReports.find(h => h.roomCode === roomCode && h.leaseId === leaseId &&
+    const report = [signedReportOverride, ...handoverReports].find(h => h && h.roomCode === roomCode && h.leaseId === leaseId &&
       h.contractId === contract?.id && (!handoverReportId || h.id === handoverReportId) &&
       h.status === 'Đã xác nhận' && h.tenantSignedPaper === 'Đã ký giấy' && h.ownerSignedPaper === 'Đã ký giấy');
 
@@ -1797,7 +1797,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { success: true, message: report.status === 'Đã lập' ? 'Đã lưu biên bản nhận phòng chờ ký giấy.' : 'Đã lưu nháp biên bản nhận phòng.' };
   };
 
-  const confirmHandoverSignaturesBG03 = (reportId: string, tenantSigned: boolean, ownerSigned: boolean, paperLocation?: string, scanUrl?: string) => {
+  const confirmHandoverSignaturesBG03 = (reportId: string, tenantSigned: boolean, ownerSigned: boolean, paperLocation?: string, scanUrl?: string, actualCheckInDate?: string) => {
     const report = handoverReports.find(r => r.id === reportId);
     if (!report || !verifyHandoverSource(report.roomCode, report.leaseId, report.contractId))
       return { success: false, message: 'Không tìm thấy biên bản thuộc hợp đồng/lần thuê hợp lệ.' };
@@ -1805,6 +1805,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, message: 'Chỉ biên bản Đã lập mới được ghi nhận ký giấy; hồ sơ đã xác nhận phải giữ nguyên.' };
     if (tenantSigned && ownerSigned && !(paperLocation || report.paperLocation)?.trim())
       return { success: false, message: 'Cần nhập nơi lưu bản giấy đã được hai bên ký.' };
+
+    // Khi người quản lý xác nhận hai bên đã ký và khách đã THỰC TẾ nhận phòng,
+    // thực hiện đồng thời cả xác nhận biên bản và nhận phòng. Một phiếu "Đã lập"
+    // đơn thuần KHÔNG được làm phòng chuyển sang Đang thuê.
+    let checkInResult: {success: boolean; message: string} | undefined;
+    if (tenantSigned && ownerSigned && actualCheckInDate) {
+      const confirmedReport: HandoverReport = {
+        ...report,
+        status: 'Đã xác nhận',
+        tenantSignedPaper: 'Đã ký giấy',
+        ownerSignedPaper: 'Đã ký giấy',
+        paperLocation: paperLocation?.trim() || report.paperLocation,
+        signedDocumentScanUrl: scanUrl?.trim() || report.signedDocumentScanUrl,
+        confirmedAt: new Date().toISOString()
+      };
+      checkInResult = confirmCheckInPH05(report.roomCode, report.leaseId, actualCheckInDate,
+        report.id, `v${report.version || 1}`, confirmedReport);
+      if (!checkInResult.success) return checkInResult;
+    }
     setHandoverReports(prev => prev.map(r => r.id !== reportId ? r : ({
       ...r,
       tenantSignedPaper: tenantSigned ? 'Đã ký giấy' : 'Chưa ký',
@@ -1814,7 +1833,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       signedDocumentScanUrl: scanUrl?.trim() || r.signedDocumentScanUrl,
       confirmedAt: tenantSigned && ownerSigned ? new Date().toISOString() : undefined
     })));
-    return { success: true, message: tenantSigned && ownerSigned ? 'Đã xác nhận biên bản nhận phòng đủ chữ ký.' : 'Đã lưu tình trạng ký giấy hiện tại.' };
+    return { success: true, message: checkInResult?.success ?
+      `Đã xác nhận biên bản đủ chữ ký và nhận phòng. ${checkInResult.message}` :
+      tenantSigned && ownerSigned ? 'Đã xác nhận biên bản nhận phòng đủ chữ ký. Nếu khách đã nhận phòng thực tế, hãy xác nhận nhận phòng để cập nhật trạng thái và hồ sơ khách.' :
+      'Đã lưu tình trạng ký giấy hiện tại.' };
   };
 
   const recordIncidentBG04 = (incident: AssetIncident) => {
