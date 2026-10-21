@@ -258,7 +258,12 @@ export const PaymentNoticesView: React.FC<PaymentNoticesViewProps> = ({ onNaviga
   }, [paymentNotices]);
 
   // ==================== TAB 1: KỲ HIỆN TẠI LOGIC ====================
-  const confirmedBills = periodBills.filter(b => b.isConfirmed);
+  // Chỉ cho chọn bảng tính có hợp đồng giấy đã ký khớp phòng + lượt thuê.
+  // Bảng tính lịch sử thiếu hồ sơ gốc vẫn giữ nguyên để đối soát, không tự sinh QR.
+  const confirmedBills = periodBills.filter(b => b.isConfirmed && contracts.some(c =>
+    c.roomCode === b.roomCode && c.leaseId === b.leaseId && c.isSignedPaper));
+  const billsMissingSignedContract = periodBills.filter(b => b.isConfirmed && !contracts.some(c =>
+    c.roomCode === b.roomCode && c.leaseId === b.leaseId && c.isSignedPaper));
   // Phần trình bày vẫn theo A, số tiền dự kiến phải theo đúng QT07.1 của mã chuẩn B.
   const previewPeriodReceivable = (bill: PeriodBill): number => {
     const room = rooms.find(r => r.roomCode === bill.roomCode);
@@ -943,6 +948,11 @@ export const PaymentNoticesView: React.FC<PaymentNoticesViewProps> = ({ onNaviga
         </div>
       </div>
 
+      {mainTab === 'period' && billsMissingSignedContract.length > 0 && <div role="alert" className="p-3 rounded-xl border border-amber-300 bg-amber-50 text-amber-900 text-xs">
+        Có {billsMissingSignedContract.length} bảng tính tiền đã xác nhận nhưng thiếu hợp đồng giấy đã ký khớp phòng/lượt thuê:
+        {' '}{billsMissingSignedContract.map(b => `${b.roomCode} (${b.leaseId}, ${b.periodCode})`).join('; ')}.
+        Giữ nguyên hồ sơ để đối soát; không cho tạo thông báo/QR cho các bảng tính này.
+      </div>}
       {/* ========================================================================= */}
       {/* MÀN HÌNH DANH SÁCH: TAB 1 (KỲ HIỆN TẠI)                                   */}
       {/* ========================================================================= */}
@@ -1631,7 +1641,9 @@ export const PaymentNoticesView: React.FC<PaymentNoticesViewProps> = ({ onNaviga
                   />
                 ) : (
                   <div className="w-48 h-48 bg-slate-100 flex items-center justify-center text-slate-400 text-xs">
-                    Đang tạo mã QR...
+                    {selectedNotice.status !== 'Đang hiệu lực' ? 'Mã QR đã vô hiệu' :
+                     selectedNotice.paymentStatus === 'Đã thu' ? 'Đã thanh toán — không sử dụng lại QR' :
+                     'Không tạo được ảnh QR. Kiểm tra ngân hàng nhận.'}
                   </div>
                 )}
                 <span className="font-mono font-bold text-[11px] text-slate-900 block tracking-tight">

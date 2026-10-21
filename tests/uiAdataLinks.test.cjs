@@ -8,7 +8,7 @@ const bank={id:'bank-b',bankName:'VCB',accountNumber:'123',accountHolder:'Owner'
 const alternate={...bank,id:'bank-second',bankName:'MB Bank',accountNumber:'456'};
 const due=()=>{let d=new Date();d.setDate(d.getDate()+3);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
 const baseBill=()=>({id:'bill-1',roomCode:'P.501',leaseId:'L-501-1',periodCode:'Kỳ 10/2026',servicePeriodFrom:'2026-09-01',servicePeriodTo:'2026-09-30',nextRentPeriodFrom:'2026-10-01',nextRentPeriodTo:'2026-10-31',nextMonthRentAmount:3500000,electricityAmount:420000,electricityUsage:120,electricityRate:3500,waterAmount:180000,waterUsage:6,waterRate:30000,serviceFees:[{name:'Dịch vụ',amount:250000}],totalAmount:4350000,isConfirmed:true,version:1});
-function envMaker({bills=[baseBill()],contracts=[{id:'c501',roomCode:'P.501',leaseId:'L-501-1',tenantName:'A',firstMonthRentPaid:false}],rooms=[{roomCode:'P.501',status:'Đang thuê'}]}={}){
+function envMaker({bills=[baseBill()],contracts=[{id:'c501',roomCode:'P.501',leaseId:'L-501-1',tenantName:'A',firstMonthRentPaid:false,isSignedPaper:true}],rooms=[{roomCode:'P.501',status:'Đang thuê'}]}={}){
  let notices=[],recs=[];const trace=[];const ctx={Date,Math,Number,String,Set,
   periodBills:bills,contracts,rooms,bankAccounts:[bank,alternate],activeBankAccount:bank,currentUser:{fullName:'Chủ nhà'},
   get paymentNotices(){return notices},get reconciliations(){return recs},
@@ -27,7 +27,7 @@ test('Không lập chồng cùng phòng/kỳ/lượt thuê và không lập khi 
  const e2=envMaker({contracts:[{id:'other',roomCode:'P.502',leaseId:'L-501-1'}]});assert.equal(e2.methods.issuePeriodNoticeFromA('bill-1',due(),'bank-b').success,false);
 });
 test('Hợp đồng đã thu thuê kỳ đầu không phát hành thu lại tiền thuê',()=>{
- const bill=baseBill(); const e=envMaker({bills:[bill],contracts:[{id:'c501',roomCode:'P.501',leaseId:'L-501-1',tenantName:'A',startDate:'2026-10-01',firstMonthRentPaid:true}]});
+ const bill=baseBill(); const e=envMaker({bills:[bill],contracts:[{id:'c501',roomCode:'P.501',leaseId:'L-501-1',tenantName:'A',startDate:'2026-10-01',firstMonthRentPaid:true,isSignedPaper:true}]});
  const result=e.methods.issuePeriodNoticeFromA('bill-1',due(),'bank-b');assert.equal(result.success,true,result.message);
  assert.equal(e.notices()[0].totalAmount,850000);assert.equal(e.notices()[0].breakdown.nextRentAmount,0);assert.equal(e.recs()[0].nextRentStatus,'Đã thu');
 });
@@ -41,4 +41,23 @@ test('Giao diện A chọn công nợ theo cả roomCode và leaseId, không g�
  assert.ok(text.includes('r.leaseId === selectedDebtLeaseId'));
  const ctx=fs.readFileSync(path.join(__dirname,'../src/context/AppContext.tsx'),'utf8');
  assert.ok(ctx.includes('new Set(sources.map(n => n.leaseId)).size !== 1'));
+});
+test('Không phát hành thông báo từ bảng tính thiếu hợp đồng đã ký',()=>{
+ const e=envMaker({contracts:[{id:'draft501',roomCode:'P.501',leaseId:'L-501-1',isSignedPaper:false,status:'Nháp'}]});
+ const r=e.methods.issuePeriodNoticeFromA('bill-1',due(),'bank-b');
+ assert.equal(r.success,false);assert.equal(e.notices().length,0);
+});
+test('Hai lượt thuê khác nhau của cùng phòng/kỳ có mã thông báo và nội dung chuyển khoản riêng',()=>{
+ const oldBill={...baseBill(),id:'bill-old',leaseId:'L-501-OLD',isRentPeriodEnded:true};
+ const newBill={...baseBill(),id:'bill-new',leaseId:'L-501-NEW'};
+ const e=envMaker({bills:[oldBill,newBill],contracts:[
+  {id:'old',roomCode:'P.501',leaseId:'L-501-OLD',tenantName:'Khách trước',isSignedPaper:true},
+  {id:'new',roomCode:'P.501',leaseId:'L-501-NEW',tenantName:'Khách sau',isSignedPaper:true}
+ ]});
+ assert.equal(e.methods.issuePeriodNoticeFromA('bill-old',due(),'bank-b').success,true);
+ assert.equal(e.methods.issuePeriodNoticeFromA('bill-new',due(),'bank-b').success,true);
+ const notices=e.notices();
+ assert.equal(notices.length,2);
+ assert.notEqual(notices[0].noticeCode,notices[1].noticeCode);
+ assert.notEqual(notices[0].qrBankSnapshot.transferContent,notices[1].qrBankSnapshot.transferContent);
 });

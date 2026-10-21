@@ -850,8 +850,10 @@ ${qr.qrUrl ? `THÔNG TIN THU CÔNG NỢ (THEO THÔNG BÁO ĐÃ PHÁT HÀNH):
     const targetItems = selectedPeriodDebtItems.length > 0 ? selectedPeriodDebtItems : [activeSelectedDebt];
     const periodListText = targetItems.map(t => t.periodCode).join(', ');
 
-    targetItems.forEach(item => {
-      recordDebtPromise09_3({
+    let saveFailure: string | null = null;
+    let completed = 0;
+    for (const item of targetItems) {
+      const result = recordDebtPromise09_3({
         noticeId: item.noticeId,
         roomCode: item.roomCode,
         contactTime: promContactTime,
@@ -863,14 +865,19 @@ ${qr.qrUrl ? `THÔNG TIN THU CÔNG NỢ (THEO THÔNG BÁO ĐÃ PHÁT HÀNH):
         needsVerificationASIS08: promCustomerReportedPaid,
         verificationNote: promCustomerReportedPaid ? `Khách báo đã chuyển khoản cho ${item.periodCode}, chờ tra soát tài khoản ngân hàng` : undefined
       });
-
-      // Cập nhật ngày hẹn thanh toán nợ tương ứng với ngày hạn thanh toán bên chức năng thu tiền
+      if (!result.success) { saveFailure = result.message; break; }
+      completed++;
+      // Giữ hạn gốc để tính nợ; nếu đổi ngày hẹn không thành công, phải báo rõ.
       if (promHasDate && promDate) {
-        updateNoticeDueDate(item.noticeId, promDate);
+        const updateResult = updateNoticeDueDate(item.noticeId, promDate);
+        if (!updateResult.success) { saveFailure = updateResult.message; break; }
       }
-    });
-
-    showToast('success', `Đã ghi nhận phản hồi và đồng bộ hạn thanh toán bên chức năng thu tiền (${periodListText})!`);
+    }
+    if (saveFailure) {
+      showToast('error', `${completed ? `Đã ghi nhận ${completed}/${targetItems.length} phản hồi. ` : ''}${toUserMessage(saveFailure)}`);
+      return;
+    }
+    showToast('success', `Đã ghi nhận phản hồi${promHasDate ? ' và đồng bộ ngày hẹn thanh toán' : ''} (${periodListText})!`);
     setShowPromiseModal(false);
     setPromContent('');
     setPromProofFile('');

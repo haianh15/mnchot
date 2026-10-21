@@ -338,13 +338,13 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
       return;
     }
 
-    updateMeterReadingTT02(selectedReading.id, {
+    const result = updateMeterReadingTT02(selectedReading.id, {
       finalElectricKwh: Number(editFinalElec),
       finalWaterM3: Number(editFinalWater)
     }, editReason.trim());
-
+    if (!result.success) { alert(result.message); return; }
     setShowEditModal(false);
-    alert('Sửa chỉ số thành công! Dòng đã chuyển sang trạng thái "Nháp – điều chỉnh", vui lòng tính lại tiền phòng.');
+    alert('Đã sửa chỉ số. Cần kiểm tra lại trước khi lập bảng tính tiền.');
   };
 
   // UC-TT-03: Generate bills for the selected rooms/leases with valid meter readings.
@@ -748,6 +748,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                     const reading = meterReadings.find(m => m.roomCode === bill.roomCode && m.leaseId === bill.leaseId && m.periodCode === bill.periodCode);
                     const relatedNotice = paymentNotices.find(n => n.noticeType !== 'DEBT' && n.roomCode === bill.roomCode && n.leaseId === bill.leaseId && n.periodCode === bill.periodCode && n.status === 'Đang hiệu lực');
                     const hasPendingReading = !reading || Boolean(reading.pendingVerificationFlag || reading.needsRecalculateFlag);
+                    const hasSignedSourceContract = contracts.some(c => c.roomCode === bill.roomCode && c.leaseId === bill.leaseId && c.isSignedPaper);
                     return (
                       <div key={bill.id} className="p-4 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
                         <div className="flex-1 min-w-0">
@@ -765,6 +766,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                             <span>Tổng: <strong className="text-blue-700">{bill.totalAmount.toLocaleString('vi-VN')} đ</strong></span>
                           </div>
                           {hasPendingReading && <p className="text-[11px] text-amber-800 mt-1">Cần kiểm tra chỉ số hoặc cờ xác minh trước khi xác nhận bảng tính.</p>}
+                          {bill.isConfirmed && !hasSignedSourceContract && <p role="alert" className="text-[11px] text-amber-800 mt-1">Thiếu hợp đồng đã ký đúng phòng/lượt thuê cho bảng tính lịch sử. Giữ nguyên chứng từ để đối soát; chưa được lập QR.</p>}
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
                           <button type="button" onClick={() => setSelectedBillDetail(bill)} className="px-3 py-2 border border-slate-300 rounded-lg text-xs font-semibold hover:bg-slate-50">
@@ -780,10 +782,12 @@ export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices })
                                 <button type="button" onClick={() => onNavigateToNotices(undefined, relatedNotice.id)} className="px-3 py-2 border border-indigo-300 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg text-xs font-semibold">
                                   Xem thông báo →
                                 </button>
-                              ) : (
+                              ) : hasSignedSourceContract ? (
                                 <button type="button" onClick={() => onNavigateToNotices(bill.id)} className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold">
                                   Lập thông báo →
                                 </button>
+                              ) : (
+                                <span className="text-xs font-semibold text-amber-800">Chờ đối chiếu hợp đồng nguồn</span>
                               )
                             ) : null
                           )}

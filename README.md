@@ -88,3 +88,9 @@ Khi lưu lịch sử nhắc nợ trong Công nợ, hệ thống mở thẳng Chi
 - Hai nút “Ghi/Cập nhật ngày trả” và “Liên hệ” trong Theo dõi hạn hợp đồng mở form ngay trong hộp thoại.
 - Các kiểm tra phòng, người đại diện và hợp đồng vẫn hoạt động tại bước tạo dự thảo.
 - Xem `BAO_CAO_SUA_LAP_HOP_DONG_VA_GHI_NGAY_TRA_21_10.md`.
+
+---
+
+## Kiểm tra chuẩn bị chốt 21/10/2026
+
+Xem **`BAO_CAO_NGHIEM_THU_CUOI_21_10_2026.md`** trước khi triển khai. Bản này bổ sung kiểm tra tính nhất quán chuỗi phòng → hợp đồng → bàn giao → tính tiền → thông báo → thu tiền → công nợ; khắc phục các điều kiện xác nhận/hoàn tác và hiển thị cảnh báo bảng tính lịch sử thiếu hợp đồng nguồn. Chạy kiểm thử: `node --test tests/*.test.cjs`. Không tự động sửa hoặc xóa chứng từ lịch sử; cần đối chiếu thủ công dữ liệu P.202 lượt `THUE-202-L1`. Chưa xác minh được bản build và thao tác E2E trên trình duyệt trong môi trường biên soạn.
