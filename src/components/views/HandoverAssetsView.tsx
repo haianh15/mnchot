@@ -49,7 +49,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 
-export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeaseId?: string; initialContractId?: string; initialMode?: 'receive' | 'return' | 'view'; onBackToRoom?: (roomCode: string) => void}> = ({initialRoomCode, initialLeaseId, initialContractId, initialMode, onBackToRoom}) => {
+export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeaseId?: string; initialContractId?: string; initialMode?: 'receive' | 'return' | 'view'}> = ({initialRoomCode, initialLeaseId, initialContractId, initialMode}) => {
   const {
     rooms,
     contracts,
@@ -67,6 +67,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
     saveHandoverConditionBG02,
     saveHandoverReportBG03,
     confirmHandoverSignaturesBG03,
+    confirmCheckInPH05,
     recordIncidentBG04,
     recordReturnInspectionBG09,
     confirmReturnInspectionStep305,
@@ -108,6 +109,8 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
 
   // Selected room for active operations
   const [selectedRoomCode, setSelectedRoomCode] = useState<string>(initialRoomCode || '');
+  // Biên bản đã xác nhận chưa đồng nghĩa khách đã thực sự nhận phòng.
+  const [actualCheckInDate, setActualCheckInDate] = useState(new Date().toISOString().slice(0, 10));
 
   useEffect(() => {
     if (!initialRoomCode) return;
@@ -791,7 +794,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                 handleRoomChange(selectedRoomCode);
                 showToast('info', 'Đã hủy các thay đổi chưa lưu và khôi phục dữ liệu gốc.');
               }}
-              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium cursor-pointer"
+              className="px- py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium cursor-pointer"
             >
               Hủy thay đổi </button>
 
@@ -1119,7 +1122,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
           <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100">
             <button
               onClick={() => setActiveTab('inventory_bg01')}
-              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium cursor-pointer"
+              className="px- py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium cursor-pointer"
             >
               &larr; Quay lại kiểm kê </button>
 
@@ -1257,8 +1260,29 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
               </div>
             </div>
 
+            {existingReport?.status === 'Đã xác nhận' && selectedRoom?.status === 'Trống' && !isInheritedReceiveReport && (
+              <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 space-y-2 text-blue-900">
+                <strong className="block text-sm">Biên bản đã xác nhận — chờ xác nhận khách nhận phòng</strong>
+                <p>Biên bản đã ký không tự chuyển trạng thái phòng. Khi khách thực tế nhận phòng, xác nhận ngày nhận để đồng bộ phòng, hợp đồng và hồ sơ khách.</p>
+                <div className="flex flex-wrap gap-2 items-end">
+                  <label className="font-semibold flex flex-col gap-1">Ngày khách thực tế nhận phòng
+                    <input type="date" value={actualCheckInDate} max={new Date().toISOString().slice(0, 10)}
+                      onChange={e => setActualCheckInDate(e.target.value)}
+                      className="rounded-lg border border-blue-300 bg-white px-3 py-2 text-slate-900 font-mono" />
+                  </label>
+                  <button type="button" onClick={() => {
+                    const result = confirmCheckInPH05(selectedRoomCode, targetContract.leaseId,
+                      actualCheckInDate, existingReport.id, `v${existingReport.version}`);
+                    showToast(result.success ? 'success' : 'error', result.message);
+                  }} className="rounded-lg bg-blue-600 px-4 py-2 text-white font-bold hover:bg-blue-700">
+                    Xác nhận đã nhận phòng
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Khối kiểm tra điều kiện tiên quyết bắt buộc (Thao tác thực hiện) */}
-            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+            <div className="p- bg-slate-50 border border-slate-200 rounded-xl space-y-2">
               <span className="font-bold text-slate-800 text-[11px] block uppercase tracking-wider">
                 Khối điều kiện bắt buộc để Lưu Đã lập (1.06) &amp; Bắt đầu bàn giao thực tế: </span>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 text-[11px]">
@@ -1288,16 +1312,6 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                   ⚠️ <strong>Chưa đủ điều kiện bắt buộc:</strong> Chỉ cho phép <em>Xem trước / Lưu nháp</em> hồ sơ chuẩn bị. Khóa quyền Lưu Đã lập ở và bàn giao nhận phòng cho đến khi đủ tất cả 5 điều kiện. </div>
               )}
             </div>
-
-            {existingReport?.status === 'Đã xác nhận' && selectedRoom?.status === 'Trống' && onBackToRoom && (
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 flex flex-wrap items-center justify-between gap-3">
-                <div className="space-y-1">
-                  <p className="font-bold text-emerald-900 text-sm">Biên bản nhận phòng đã được hai bên xác nhận</p>
-                  <p className="text-xs text-emerald-800">Tiếp tục xác nhận ngày nhận phòng thực tế trong Quản lý phòng. Chỉ sau bước này phòng mới chuyển sang Đang thuê và đồng bộ hồ sơ khách.</p>
-                </div>
-                <button onClick={() => onBackToRoom(selectedRoomCode)} className="bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg px-3 py-2 text-xs font-semibold">Mở Chi tiết phòng để xác nhận nhận phòng →</button>
-              </div>
-            )}
 
             {/* Xem trước nội dung Biên bản bàn giao (Bản giấy chuẩn bị ngoài hệ thống -  & 09) */}
             <div className="p-5 border-2 border-slate-300 rounded-2xl bg-white shadow-xs space-y-4">
@@ -1395,7 +1409,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
             <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100">
               <button
                 onClick={() => setActiveTab('condition_bg02')}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium cursor-pointer"
+                className="px- py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium cursor-pointer"
               >
                 &larr; Sửa hiện trạng </button>
 
@@ -2095,7 +2109,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
             <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100">
               <button
                 onClick={() => setActiveTab('handover_bg03')}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium cursor-pointer"
+                className="px- py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium cursor-pointer"
               >
                 &larr; Xem lại biên bản nhận </button>
 
@@ -2607,7 +2621,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
             <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100">
               <button
                 onClick={() => setActiveTab('compare_bg06')}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium cursor-pointer"
+                className="px- py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium cursor-pointer"
               >
                 &larr; Quay lại đối chiếu </button>
 
@@ -2889,7 +2903,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                   showToast('info', 'Đã hủy khởi tạo biên bản trả phòng.');
                   setActiveTab('compare_bg06');
                 }}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium cursor-pointer"
+                className="px- py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium cursor-pointer"
               >
                 Hủy </button>
 
@@ -2987,6 +3001,13 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
           bg09FinalWater !== '' && Number.isFinite(bg09FinalWater) && bg09FinalWater >= 0 &&
           Boolean(bg09Evidence.trim()) && Boolean(targetContract?.id && selectedLeaseId);
         const is305Confirmed = Boolean(returnInspectionTarget?.step305Confirmed);
+        // Số lượng bàn giao lúc nhận: lấy từ kiểm kê nguồn đã liên kết đúng lần thuê.
+        // Không dùng số lượng danh mục làm số đã nhận và không cho sửa tại phiếu trả.
+        const receivedInventory = inventoryRecords.find(rec =>
+          rec.roomCode === selectedRoomCode && rec.linkedLeaseId === selectedLeaseId &&
+          rec.linkedContractId === originalReceiveContractId &&
+          rec.inventoryStatus === 'Đã hoàn tất');
+        const receiveQuantityByName = new Map((receivedInventory?.items || []).map(asset => [asset.name, asset.actualQuantity]));
 
         return (
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-4 text-xs">
@@ -3075,6 +3096,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                     <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-semibold uppercase text-[10px]">
                       <th className="py-2.5 px-3">Tài sản / Thiết bị</th>
                       <th className="py-2.5 px-3">Trạng thái kiểm tra</th>
+                      <th className="py-2.5 px-3 text-center" scope="col">Số lượng đã có (khi nhận)</th>
                       <th className="py-2.5 px-3 text-center">SL Thực tế</th>
                       <th className="py-2.5 px-3">Tình trạng vật lý</th>
                       <th className="py-2.5 px-3">Lý do nếu chưa/không thể kiểm tra</th>
@@ -3096,6 +3118,9 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                             <option value="Đã kiểm tra">Đã kiểm tra</option>
                             <option value="Chưa kiểm tra">Chưa kiểm tra / Không thể kiểm tra</option>
                           </select>
+                        </td>
+                        <td className="py-2 px-3 text-center font-mono font-bold text-blue-700 bg-blue-50/40" title="Số lượng từ biên bản kiểm kê khi nhận phòng">
+                          {receiveQuantityByName.has(item.name) ? receiveQuantityByName.get(item.name) : <span className="text-slate-400 font-normal" title="Chưa có số lượng nhận phòng để đối chiếu">—</span>}
                         </td>
                         <td className="py-2 px-3 text-center">
                           <input
@@ -3503,7 +3528,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
             <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100">
               <button
                 onClick={() => setActiveTab('return_room_bg09')}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium cursor-pointer"
+                className="px- py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium cursor-pointer"
               >
                 &larr; Xem kết quả nhận lại </button>
 
@@ -3630,121 +3655,78 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
               )}
             </div>
 
-            {/* Biên bản trả phòng đầy đủ – nguồn dữ liệu gắn theo phòng, hợp đồng và lần thuê */}
-            <section className="bg-white border-2 border-slate-300 rounded-xl max-w-[860px] mx-auto px-4 py-6 sm:px-8 sm:py-9 space-y-6 text-[12px] leading-relaxed text-slate-900 shadow-sm" aria-label="Nội dung biên bản bàn giao trả phòng">
-              <header className="text-center border-b border-slate-300 pb-5 space-y-1">
-                <p className="font-extrabold text-[14px] tracking-wide">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</p>
-                <p className="font-semibold text-[12px]">Độc lập - Tự do - Hạnh phúc</p>
-                <div className="w-36 h-px mx-auto bg-slate-700 my-2" />
-                <h3 className="text-base sm:text-lg font-extrabold uppercase pt-2">BIÊN BẢN BÀN GIAO, NHẬN LẠI PHÒNG VÀ TÀI SẢN</h3>
-                <p>Số: <strong>{existingReturnReport?.reportNumber || `BB-TRA-${selectedRoomCode}-${selectedLeaseId || 'CHUA-LAP'}`}</strong></p>
-                <p className="text-slate-600">Trạng thái hồ sơ: <strong>{existingReturnReport?.status || 'Chưa lập'}</strong></p>
-              </header>
+            {/* 3 Distinct Thresholds Panel */}
+            <div className="p- bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+              <span className="font-bold text-slate-800 text-[11px] uppercase tracking-wider block">
+                Phân biệt 3 ngưỡng điều kiện nghiệp vụ: </span>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="p-2.5 bg-white border border-slate-200 rounded-lg">
+                  <span className="font-bold text-slate-800 block text-[11px]">Ngưỡng A: Mở / Lưu nháp</span>
+                  <span className="text-[10px] text-emerald-700 font-semibold block mt-0.5">&bull; Luôn khả dụng để chuẩn bị trước</span>
+                  <span className="text-[10px] text-slate-400">Không cản trở ghi nhận thực tế</span>
+                </div>
 
-              <div className="space-y-2">
-                <h4 className="font-bold uppercase border-b pb-1">I. Thời gian, địa điểm và căn cứ bàn giao</h4>
-                <p>Hôm nay, ngày <strong>{existingReturnReport?.date || bg08Date || 'Chưa ghi nhận'}</strong>, tại <strong>{existingReturnReport?.handoverPlace || bg08Place || 'Chưa ghi nhận địa điểm'}</strong>, các bên thực hiện việc bàn giao và nhận lại phòng thuê.</p>
-                <p>Hợp đồng thuê số: <strong>{targetContract.id}</strong>; lần thuê: <strong>{targetContract.leaseId}</strong>; phòng: <strong>{selectedRoomCode}</strong>{targetContract.propertyAddress ? `, địa chỉ: ${targetContract.propertyAddress}` : ''}.</p>
-                <p>Thời hạn theo hợp đồng: từ <strong>{targetContract.startDate}</strong> đến <strong>{targetContract.endDate}</strong>.</p>
-                <p>Biên bản nhận phòng ban đầu: <strong>{existingReport?.reportNumber || 'Chưa có hồ sơ liên kết'}</strong>; ngày lập: <strong>{existingReport?.date || 'Chưa ghi nhận'}</strong>.</p>
+                <div className={`p-2.5 border rounded-lg ${canSaveOfficially1102 ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}>
+                  <span className="font-bold text-slate-800 block text-[11px]">Ngưỡng B: Lưu ĐÃ LẬP </span>
+                  <ul className="text-[10px] space-y-0.5 mt-0.5">
+                    <li className={is305Confirmed ? 'text-emerald-700 font-medium' : 'text-amber-700'}>
+                      {is305Confirmed ? '✓' : '✗'} 1. Nhận lại đã xác nhận </li>
+                    <li className={isDeposit58Synced ? 'text-emerald-700 font-medium' : 'text-amber-700'}>
+                      {isDeposit58Synced ? '✓' : '✗'} 2. Quyết toán cọc đúng phiên bản đã đối chiếu </li>
+                    <li className={isBG06BG07Done ? 'text-emerald-700 font-medium' : 'text-amber-700'}>
+                      {isBG06BG07Done ? '✓' : '✗'} 3. Đối chiếu tài sản không còn việc chờ xử lý </li>
+                  </ul>
+                </div>
+
+                <div className={`p-2.5 border rounded-lg ${canConfirmFinal324 ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-100 border-slate-200'}`}>
+                  <span className="font-bold text-slate-800 block text-[11px]">Ngưỡng C: ĐÃ XÁC NHẬN </span>
+                  <ul className="text-[10px] space-y-0.5 mt-0.5">
+                    <li className={isEstablishedReport ? 'text-emerald-700 font-medium' : 'text-slate-500'}>
+                      {isEstablishedReport ? '✓' : '✗'} 1. Biên bản ở trạng thái ĐÃ LẬP </li>
+                    <li className={clientSignRecorded && ownerSignedOnPaper ? 'text-emerald-700 font-medium' : 'text-slate-500'}>
+                      {clientSignRecorded && ownerSignedOnPaper ? '✓' : '✗'} 2. Hai bên ký giấy / ghi nhận không ký </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Preview of Handover Return Report */}
+            <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-3 shadow-2xs">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</h3>
+                  <h4 className="font-bold text-blue-900 text-xs">BIÊN BẢN BÀN GIAO &amp; TRẢ PHÒNG (SỐ: {existingReturnReport?.reportNumber || 'BB-TRA-' + selectedRoomCode + '-2026'})</h4>
+                </div>
+                <span className="text-[11px] font-mono text-slate-500">Ngày lập: {existingReturnReport?.date || bg08Date}</span>
               </div>
 
-              <div className="space-y-2">
-                <h4 className="font-bold uppercase border-b pb-1">II. Thông tin các bên</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="rounded border p-3 space-y-1">
-                    <p className="font-bold">BÊN BÀN GIAO – BÊN THUÊ</p>
-                    <p>Họ và tên: <strong>{existingReturnReport?.giverName || bg08Giver || targetContract.tenantName || 'Chưa ghi nhận'}</strong></p>
-                    <p>CCCD/Định danh: <strong>{targetContract.tenantIdNumber || matchingTenant?.idNumber || 'Chưa ghi nhận'}</strong></p>
-                    <p>Điện thoại: <strong>{targetContract.tenantPhone || matchingTenant?.phoneNumber || 'Chưa ghi nhận'}</strong></p>
-                    <p>Địa chỉ: <strong>{matchingTenant?.address || 'Chưa ghi nhận'}</strong></p>
-                  </div>
-                  <div className="rounded border p-3 space-y-1">
-                    <p className="font-bold">BÊN NHẬN – BÊN CHO THUÊ</p>
-                    <p>Họ và tên: <strong>{existingReturnReport?.receiverName || bg08Receiver || targetContract.lessorName || 'Chưa ghi nhận'}</strong></p>
-                    <p>CCCD/Định danh: <strong>{targetContract.lessorIdNumber || 'Chưa ghi nhận'}</strong></p>
-                    <p>Điện thoại: <strong>{targetContract.lessorPhone || 'Chưa ghi nhận'}</strong></p>
-                    <p>Địa chỉ: <strong>{targetContract.lessorAddress || 'Chưa ghi nhận'}</strong></p>
-                  </div>
+              <div className="grid grid-cols-2 gap-4 text-[11px] text-slate-700">
+                <div>
+                  <strong>Bên bàn giao (Khách thuê):</strong> {existingReturnReport?.giverName || bg08Giver}
+                </div>
+                <div>
+                  <strong>Bên nhận (Chủ nhà/Quản lý):</strong> {existingReturnReport?.receiverName || bg08Receiver}
+                </div>
+                <div>
+                  <strong>Căn hộ / Phòng:</strong> {selectedRoomCode} (HĐ: {targetContract?.id || 'Chưa có'}) </div>
+                <div>
+                  <strong>Chỉ số cuối kỳ:</strong> Điện: <strong>{bg09FinalElec} kWh</strong> · Nước: <strong>{bg09FinalWater} m³</strong>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <h4 className="font-bold uppercase border-b pb-1">III. Nội dung kiểm tra và bàn giao lại phòng</h4>
-                <p>Tình trạng nhận lại thực tế: <strong>{returnInspectionTarget?.step304Status || 'Chưa kiểm tra/ghi nhận'}</strong>.</p>
-                <p>Ngày kiểm tra: <strong>{returnInspectionTarget?.inspectionDate || 'Chưa ghi nhận'}</strong>; Chủ nhà xác nhận đã nhận lại: <strong>{returnInspectionTarget?.step305Confirmed ? 'Đã xác nhận' : 'Chưa xác nhận'}</strong>.</p>
-                <p>Hiện trạng ghi nhận khi nhận phòng: <strong>{existingCondition?.description || 'Chưa có nội dung hiện trạng ban đầu'}</strong>.</p>
-                <p>Kết quả kiểm tra hiện trạng, trang thiết bị khi trả phòng:</p>
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse border border-slate-300 text-left text-[11px]">
-                    <thead className="bg-slate-100"><tr><th className="border p-2">STT</th><th className="border p-2">Tài sản / hạng mục</th><th className="border p-2">Số lượng khi nhận</th><th className="border p-2">Số lượng khi trả</th><th className="border p-2">Hiện trạng khi trả</th><th className="border p-2">Ghi chú</th></tr></thead>
-                    <tbody>
-                      {returnInspectionTarget?.items?.length ? returnInspectionTarget.items.map((item, index) => {
-                        const received = existingInventory?.items?.find(src => src.name === item.name);
-                        return <tr key={`${item.name}-${index}`}><td className="border p-2">{index + 1}</td><td className="border p-2 font-medium">{item.name}</td><td className="border p-2">{received?.actualQuantity ?? 'Chưa ghi nhận'}</td><td className="border p-2">{item.inspected ? item.quantity : 'Chưa kiểm tra'}</td><td className="border p-2">{item.inspected ? (item.condition || 'Chưa ghi nhận') : 'Chưa kiểm tra'}</td><td className="border p-2">{item.reasonIfNotInspected || '—'}</td></tr>;
-                      }) : <tr><td colSpan={6} className="p-3 text-center border text-slate-500">Chưa có kết quả kiểm kê trả phòng của lần thuê này.</td></tr>}
-                    </tbody>
-                  </table>
+              {/* Tóm tắt quyết toán cọc */}
+              <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-[11px] space-y-1">
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-slate-800">Thông tin đối soát cọc từ Quyết toán cọc ( quyết toán cọc / 5.8):</span>
+                  <span className="font-mono font-bold text-emerald-700">
+                    {matchingSettlementSlip && validSettlement ? matchingSettlementSlip.calculatedResult.toLocaleString('vi-VN') + ' đ' : 'Chờ số liệu quyết toán'}
+                  </span>
                 </div>
-                <p>Kiểm kê đầy đủ: <strong>{returnInspectionTarget?.assetsCheckedFully ? 'Đã kiểm tra đầy đủ' : 'Chưa hoàn tất kiểm kê'}</strong>.</p>
-                {returnInspectionTarget?.incompleteReason && <p>Nội dung chưa hoàn tất: <strong>{returnInspectionTarget.incompleteReason}</strong>.</p>}
+                <p className="text-[10px] text-slate-500">
+                  {existingReturnReport?.depositTrackingReason || 'Biên bản tham chiếu kết quả quyết toán cọc từ hợp đồng chuỗi thuê liên tục.'}
+                </p>
               </div>
-
-              <div className="space-y-2">
-                <h4 className="font-bold uppercase border-b pb-1">IV. Chỉ số điện, nước tại thời điểm trả phòng</h4>
-                <div className="overflow-x-auto"><table className="w-full border-collapse border border-slate-300 text-[11px]"><thead className="bg-slate-100"><tr><th className="border p-2 text-left">Hạng mục</th><th className="border p-2 text-left">Mã đồng hồ</th><th className="border p-2 text-left">Chỉ số khi nhận</th><th className="border p-2 text-left">Chỉ số khi trả</th></tr></thead><tbody>
-                  <tr><td className="border p-2">Điện (kWh)</td><td className="border p-2">{existingCondition?.meterElectricCode || 'Chưa ghi nhận'}</td><td className="border p-2">{existingCondition?.initialElectricityKwh ?? 'Chưa ghi nhận'}</td><td className="border p-2">{returnInspectionTarget?.finalElectricityKwh ?? 'Chưa ghi nhận'}</td></tr>
-                  <tr><td className="border p-2">Nước (m³)</td><td className="border p-2">{existingCondition?.meterWaterCode || 'Chưa ghi nhận'}</td><td className="border p-2">{existingCondition?.initialWaterM3 ?? 'Chưa ghi nhận'}</td><td className="border p-2">{returnInspectionTarget?.finalWaterM3 ?? 'Chưa ghi nhận'}</td></tr>
-                </tbody></table></div>
-                <p className="text-slate-600">Chỉ số khi trả là số đã được lưu trong hồ sơ kiểm tra nhận lại, không lấy từ ô nhập chưa lưu.</p>
-              </div>
-
-              <div className="space-y-2">
-                <h4 className="font-bold uppercase border-b pb-1">V. Đối chiếu tài sản và xử lý các vấn đề phát sinh</h4>
-                <p>Kết quả đối chiếu: <strong>{existingCompResult ? (existingCompResult.hasDifference ? 'Có chênh lệch' : 'Không phát sinh chênh lệch') : 'Chưa ghi nhận kết quả đối chiếu'}</strong>.</p>
-                <p>Tình trạng xử lý: <strong>{existingCompResult ? (existingCompResult.hasPendingWork ? 'Còn nội dung cần giải quyết' : 'Không còn công việc chờ xử lý') : 'Chưa có kết quả'}</strong>.</p>
-                <p>Chi tiết cần xử lý: <strong>{existingCompResult?.pendingWorkNote || 'Không có nội dung được ghi nhận'}</strong>.</p>
-                <p>Phương án xử lý: <strong>{existingCompResult?.solutionPlan || 'Chưa ghi nhận'}</strong>.</p>
-                <p>Ý kiến bên cho thuê: <strong>{existingCompResult?.ownerOpinion || 'Chưa ghi nhận'}</strong>.</p>
-                <p>Ý kiến bên thuê: <strong>{existingCompResult?.tenantOpinion || 'Chưa ghi nhận'}</strong>.</p>
-                <p>Tình trạng thống nhất: <strong>{existingCompResult?.unanimousStatus || 'Chưa xác định'}</strong>.</p>
-                <p>Chứng cứ nhận lại: <strong>{returnInspectionTarget?.step305Evidence || 'Chưa ghi nhận'}</strong>.</p>
-              </div>
-
-              <div className="space-y-2">
-                <h4 className="font-bold uppercase border-b pb-1">VI. Thông tin quyết toán tiền đặt cọc</h4>
-                <p>Phiếu quyết toán liên kết: <strong>{matchingSettlementSlip?.id || 'Chưa có phiếu quyết toán'}</strong>{matchingSettlementSlip ? ` (phiên bản ${matchingSettlementSlip.version})` : ''}.</p>
-                <p>Tình trạng: <strong>{matchingSettlementSlip?.status || 'Chưa có kết quả'}</strong>.</p>
-                {matchingSettlementSlip && validSettlement ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 rounded border bg-slate-50 p-3">
-                    <p>Cọc gốc: <strong>{matchingSettlementSlip.initialDepositAmount.toLocaleString('vi-VN')} đ</strong></p>
-                    <p>Tổng khấu trừ: <strong>{matchingSettlementSlip.deductions.reduce((sum, d) => sum + d.amount, 0).toLocaleString('vi-VN')} đ</strong></p>
-                    <p>Dự kiến hoàn lại: <strong>{Math.max(0, matchingSettlementSlip.calculatedResult).toLocaleString('vi-VN')} đ</strong></p>
-                    <p>Dự kiến thu thêm: <strong>{Math.max(0, -matchingSettlementSlip.calculatedResult).toLocaleString('vi-VN')} đ</strong></p>
-                  </div>
-                ) : <p className="text-amber-800">Chưa có kết quả quyết toán được xác nhận đúng phiên bản; không tự xác nhận đã hoàn hoặc thu tiền.</p>}
-                <p>Quyết toán tiền cọc được theo dõi tại Chi tiết hợp đồng, không mặc định giao dịch hoàn tiền đã phát sinh.</p>
-              </div>
-
-              <div className="space-y-2">
-                <h4 className="font-bold uppercase border-b pb-1">VII. Kết luận bàn giao</h4>
-                <p>Biên bản ghi nhận kết quả kiểm tra và nhận lại phòng theo hồ sơ nêu trên. Việc hoàn tất bàn giao chỉ được xác nhận khi các điều kiện đối chiếu, chữ ký và hồ sơ nguồn theo quy trình đã được đáp ứng.</p>
-                <p>Trạng thái bàn giao: <strong>{returnInspectionTarget?.step305Confirmed && returnInspectionTarget?.step304Status === 'Đã nhận lại' ? 'Đã xác nhận nhận lại phòng' : 'Đang xử lý, chưa xác nhận hoàn tất'}</strong>.</p>
-                <p>Phản hồi chữ ký của khách: <strong>{bg11TenantSigned}</strong>{bg11TenantSigned === 'Khách không ký' ? `; lý do: ${bg11NotSignReason || 'Chưa ghi nhận'}` : ''}.</p>
-                <p>Biên bản được đối chiếu với thực tế và lập thành bản giấy để hai bên kiểm tra, ký xác nhận theo quy trình quản lý.</p>
-              </div>
-
-              <div className="border-t border-slate-300 pt-5 grid grid-cols-2 gap-6 text-center text-[12px]">
-                <div className="space-y-1"><p className="font-extrabold">BÊN BÀN GIAO (BÊN THUÊ)</p><p className="italic">(Ký và ghi rõ họ tên trên bản giấy)</p><div className="h-14"/><p className="font-semibold">{existingReturnReport?.giverName || bg08Giver || targetContract.tenantName || 'Chưa ghi nhận'}</p><p className="text-slate-500">{bg11TenantSigned}</p></div>
-                <div className="space-y-1"><p className="font-extrabold">BÊN NHẬN (BÊN CHO THUÊ)</p><p className="italic">(Ký và ghi rõ họ tên trên bản giấy)</p><div className="h-14"/><p className="font-semibold">{existingReturnReport?.receiverName || bg08Receiver || targetContract.lessorName || 'Chưa ghi nhận'}</p><p className="text-slate-500">{bg11OwnerSigned ? 'Đã ghi nhận ký giấy' : 'Chưa ghi nhận ký giấy'}</p></div>
-              </div>
-            </section>
-
-            {!canSaveOfficially1102 && (
-              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                Chưa thể lưu biên bản ở trạng thái Đã lập: cần xác nhận nhận lại phòng, hoàn tất đối chiếu tài sản và có kết quả quyết toán cọc hợp lệ đúng phiên bản. Bạn vẫn có thể lưu nháp.
-              </p>
-            )}
+            </div>
 
             {/* Ghi nhận kết quả ký giấy thực tế ngoài hệ thống (Giao diện mục 3 & 4) */}
             <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
@@ -3864,7 +3846,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
             <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100">
               <button
                 onClick={() => setActiveTab('deposit_check_bg10')}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium cursor-pointer"
+                className="px- py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium cursor-pointer"
               >
                 &larr; Xem đối soát cọc </button>
 
@@ -3882,8 +3864,6 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                       date: bg08Date,
                       giverName: bg08Giver,
                       receiverName: bg08Receiver,
-                      handoverPlace: existingReturnReport?.handoverPlace || bg08Place,
-                      initialConditionNotes: existingReturnReport?.initialConditionNotes || bg08Notes,
                       tenantSignedPaper: bg11TenantSigned,
                       tenantNotSignReason: bg11TenantSigned === 'Khách không ký' ? bg11NotSignReason : undefined,
                       tenantNotSignExchangeInfo: bg11TenantSigned === 'Khách không ký' ? bg11NotSignExchangeInfo : undefined,
@@ -3921,8 +3901,6 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                       date: bg08Date,
                       giverName: bg08Giver,
                       receiverName: bg08Receiver,
-                      handoverPlace: existingReturnReport?.handoverPlace || bg08Place,
-                      initialConditionNotes: existingReturnReport?.initialConditionNotes || bg08Notes,
                       tenantSignedPaper: bg11TenantSigned,
                       tenantNotSignReason: bg11TenantSigned === 'Khách không ký' ? bg11NotSignReason : undefined,
                       tenantNotSignExchangeInfo: bg11TenantSigned === 'Khách không ký' ? bg11NotSignExchangeInfo : undefined,

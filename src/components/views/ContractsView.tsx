@@ -142,7 +142,7 @@ export const ContractsView: React.FC<{initialContractId?: string; initialRoomCod
             <button onClick={()=>setActiveTab('conditions')} className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold">+ Lập hợp đồng</button>
           </div>
           <div className="flex flex-wrap items-center gap-2 mt-2">
-            <select id="settlement-contract-filter" aria-label="Lọc hợp đồng cần quyết toán cọc" value={settlementFilter} onChange={e=>setSettlementFilter(e.target.value as 'all'|'pending')} className="rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white">
+            <select aria-label="Lọc hợp đồng theo tình trạng quyết toán cọc" id="settlement-contract-filter" value={settlementFilter} onChange={e=>setSettlementFilter(e.target.value as 'all'|'pending')} className="rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white">
               <option value="all">Tất cả hợp đồng</option>
               <option value="pending">Cần hoàn tất quyết toán cọc</option>
             </select>
