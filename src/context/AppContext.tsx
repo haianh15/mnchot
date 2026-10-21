@@ -336,7 +336,7 @@ interface AppContextType {
   meterReadings: MeterReading[];
   periodBills: PeriodBill[];
   saveMeterReadingTT01: (reading: MeterReading) => { success: boolean; message: string };
-  updateMeterReadingTT02: (readingId: string, updates: Partial<MeterReading>, reason: string) => void;
+  updateMeterReadingTT02: (readingId: string, updates: Partial<MeterReading>, reason: string) => {success: boolean; message: string};
   generatePeriodBillTT03: (roomCode: string, periodCode: string, leaseId?: string) => { success: boolean; billId?: string; message: string };
   confirmPeriodBillTT03: (billId: string) => { success: boolean; message: string };
 
@@ -4105,13 +4105,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateMeterReadingTT02 = (readingId: string, updates: Partial<MeterReading>, reason: string) => {
+    const reading = meterReadings.find(m => m.id === readingId);
+    if (!reading) return {success: false, message: 'Không tìm thấy bản ghi chỉ số.'};
+    if (!reason?.trim()) return {success: false, message: 'Lý do sửa chỉ số là bắt buộc.'};
+    if (periodBills.some(b => b.roomCode === reading.roomCode && b.leaseId === reading.leaseId &&
+      b.periodCode === reading.periodCode && b.isConfirmed)) {
+      return {success: false, message: 'Kỳ này đã có bảng tính xác nhận. Không được sửa chỉ số nguồn làm lệch thông báo/tiền đã thu; cần đối soát chứng từ trước.'};
+    }
+    // Không cho đổi khóa liên kết sang phòng hoặc lượt thuê khác ở chức năng sửa chỉ số.
+    if (['roomCode', 'leaseId', 'periodCode', 'id'].some(key => key in updates &&
+      (updates as any)[key] !== (reading as any)[key]))
+      return {success: false, message: 'Không được sửa mã phòng, kỳ hoặc lượt thuê của dòng chỉ số.'};
+    const nextElec = updates.finalElectricKwh ?? reading.finalElectricKwh;
+    const nextWater = updates.finalWaterM3 ?? reading.finalWaterM3;
+    if (!Number.isFinite(nextElec) || !Number.isFinite(nextWater) ||
+      nextElec < reading.initialElectricKwh || nextWater < reading.initialWaterM3)
+      return {success: false, message: 'Chỉ số cuối phải là số hợp lệ và không nhỏ hơn chỉ số đầu.'};
     setMeterReadings(prev => prev.map(m => m.id === readingId ? {
-      ...m,
-      ...updates,
-      status: 'Nháp – điều chỉnh',
-      needsRecalculateFlag: true
+      ...m, ...updates, status: 'Nháp – điều chỉnh', needsRecalculateFlag: true
     } : m));
-    logSecurity('METER_READING_UPDATED_TT02', `Reading ${readingId} updated: ${reason}`);
+    logSecurity('METER_READING_UPDATED_TT02', `Reading ${readingId} updated: ${reason.trim()}`);
+    return {success: true, message: 'Đã ghi nhận điều chỉnh chỉ số; cần kiểm tra lại trước khi tính tiền.'};
   };
 
   const generatePeriodBillTT03 = (roomCode: string, periodCode: string, leaseId?: string) => {
@@ -4204,6 +4218,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const confirmPeriodBillTT03 = (billId: string) => {
     const bill = periodBills.find(b => b.id === billId);
     if (!bill) return { success: false, message: 'EF-01: Không tìm thấy bảng tính tiền.' };
+    if (bill.isConfirmed) return { success: false, message: 'Bảng tính tiền này đã được xác nhận, không được xác nhận lần hai.' };
 
     // Kiểm tra đúng dòng chỉ số theo phòng/lần thuê/kỳ trước khi xác nhận bảng tính.
     const reading = meterReadings.find(m => m.roomCode === bill.roomCode && m.leaseId === bill.leaseId && m.periodCode === bill.periodCode);
@@ -4239,7 +4254,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     const room = rooms.find(r => r.roomCode === bill.roomCode);
-    const contract = contracts.find(c => c.leaseId === bill.leaseId);
+    const contract = contracts.find(c => c.leaseId === bill.leaseId && c.roomCode === bill.roomCode && c.isSignedPaper);
+    if (!contract) return {success: false, message: 'Bảng tính không có hợp đồng đã ký khớp đúng phòng và lượt thuê; cần đối chiếu hồ sơ nguồn.'};
 
     // BR-UC07.1-03, Xử lý tiền thuê kỳ đầu đã thu tại PH-07
     // Nếu hợp đồng bắt đầu cùng kỳ này và đã thanh toán cọc + thuê tháng đầu
@@ -4382,7 +4398,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return {success:false, message:'Kết quả đối chiếu đã cũ hoặc không còn khoản phải thu. Vui lòng kiểm tra lại bảng tính.'};
     }
     const room = rooms.find(r => r.roomCode === bill.roomCode);
-    const contract = contracts.find(c => c.leaseId === bill.leaseId && c.roomCode === bill.roomCode);
+    const contract = contracts.find(c => c.leaseId === bill.leaseId && c.roomCode === bill.roomCode && c.isSignedPaper);
+    if (!contract) return {success: false, message: 'Không phát hành QR từ bảng tính thiếu hợp đồng giấy đã ký đúng phòng/lượt thuê.'};
 
     // Tính toán số tiền theo 2 nhóm (BR-UC07.2-02, BR-UC07.1-02)
     const isRentEnded = Boolean(bill.isRentPeriodEnded || room?.status === 'Trống');
@@ -4410,7 +4427,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     // Kiểm tra thông báo đang hiệu lực (BR-UC07.2-01)
-    const existingActive = paymentNotices.find(n => n.noticeType !== 'DEBT' && n.roomCode === bill.roomCode && n.periodCode === bill.periodCode && n.status === 'Đang hiệu lực');
+    const existingActive = paymentNotices.find(n => n.noticeType !== 'DEBT' && n.roomCode === bill.roomCode && n.leaseId === bill.leaseId && n.periodCode === bill.periodCode && n.status === 'Đang hiệu lực');
     if (existingActive) {
       return {
         success: false,
@@ -4427,7 +4444,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
 
     const noticeId = 'not_' + bill.roomCode.replace(/\D/g, '') + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
-    const noticeCode = 'TB-' + bill.roomCode.replace(/\D/g, '') + '-' + bill.periodCode.replace(/\D/g, '');
+    const leaseSuffix = bill.leaseId.replace(/[^a-zA-Z0-9]/g, '').slice(-10);
+    const noticeCode = 'TB-' + bill.roomCode.replace(/\D/g, '') + '-' + bill.periodCode.replace(/\D/g, '') + '-' + leaseSuffix;
 
     const notice: PaymentNotice = {
       id: noticeId,
@@ -4469,7 +4487,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         bankName: bank.bankName,
         accountNumber: bank.accountNumber,
         accountHolder: bank.accountHolder,
-        transferContent: `${bill.roomCode.replace(/\D/g, '')} ${bill.periodCode.replace(/\s+/g, '')}`,
+        transferContent: `${bill.roomCode.replace(/\D/g, '')} ${bill.periodCode.replace(/\s+/g, '')} ${leaseSuffix}`.slice(0, 50),
         amount: totalAmount
       },
       createdAt: new Date().toISOString()
@@ -4486,8 +4504,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     { success: boolean; noticeId?: string; message: string } => {
     const bill = periodBills.find(b => b.id === billId);
     if (!bill || !bill.isConfirmed) return {success: false, message: 'Phải xác nhận bảng tính tiền nguồn trước khi phát hành thông báo.'};
-    const contract = contracts.find(c => c.roomCode === bill.roomCode && c.leaseId === bill.leaseId);
-    if (!contract) return {success: false, message: `Phòng ${bill.roomCode}: bảng tính không liên kết đúng hợp đồng và lượt thuê.`};
+    const contract = contracts.find(c => c.roomCode === bill.roomCode && c.leaseId === bill.leaseId && c.isSignedPaper);
+    if (!contract) return {success: false, message: `Phòng ${bill.roomCode}: bảng tính chưa có hợp đồng giấy đã ký đúng lượt thuê; cần đối chiếu chứng từ gốc.`};
     const today = new Date();
     const todayISO = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate) || dueDate < todayISO)
@@ -4513,6 +4531,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const replacePaymentNotice07_2 = (oldNoticeId: string, reason?: string) => {
     const oldNotice = paymentNotices.find(n => n.id === oldNoticeId);
     if (!oldNotice) return { success: false, message: 'EF-01: Không tìm thấy thông báo cũ.' };
+    if (oldNotice.status !== 'Đang hiệu lực') return { success: false, message: 'Thông báo đã được thay thế; không thể thay thế lại từ QR cũ.' };
     // Thông báo công nợ đang gộp các kỳ gốc: chặn thay đổi QR nguồn gây sai tổng tiền.
     if (oldNotice.noticeType !== 'DEBT') {
       const debtBundle = paymentNotices.find(n => n.noticeType === 'DEBT' && n.status === 'Đang hiệu lực' && n.paymentStatus === 'Chưa thu' && n.debtNoticeIds?.includes(oldNoticeId));
@@ -4577,10 +4596,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const todayISO = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     if (!roomCode.trim() || !selectedDebtNoticeIds.length || new Set(selectedDebtNoticeIds).size !== selectedDebtNoticeIds.length)
       return { success: false, message: 'Hãy chọn phòng và ít nhất một khoản công nợ không trùng lặp.' };
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate) || dueDate < todayISO)
-      return { success: false, message: 'Hạn thanh toán phải là ngày hợp lệ, không trước ngày lập thông báo.' };
+    const parsedDue = /^\d{4}-\d{2}-\d{2}$/.test(dueDate) ? new Date(`${dueDate}T12:00:00`) : new Date(NaN);
+    if (!Number.isFinite(parsedDue.getTime()) ||
+        `${parsedDue.getFullYear()}-${String(parsedDue.getMonth()+1).padStart(2,'0')}-${String(parsedDue.getDate()).padStart(2,'0')}` !== dueDate || dueDate < todayISO)
+      return { success: false, message: 'Hạn thanh toán phải là ngày có thật, không trước ngày lập thông báo.' };
     const bank = bankAccountId ? bankAccounts.find(b => b.id === bankAccountId) : activeBankAccount;
-    if (!bank) return { success: false, message: 'Chưa có tài khoản ngân hàng nhận tiền hợp lệ.' };
+    if (!bank || bank.status === 'Lịch sử') return { success: false, message: 'Chỉ được tạo QR từ tài khoản ngân hàng đang sử dụng.' };
 
     const originals = selectedDebtNoticeIds.map(id => paymentNotices.find(n => n.id === id));
     if (originals.some(n => !n || n.noticeType === 'DEBT' || n.roomCode !== roomCode || n.status !== 'Đang hiệu lực' || n.paymentStatus !== 'Chưa thu' || (n.originalDueDate || n.dueDate) >= todayISO))
@@ -4629,7 +4650,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const target = paymentNotices.find(n => n.id === noticeId);
     if (!target || target.status !== 'Đang hiệu lực' || target.paymentStatus !== 'Chưa thu')
       return { success: false, message: 'Không được đổi hạn của thông báo không còn hiệu lực/chưa thanh toán.' };
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(newDueDate))
+    const parsedDate = /^\d{4}-\d{2}-\d{2}$/.test(newDueDate) ? new Date(`${newDueDate}T12:00:00`) : new Date(NaN);
+    if (!Number.isFinite(parsedDate.getTime()) ||
+        `${parsedDate.getFullYear()}-${String(parsedDate.getMonth()+1).padStart(2,'0')}-${String(parsedDate.getDate()).padStart(2,'0')}` !== newDueDate)
       return { success: false, message: 'Ngày hẹn không hợp lệ.' };
     setPaymentNotices(prev => prev.map(n => n.id === noticeId ? {...n, dueDate: newDueDate} : n));
     logSecurity('UPDATE_NOTICE_DUEDATE', `Đổi hạn hẹn cho ${noticeId} thành ${newDueDate}; giữ hạn gốc ${target.originalDueDate}`);
@@ -4654,6 +4677,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (notice.paymentStatus === 'Đã thu') {
       return { success: false, message: 'AF-04 / EF-02: Thông báo này đã được xác nhận thu đủ trước đó.' };
+    }
+    const txn = transactionCode?.trim() || '';
+    const receivedBank = bankAccountReceived?.trim() || '';
+    const dateParsed = /^\d{4}-\d{2}-\d{2}$/.test(receivedDate || '')
+      ? new Date(`${receivedDate}T12:00:00`) : new Date(NaN);
+    const todayLocal = new Date();
+    const todayISO = `${todayLocal.getFullYear()}-${String(todayLocal.getMonth()+1).padStart(2, '0')}-${String(todayLocal.getDate()).padStart(2, '0')}`;
+    if (!txn || !receivedBank || !Number.isFinite(dateParsed.getTime()) ||
+        `${dateParsed.getFullYear()}-${String(dateParsed.getMonth()+1).padStart(2, '0')}-${String(dateParsed.getDate()).padStart(2, '0')}` !== receivedDate ||
+        receivedDate > todayISO) {
+      return {success: false, message: 'Phải có mã giao dịch, tài khoản thực nhận và ngày nhận tiền hợp lệ, không ở tương lai.'};
     }
     if (notice.noticeType === 'DEBT') {
       if (!notice.debtNoticeIds?.length || notice.debtNoticeIds.some(id => {
@@ -4683,7 +4717,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     // EF-02: Kiểm tra chống trùng mã giao dịch
-    const isDuplicateTxn = paymentReceipts.some(r => r.transactionCode === transactionCode && r.status === 'Đang hiệu lực');
+    const isDuplicateTxn = paymentReceipts.some(r => r.transactionCode.trim() === txn && r.status === 'Đang hiệu lực');
     if (isDuplicateTxn) {
       return {
         success: false,
@@ -4691,7 +4725,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     }
 
-    const receiptId = 'rcp_' + Date.now().toString().slice(-6);
+    const receiptId = 'rcp_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
     const actor = currentUser?.fullName || 'Chủ nhà';
     const nowIso = new Date().toISOString();
     const receipt: PaymentReceipt = {
@@ -4702,8 +4736,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       periodCode: notice.periodCode,
       amountReceived: amount,
       receivedDate,
-      transactionCode: transactionCode.trim(),
-      bankAccountReceived,
+      transactionCode: txn,
+      bankAccountReceived: receivedBank,
       paymentMethod: 'Chuyển khoản ngân hàng',
       proofFile,
       status: 'Đang hiệu lực',
@@ -4714,7 +4748,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           action: 'Tạo chứng từ thu tiền ',
           timestamp: nowIso,
           user: actor,
-          transactionCode: transactionCode.trim(),
+          transactionCode: txn,
           amount,
           newStatus: 'Đang hiệu lực',
           details: `Xác nhận thu đủ ${amount.toLocaleString('vi-VN')} đ vào ${bankAccountReceived} qua mã giao dịch ${transactionCode.trim()}`
@@ -4728,13 +4762,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return n.id === noticeId || belongsToDebtCollection ? {...n, paymentStatus: 'Đã thu' as const} : n;
     }));
 
-    logSecurity('PAYMENT_CONFIRMED_08_2', `Notice ${notice.noticeCode} confirmed collected ${amount.toLocaleString('vi-VN')} đ via txn ${transactionCode}`);
-    return { success: true, message: 'Xác nhận thu đủ thành công ! Tiền thuê kỳ sau đã trả trước và dịch vụ đã thu.' };
+    logSecurity('PAYMENT_CONFIRMED_08_2', `Notice ${notice.noticeCode} confirmed collected ${amount.toLocaleString('vi-VN')} đ via txn ${txn}`);
+    return { success: true, message: notice.noticeType === 'DEBT'
+      ? 'Đã xác nhận thu công nợ đủ tiền. Thông báo gộp và các kỳ nợ nguồn đã được cập nhật Đã thu.'
+      : 'Đã xác nhận thu đủ tiền thuê kỳ sau và các dịch vụ trên thông báo.' };
   };
 
   const revertPaymentReceipt08_2 = (receiptId: string, reason: string) => {
     const receipt = paymentReceipts.find(r => r.id === receiptId);
     if (!receipt) return { success: false, message: 'EF-01: Không tìm thấy chứng từ thu tiền.' };
+    if (receipt.status !== 'Đang hiệu lực') return { success: false, message: 'Chứng từ đã được hoàn tác trước đó; không thể hoàn tác thêm lần nữa.' };
+    if (!paymentNotices.some(n => n.id === receipt.noticeId)) return { success: false, message: 'Chứng từ không liên kết được với thông báo nguồn; cần đối chiếu trước khi hoàn tác.' };
 
     const trimmedReason = reason?.trim();
     if (!trimmedReason) {
@@ -4784,6 +4822,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!reminder.contactDate || !reminder.channel || !reminder.result?.trim()) {
       return { success: false, message: 'Lỗi EF-02: Thiếu ngày liên hệ, kênh hoặc kết quả trao đổi bắt buộc.' };
     }
+    const notice = paymentNotices.find(n => n.id === reminder.noticeId);
+    if (!notice || notice.roomCode !== reminder.roomCode || notice.leaseId !== reminder.leaseId ||
+        notice.noticeType === 'DEBT' || notice.status !== 'Đang hiệu lực' || notice.paymentStatus !== 'Chưa thu')
+      return {success: false, message: 'Không thể nhắc khoản đã thu, hết hiệu lực hoặc không đúng phòng/lượt thuê.'};
+    if ((notice.originalDueDate || notice.dueDate) >= reminder.contactDate)
+      return {success: false, message: 'Chỉ ghi lịch sử nhắc khi khoản nợ đã quá hạn tại ngày liên hệ.'};
 
     const todayStr = new Date().toISOString().split('T')[0];
     if (!reminder.isRetrospective && reminder.contactDate > todayStr) {
@@ -4821,6 +4865,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!promise.content?.trim()) {
       return { success: false, message: 'Lỗi EF-02: Nội dung phản hồi là trường bắt buộc.' };
     }
+    const sourceNotice = paymentNotices.find(n => n.id === promise.noticeId);
+    if (!sourceNotice || sourceNotice.roomCode !== promise.roomCode || sourceNotice.leaseId !== promise.leaseId ||
+        sourceNotice.noticeType === 'DEBT' || sourceNotice.status !== 'Đang hiệu lực' || sourceNotice.paymentStatus !== 'Chưa thu') {
+      return {success: false, message: 'Khoản công nợ không còn hiệu lực, đã thanh toán hoặc không đúng phòng/lượt thuê.'};
+    }
 
     if (promise.hasPromiseDate && !promise.promisedDate) {
       return { success: false, message: 'Lỗi EF-03: Vui lòng nhập ngày hẹn thanh toán khi chọn có hẹn.' };
@@ -4828,7 +4877,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const newProm: DebtPromise = {
       ...promise,
-      id: 'dpr_' + Date.now(),
+      id: 'dpr_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10),
       loggedAt: new Date().toISOString(),
       loggedBy: currentUser?.fullName || 'Quản lý / Chủ nhà'
     };

@@ -44,12 +44,13 @@ test('Thông báo gộp đã thu hoặc bị thay thế không được điều 
  const r=route([period('n1'),{...bundle('d1',['n1']),paymentStatus:'Đã thu'}],'P101','L1',['n1']);
  assert.equal(r.mode,'unavailable'); // Nguồn còn nợ nhưng thông báo gộp đã thu: cần đối chiếu trước
 });
-test('Công nợ có nút thanh toán ở cả 3 ngữ cảnh và App truyền đúng đích',()=>{
+test('Công nợ không có nút Thanh toán; lịch sử nhắc vẫn mở thông báo thu công nợ chính thức',()=>{
  const read=p=>fs.readFileSync(path.join(__dirname,'../src',p),'utf8');
  const d=read('components/views/DebtsView.tsx'),n=read('components/views/PaymentNoticesView.tsx'),a=read('App.tsx');
- assert.match(d,/onClick=\{\(\) => openDebtPayment\(\[item\]\)\}/);
- assert.match(d,/onClick=\{\(\) => openDebtPayment\(grp\.periods\)\}/);
- assert.match(d,/onClick=\{\(\) => openDebtPayment\(\[activeSelectedDebt\]\)\}/);
+ assert.doesNotMatch(d,/onClick=\{\(\) => openDebtPayment\(/);
+ assert.doesNotMatch(d,/Thanh toán tại Thông báo thu công nợ/);
+ assert.match(d,/openSavedReminderPayment/);
+ assert.match(d,/onNavigate\?\.\('notices', \{ noticeId: historyQrDetails\.officialNoticeId \}\)/);
  assert.match(d,/onNavigate\('notices', \{ noticeId: route\.noticeId \}\)/);
  assert.match(n,/setMainTab\('debt'\)/);
  assert.match(n,/setDebtWizardStep\(2\)/);

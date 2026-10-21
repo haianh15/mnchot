@@ -8,7 +8,7 @@ import {
   Clock, Plus, Search, FileText, CheckCircle2, AlertCircle, X,
   ShieldAlert, ExternalLink, RefreshCw, Eye, ArrowRight, Check,
   History, Paperclip, ChevronRight, Scale, AlertOctagon, Info,
-  Wallet, UserX, HelpCircle, Layers, ChevronDown, ChevronUp,
+  UserX, HelpCircle, Layers, ChevronDown, ChevronUp,
   Filter, Tag, Building2, QrCode, CheckSquare, Square,
   Download, Copy, Send, Lock
 } from 'lucide-react';
@@ -318,7 +318,7 @@ export const DebtsView: React.FC<DebtsViewProps> = ({ onNavigate }) => {
     return items;
   }, [paymentNotices, rooms, contracts, paymentReceipts, settlementSlips, todayMs]);
 
-  // Các nút Thanh toán của Công nợ đều đến Thông báo thanh toán > Thu công nợ.
+  // Chỉ điều hướng đến thông báo Thu công nợ từ lịch sử nhắc hoặc khi mở QR.
   // Không thu trực tiếp ở đây, không tự phát hành QR trước khi chủ nhà xác nhận.
   const openDebtPayment = (items: PeriodDebtItem[]) => {
     if (!onNavigate || !items.length) return;
@@ -924,7 +924,7 @@ ${qr.qrUrl ? `THÔNG TIN THU CÔNG NỢ (THEO THÔNG BÁO ĐÃ PHÁT HÀNH):
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Theo dõi chi tiết nợ theo từng kỳ; nút Thanh toán dẫn tới Thông báo thanh toán → Thu công nợ, dùng cùng thông báo, số tiền và trạng thái. Nhắc nợ và ngày hẹn trả vẫn ghi lịch sử tại đây.
+            Theo dõi công nợ từng kỳ hoặc theo phòng, lưu lịch sử nhắc nợ và ngày hẹn trả. Khi mở mã QR từ lịch sử nhắc, hệ thống sử dụng thông báo Thu công nợ chính thức.
           </p>
         </div>
 
@@ -1226,10 +1226,6 @@ ${qr.qrUrl ? `THÔNG TIN THU CÔNG NỢ (THEO THÔNG BÁO ĐÃ PHÁT HÀNH):
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <button type="button" onClick={() => openDebtPayment(selectedPeriodDebtItems)}
-                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold flex items-center gap-1.5 cursor-pointer">
-                  <Wallet className="w-3.5 h-3.5" /> Thanh toán ({selectedPeriodDebtItems.length} kỳ)
-                </button>
                 <button
                   type="button"
                   onClick={() => openReminderModal()}
@@ -1387,11 +1383,6 @@ ${qr.qrUrl ? `THÔNG TIN THU CÔNG NỢ (THEO THÔNG BÁO ĐÃ PHÁT HÀNH):
 
                             {/* 10. Hành động */}
                             <td className="py-2.5 px-3 text-right space-x-1 whitespace-nowrap">
-                              <button type="button" onClick={() => openDebtPayment([item])}
-                                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-semibold cursor-pointer"
-                                title="Mở chi tiết thanh toán trong Thông báo thanh toán → Thu công nợ">
-                                Thanh toán
-                              </button>
                               <button
                                 type="button"
                                 onClick={() => openReminderModal(item)}
@@ -1492,11 +1483,6 @@ ${qr.qrUrl ? `THÔNG TIN THU CÔNG NỢ (THEO THÔNG BÁO ĐÃ PHÁT HÀNH):
                             </span>
                           </div>
 
-                          <button type="button" onClick={() => openDebtPayment(grp.periods)}
-                            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
-                            title="Thanh toán các kỳ của đúng phòng và lượt thuê này">
-                            Thanh toán
-                          </button>
                           <button
                             type="button"
                             onClick={() => {
@@ -1593,11 +1579,6 @@ ${qr.qrUrl ? `THÔNG TIN THU CÔNG NỢ (THEO THÔNG BÁO ĐÃ PHÁT HÀNH):
                                       {item.uncollectedBalance.toLocaleString('vi-VN')} đ
                                     </td>
                                     <td className="py-2 px-3 text-right space-x-1 whitespace-nowrap">
-                                      <button type="button" onClick={() => openDebtPayment([item])}
-                                        className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-semibold cursor-pointer"
-                                        title="Mở chi tiết thanh toán trong Thông báo thanh toán → Thu công nợ">
-                                        Thanh toán
-                                      </button>
                                       <button
                                         type="button"
                                         onClick={() => openReminderModal(item)}
@@ -1949,10 +1930,6 @@ ${qr.qrUrl ? `THÔNG TIN THU CÔNG NỢ (THEO THÔNG BÁO ĐÃ PHÁT HÀNH):
 
               {activeSelectedDebt && (
                 <div className="flex items-center gap-3 text-[11px] flex-wrap">
-                  <button type="button" onClick={() => openDebtPayment([activeSelectedDebt])}
-                    className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
-                    Thanh toán tại Thông báo thu công nợ →
-                  </button>
                   <span>Hợp đồng: <strong className="font-mono text-slate-900">{activeSelectedDebt.contractId || '—'}</strong></span>
                   <span>Kỳ nợ: <strong className="font-mono text-purple-800">{activeSelectedDebt.periodCode}</strong></span>
                   <span>Hạn gốc: <strong className="font-mono text-slate-900">{formatDateDMY(activeSelectedDebt.dueDate)}</strong></span>

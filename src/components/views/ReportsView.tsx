@@ -51,10 +51,10 @@ export const ReportsView: React.FC = () => {
   const [showSourceViewerModal, setShowSourceViewerModal] = useState(false);
 
   // =========================================================================
-  // ==================== 1. UC-BC-01: TỔNG HỢP SỐ PHÒNG & TỶ LỆ LẤP ĐẦY ====================
+  // ==================== 1. BÁO CÁO PHÒNG: TỔNG HỢP SỐ PHÒNG & TỶ LỆ LẤP ĐẦY ====================
   // =========================================================================
 
-  // Test Simulation Toggles for UC-BC-01
+  // Kiểm thử các trường hợp dữ liệu phòng
   const [simulateBC01_EF01, setSimulateBC01_EF01] = useState(false); // Không đọc được dữ liệu 
   const [simulateBC01_EF02, setSimulateBC01_EF02] = useState(false); // Phòng có trạng thái xung đột / thiếu trạng thái
   const [simulateBC01_EF03, setSimulateBC01_EF03] = useState(false); // Không có phòng nào được khai báo (Tổng phòng = 0)
@@ -168,11 +168,11 @@ export const ReportsView: React.FC = () => {
   }, [effectiveRooms, bc01StatusFilter, bc01SearchCode]);
 
   // =========================================================================
-  // ==================== 2. UC-BC-02: PHẢI THU, THỰC THU & CÔNG NỢ ====================
+  // ==================== 2. BÁO CÁO TÀI CHÍNH: PHẢI THU, THỰC THU & CÔNG NỢ ====================
   // =========================================================================
 
-  // Test Simulation Toggles for UC-BC-02
-  const [simulateBC02_EF01, setSimulateBC02_EF01] = useState(false); // Thiếu dữ liệu TT-03/PH-07
+  // Kiểm thử dữ liệu tổng hợp thu tiền
+  const [simulateBC02_EF01, setSimulateBC02_EF01] = useState(false); // Thiếu dữ liệu giao dịch hoặc thông báo
   const [simulateBC02_EF02, setSimulateBC02_EF02] = useState(false); // Thông báo/khoản thu bị lặp
   const [simulateBC02_EF03, setSimulateBC02_EF03] = useState(false); // Lỗi không thể tính lại hoặc xuất
 
@@ -188,7 +188,7 @@ export const ReportsView: React.FC = () => {
   }, [paymentNotices]);
 
   // Financial calculations respecting to 09
-  // 1. Tiền thuê kỳ đầu chuyển khoản từ PH-07 (cộng 1 lần vào phải thu gốc và thực thu thuê)
+  // 1. Tiền thuê kỳ đầu chuyển khoản (cộng 1 lần vào phải thu gốc và thực thu thuê)
   const initialRentRecords = useMemo(() => {
     return initialPaymentRecords.filter(p => {
       if (bc02RoomFilter !== 'Tất cả' && p.roomCode !== bc02RoomFilter) return false;
@@ -199,7 +199,7 @@ export const ReportsView: React.FC = () => {
   const initialRentTotal = initialRentRecords.reduce((sum, p) => sum + (p.firstMonthRentAmount || 0), 0);
   const initialDepositTotal = initialRentRecords.reduce((sum, p) => sum + (p.depositAmount || 0), 0);
 
-  // 2. Các thông báo thanh toán hợp lệ (TT-03)
+  // 2. Các thông báo thanh toán hợp lệ
   const activeNotices = useMemo(() => {
     if (simulateBC02_EF01) return [];
 
@@ -243,7 +243,7 @@ export const ReportsView: React.FC = () => {
     return list;
   }, [paymentReceipts, paymentNotices, bc02RoomFilter, bc02PeriodFilter]);
 
-  // Tổng phải thu gốc = Tiền thuê kỳ đầu PH-07 (1 lần) + Các nghĩa vụ TT-03
+  // Tổng phải thu gốc = Tiền thuê kỳ đầu (1 lần) + các thông báo theo kỳ
   const totalReceivableFromNotices = activeNotices.reduce((sum, n) => sum + n.totalAmount, 0);
   const totalReceivableGross = totalReceivableFromNotices + (bc02PeriodFilter === 'Tất cả' ? initialRentTotal: 0);
 
@@ -251,7 +251,7 @@ export const ReportsView: React.FC = () => {
   const totalCollectedBankNotices = activeReceipts.reduce((sum, r) => sum + r.amountReceived, 0);
   const totalCollectedBank = totalCollectedBankNotices + (bc02PeriodFilter === 'Tất cả' ? initialRentTotal: 0);
 
-  // Khoản nợ đã xử lý bù cọc - Theo dõi riêng từ quyết toán hoàn tất QT05
+  // Phần khấu trừ đã xử lý vẫn tham gia phép tính số dư nội bộ
   const totalHandledByDeposit = useMemo(() => {
     return settlementSlips.filter(s => s.status === 'Đã có kết quả – chờ ký biên bản' || s.status === 'Hoàn tất').filter(s => bc02RoomFilter === 'Tất cả' || s.roomCode === bc02RoomFilter).reduce((sum, s) => {
         const debtDed = s.deductions.filter(d => d.category === 'Công nợ kỳ trước').reduce((acc, d) => acc + d.amount, 0);
@@ -269,13 +269,13 @@ export const ReportsView: React.FC = () => {
   }, [activeNotices, now]);
 
   // Breakdown lines for Table
-  // Dòng 1: Tiền thuê kỳ đầu PH-07
-  // Dòng 2: Tiền thuê kỳ tiếp theo UC08.2
-  // Dòng 3: Tiền điện, nước, phí dịch vụ kỳ vừa sử dụng UC08.2
+  // Dòng 1: Tiền thuê kỳ đầu
+  // Dòng 2: Tiền thuê kỳ tiếp theo
+  // Dòng 3: Tiền điện, nước, phí dịch vụ kỳ vừa sử dụng
   const financialRows = useMemo(() => {
     const rows: {
       id: string;
-      sourceType: 'PH-07 (Thuê kỳ đầu)' | 'UC08.2 (Thuê kỳ tiếp)' | 'UC08.2 (Điện nước & Dịch vụ)';
+      sourceType: 'Tiền thuê kỳ đầu' | 'Tiền thuê kỳ tiếp theo' | 'Điện nước & dịch vụ';
       code: string;
       roomCode: string;
       tenantName: string;
@@ -291,14 +291,14 @@ export const ReportsView: React.FC = () => {
       status: string;
     }[] = [];
 
-    // Rows from PH-07
+    // Rows from initial rent payment
     if (bc02PeriodFilter === 'Tất cả') {
       initialRentRecords.forEach(p => {
         const c = contracts.find(ct => ct.id === p.contractId);
         rows.push({
           id: p.id,
-          sourceType: 'PH-07 (Thuê kỳ đầu)',
-          code: p.transactionCode || 'PH07-' + p.roomCode,
+          sourceType: 'Tiền thuê kỳ đầu',
+          code: p.transactionCode || '—',
           roomCode: p.roomCode,
           tenantName: c?.tenantName || 'Khách mới ký HĐ',
           servicePeriod: 'Không áp dụng (Thuê ban đầu)',
@@ -329,7 +329,7 @@ export const ReportsView: React.FC = () => {
       // Rent next period row
       rows.push({
         id: n.id + '_rent',
-        sourceType: 'UC08.2 (Thuê kỳ tiếp)',
+        sourceType: 'Tiền thuê kỳ tiếp theo',
         code: n.noticeCode,
         roomCode: n.roomCode,
         tenantName: c?.tenantName || 'Khách đang thuê',
@@ -349,7 +349,7 @@ export const ReportsView: React.FC = () => {
       if (utilityPortion > 0) {
         rows.push({
           id: n.id + '_util',
-          sourceType: 'UC08.2 (Điện nước & Dịch vụ)',
+          sourceType: 'Điện nước & dịch vụ',
           code: n.noticeCode,
           roomCode: n.roomCode,
           tenantName: c?.tenantName || 'Khách đang thuê',
@@ -371,10 +371,10 @@ export const ReportsView: React.FC = () => {
   }, [initialRentRecords, activeNotices, activeReceipts, contracts, bc02PeriodFilter, now]);
 
   // =========================================================================
-  // ==================== 3. UC-BC-03: ĐỐI SOÁT SỐ LIỆU BÁO CÁO ====================
+  // ==================== 3. ĐỐI SOÁT SỐ LIỆU: ĐỐI SOÁT SỐ LIỆU BÁO CÁO ====================
   // =========================================================================
 
-  // Test Simulation Toggles for UC-BC-03
+  // Kiểm thử các trường hợp đối soát
   const [simulateBC03_EF01, setSimulateBC03_EF01] = useState(false); // Không truy xuất đủ dữ liệu gốc
   const [simulateBC03_EF02, setSimulateBC03_EF02] = useState(false); // Dữ liệu nguồn vừa thay đổi giữa chừng
 
@@ -384,7 +384,7 @@ export const ReportsView: React.FC = () => {
 
   // 4 Automated Auditing Rules
   const auditChecks = useMemo(() => {
-    // 1. Kiểm tra không đếm trùng tiền thuê kỳ đầu đã thu tại PH-07
+    // 1. Kiểm tra không đếm trùng tiền thuê kỳ đầu đã thu
     const check1Passed = !simulateBC03_EF01 && true;
 
     // 2. Kiểm tra không đưa tiền cọc gốc vào doanh thu tiền thuê
@@ -417,15 +417,15 @@ export const ReportsView: React.FC = () => {
     const ts = d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN').substring(0, 5);
     setReconciledDate(ts);
     setReconciledBy(currentUser?.fullName || 'Quản lý / Chủ nhà');
-    showToast('success', 'Xác nhận đối soát số liệu khớp 100% thành công! Chuyển tiếp sang BC-04.');
+    showToast('success', 'Đã xác nhận đối soát số liệu. Chuyển đến lập báo cáo tổng hợp.');
     setActiveTab('executive_bc04');
   };
 
   // =========================================================================
-  // ==================== 4. UC-BC-04: LẬP BÁO CÁO QUẢN TRỊ TỔNG HỢP ====================
+  // ==================== 4. BÁO CÁO QUẢN TRỊ TỔNG HỢP: LẬP BÁO CÁO QUẢN TRỊ TỔNG HỢP ====================
   // =========================================================================
 
-  // Test Simulation Toggles for UC-BC-04
+  // Kiểm thử báo cáo tổng hợp
   const [simulateBC04_EF01, setSimulateBC04_EF01] = useState(false); // Thiếu dữ liệu phòng, thu tiền hoặc HĐ
   const [simulateBC04_EF02, setSimulateBC04_EF02] = useState(false); // Xuất Excel thất bại
 
@@ -471,14 +471,13 @@ export const ReportsView: React.FC = () => {
     }
 
     if (simulateBC04_EF01 || !bc01Validation.isValid) {
-      showToast('warning', 'Dữ liệu nguồn còn bất thường chưa được đối soát hoàn tất. Cần rà soát tại BC-03 trước khi xuất.');
+      showToast('warning', 'Dữ liệu nguồn còn bất thường chưa được đối soát hoàn tất. Cần đối soát số liệu trước khi xuất.');
     }
 
     const csvContent =
       "data:text/csv;charset=utf-8,\uFEFF" +
       "BÁO CÁO QUẢN TRỊ TỔNG HỢP CHUNG CƯ MINI AN BÌNH\n" +
       `Thời điểm xuất dữ liệu:,${asOfTimestamp}\n` +
-      `Phiên bản nguồn:, v2.4 (Chốt kỳ đối chiếu)\n` +
       `Người lập / Đối soát:,${reconciledBy}\n` +
       `Trạng thái đối soát:,${auditChecks.allPassed ? 'Đã kiểm tra - Khớp 100%': 'Chưa xác minh'}\n\n` +
       "===========================================================\n" +
@@ -498,12 +497,11 @@ export const ReportsView: React.FC = () => {
       "===========================================================\n" +
       `1. Tổng số phải thu gốc (gross):,${totalReceivableGross.toLocaleString('vi-VN')} đ\n` +
       `2. Thực thu chuyển khoản ngân hàng:,${totalCollectedBank.toLocaleString('vi-VN')} đ\n` +
-      `3. Khoản nợ đã xử lý bằng cọc (theo dõi riêng):,${totalHandledByDeposit.toLocaleString('vi-VN')} đ\n` +
-      `4. Số tiền chưa thu còn lại:,${totalUncollected.toLocaleString('vi-VN')} đ\n` +
-      `5. Công nợ quá hạn (thuộc Chưa thu):,${totalOverdueDebt.toLocaleString('vi-VN')} đ\n` +
+      `3. Số tiền chưa thu còn lại:,${totalUncollected.toLocaleString('vi-VN')} đ\n` +
+      `4. Công nợ quá hạn (thuộc Chưa thu):,${totalOverdueDebt.toLocaleString('vi-VN')} đ\n` +
       `Cọc gốc đang theo dõi riêng (không tính doanh thu):,${initialDepositTotal.toLocaleString('vi-VN')} đ\n\n` +
-      "Nguồn thu,Mã thông báo/GD,Phòng,Khách thuê,Kỳ thuê trả trước,Kỳ DV trả sau,Hạn TT,Phải thu (đ),Thực thu CK (đ),Bù cọc (đ),Chưa thu (đ),Trạng thái\n" +
-      financialRows.map(f => `"${f.sourceType}",${f.code},${f.roomCode},"${f.tenantName}","${f.rentPeriod}","${f.servicePeriod}",${f.dueDate},${f.receivable},${f.collected},${f.handledByDeposit},${f.uncollected},"${f.status}"`).join('\n') +
+      "Nguồn thu,Mã thông báo/GD,Phòng,Khách thuê,Kỳ thuê trả trước,Kỳ DV trả sau,Hạn TT,Phải thu (đ),Thực thu CK (đ),Chưa thu (đ),Trạng thái\n" +
+      financialRows.map(f => `"${f.sourceType}",${f.code},${f.roomCode},"${f.tenantName}","${f.rentPeriod}","${f.servicePeriod}",${f.dueDate},${f.receivable},${f.collected},${f.uncollected},"${f.status}"`).join('\n') +
       "\n\n" +
       "===========================================================\n" +
       "KHỐI 3: DANH SÁCH HỢP ĐỒNG CẦN CHÚ Ý\n" +
@@ -839,12 +837,12 @@ export const ReportsView: React.FC = () => {
                       showToast('error', 'Chặn thao tác: Dữ liệu nguồn còn bất thường chưa giải quyết');
                     } else {
                       setActiveTab('executive_bc04');
-                      showToast('success', 'Đã chuyển số liệu snapshot sang Báo cáo quản trị tổng hợp BC-04!');
+                      showToast('success', 'Đã chuyển số liệu sang Báo cáo quản trị tổng hợp!');
                     }
                   }}
                   className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold cursor-pointer shadow-xs flex items-center gap-1"
                 >
-                  Lập báo cáo tổng hợp (BC-04) <ArrowRight className="w-3.5 h-3.5" />
+                  Lập báo cáo tổng hợp <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
 
@@ -1042,7 +1040,7 @@ export const ReportsView: React.FC = () => {
           )}
 
           {/* Financial KPI Strip */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
             {/* 1. Tổng phải thu */}
             <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs space-y-1">
               <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
@@ -1063,30 +1061,20 @@ export const ReportsView: React.FC = () => {
                 Chỉ tiền chuyển khoản đã xác nhận </p>
             </div>
 
-            {/* 3. Khoản nợ bù cọc */}
+            {/* 3. Chưa thu */}
             <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs space-y-1">
               <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                3. Khoản nợ bù cọc </span>
-              <span className="text-xl font-bold font-mono text-indigo-700 block">
-                {totalHandledByDeposit.toLocaleString('vi-VN')} đ </span>
-              <p className="text-[10px] text-indigo-600">
-                Theo dõi riêng </p>
-            </div>
-
-            {/* 4. Chưa thu */}
-            <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs space-y-1">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                4. Số tiền chưa thu </span>
+                3. Số tiền chưa thu </span>
               <span className="text-xl font-bold font-mono text-amber-700 block">
                 {totalUncollected.toLocaleString('vi-VN')} đ </span>
               <p className="text-[10px] text-amber-600">
-                = Phải thu - Thực thu - Bù cọc </p>
+                Số dư sau khi xử lý các khoản đã thu và điều chỉnh </p>
             </div>
 
-            {/* 5. Công nợ quá hạn */}
+            {/* 4. Công nợ quá hạn */}
             <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs space-y-1">
               <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                5. Công nợ quá hạn </span>
+                4. Công nợ quá hạn </span>
               <span className="text-xl font-bold font-mono text-red-600 block">
                 {totalOverdueDebt.toLocaleString('vi-VN')} đ </span>
               <p className="text-[10px] text-red-500">
@@ -1107,10 +1095,7 @@ export const ReportsView: React.FC = () => {
                 <span className="text-[10px] text-slate-400 block">Tổng cọc gốc đang lưu giữ:</span>
                 <strong className="font-mono text-base text-white">{initialDepositTotal.toLocaleString('vi-VN')} đ</strong>
               </div>
-              <div>
-                <span className="text-[10px] text-slate-400 block">Nợ đã khấu trừ bù cọc:</span>
-                <strong className="font-mono text-base text-indigo-300">{totalHandledByDeposit.toLocaleString('vi-VN')} đ</strong>
-              </div>
+
             </div>
           </div>
 
@@ -1147,7 +1132,6 @@ export const ReportsView: React.FC = () => {
                     <th className="py-2.5 px-3">Hạn TT</th>
                     <th className="py-2.5 px-3 text-right">Phải thu</th>
                     <th className="py-2.5 px-3 text-right">Thực thu CK</th>
-                    <th className="py-2.5 px-3 text-right">Bù cọc</th>
                     <th className="py-2.5 px-3 text-right">Chưa thu</th>
                     <th className="py-2.5 px-3 text-center">Trạng thái</th>
                   </tr>
@@ -1158,8 +1142,8 @@ export const ReportsView: React.FC = () => {
                       <tr key={f.id} className="hover:bg-slate-50 transition-colors">
                         <td className="py-2.5 px-3 font-semibold text-slate-800">
                           <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                            f.sourceType.includes('PH-07')
-                              ? 'bg-purple-100 text-purple-800': f.sourceType.includes('Thuê kỳ tiếp')
+                            f.sourceType === 'Tiền thuê kỳ đầu'
+                              ? 'bg-purple-100 text-purple-800': f.sourceType === 'Tiền thuê kỳ tiếp theo'
                               ? 'bg-blue-100 text-blue-800': 'bg-emerald-100 text-emerald-800'
                           }`}>
                             {f.sourceType}
@@ -1175,9 +1159,6 @@ export const ReportsView: React.FC = () => {
                           {f.receivable.toLocaleString('vi-VN')} đ </td>
                         <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-700">
                           {f.collected.toLocaleString('vi-VN')} đ </td>
-                        <td className="py-2.5 px-3 text-right font-mono text-indigo-700">
-                          {f.handledByDeposit > 0 ? f.handledByDeposit.toLocaleString('vi-VN') + ' đ': '—'}
-                        </td>
                         <td className={`py-2.5 px-3 text-right font-mono font-bold ${f.uncollected > 0 ? 'text-amber-700': 'text-slate-400'}`}>
                           {f.uncollected > 0 ? f.uncollected.toLocaleString('vi-VN') + ' đ': '0 đ'}
                         </td>
@@ -1294,7 +1275,7 @@ export const ReportsView: React.FC = () => {
                   </span>
                 </div>
                 <p className="text-[11px] leading-relaxed">
-                  Cọc gốc ({initialDepositTotal.toLocaleString('vi-VN')} đ) được theo dõi riêng. Khoản bù cọc trừ khỏi phải thu nhưng không tính vào tiền thực thu ngân hàng. </p>
+                  Cọc gốc ({initialDepositTotal.toLocaleString('vi-VN')} đ) được theo dõi riêng và không tính vào doanh thu tiền thuê. </p>
               </div>
 
               <div className={`p-4 rounded-xl border space-y-1.5 ${
@@ -1324,7 +1305,7 @@ export const ReportsView: React.FC = () => {
                   </span>
                 </div>
                 <p className="text-[11px] leading-relaxed">
-                  Chỉ cộng các xác nhận chuyển khoản đang hiệu lực từ UC08.2. Khi User sửa xác nhận thu nhầm, hệ thống tự động loại bỏ biên lai cũ và tính lại công nợ. </p>
+                  Chỉ cộng các xác nhận chuyển khoản đang hiệu lực. Khi sửa xác nhận thu nhầm, hệ thống tự động loại bỏ biên lai cũ và tính lại công nợ. </p>
               </div>
             </div>
 
@@ -1332,7 +1313,7 @@ export const ReportsView: React.FC = () => {
             <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
               <span className="font-bold text-slate-700 uppercase tracking-wider block text-[11px]">
                 Số liệu đối chiếu tài chính hợp nhất: </span>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[11px]">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-[11px]">
                 <div className="p-3 bg-white rounded border border-slate-200">
                   <span className="text-slate-500 block">Tổng phải thu:</span>
                   <strong className="font-mono text-slate-900 text-sm">{totalReceivableGross.toLocaleString('vi-VN')} đ</strong>
@@ -1341,10 +1322,7 @@ export const ReportsView: React.FC = () => {
                   <span className="text-slate-500 block">Thực thu ngân hàng:</span>
                   <strong className="font-mono text-emerald-700 text-sm">{totalCollectedBank.toLocaleString('vi-VN')} đ</strong>
                 </div>
-                <div className="p-3 bg-white rounded border border-slate-200">
-                  <span className="text-slate-500 block">Khoản nợ bù cọc:</span>
-                  <strong className="font-mono text-indigo-700 text-sm">{totalHandledByDeposit.toLocaleString('vi-VN')} đ</strong>
-                </div>
+
                 <div className="p-3 bg-white rounded border border-slate-200">
                   <span className="text-slate-500 block">Chưa thu còn lại:</span>
                   <strong className="font-mono text-amber-700 text-sm">{totalUncollected.toLocaleString('vi-VN')} đ</strong>
@@ -1390,7 +1368,7 @@ export const ReportsView: React.FC = () => {
                   }`}
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  Xác nhận đã kiểm tra & Sang BC-04 </button>
+                  Xác nhận và lập báo cáo tổng hợp </button>
               </div>
             </div>
           </div>
@@ -1465,7 +1443,7 @@ export const ReportsView: React.FC = () => {
 
             {/* 4 Consolidated Blocks */}
             <div className="space-y-5">
-              {/* KHỐI 1: TÌNH TRẠNG & TỶ LỆ LẤP ĐẦY PHÒNG (BC-01) */}
+              {/* KHỐI 1: TÌNH TRẠNG & TỶ LỆ LẤP ĐẦY PHÒNG */}
               <div className="p-4 bg-slate-50/80 border border-slate-200 rounded-xl space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-slate-800 uppercase tracking-wider text-xs flex items-center gap-1.5">
@@ -1495,7 +1473,7 @@ export const ReportsView: React.FC = () => {
                 </div>
               </div>
 
-              {/* KHỐI 2: CHỈ TIÊU TÀI CHÍNH, THU TIỀN & CÔNG NỢ (BC-02) */}
+              {/* KHỐI 2: CHỈ TIÊU TÀI CHÍNH, THU TIỀN & CÔNG NỢ */}
               <div className="p-4 bg-slate-50/80 border border-slate-200 rounded-xl space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-slate-800 uppercase tracking-wider text-xs flex items-center gap-1.5">
@@ -1505,7 +1483,7 @@ export const ReportsView: React.FC = () => {
                     Chỉ nhận chuyển khoản ngân hàng </span>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-slate-700">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-slate-700">
                   <div className="p-3 bg-white rounded border border-slate-200">
                     <span className="text-slate-400 block text-[11px]">Phải thu gốc (Gross):</span>
                     <strong className="text-base font-mono text-slate-900">{totalReceivableGross.toLocaleString('vi-VN')} đ</strong>
@@ -1514,10 +1492,7 @@ export const ReportsView: React.FC = () => {
                     <span className="text-slate-400 block text-[11px]">Thực thu ngân hàng:</span>
                     <strong className="text-base font-mono text-emerald-700">{totalCollectedBank.toLocaleString('vi-VN')} đ</strong>
                   </div>
-                  <div className="p-3 bg-white rounded border border-slate-200">
-                    <span className="text-slate-400 block text-[11px]">Khoản nợ bù cọc:</span>
-                    <strong className="text-base font-mono text-indigo-700">{totalHandledByDeposit.toLocaleString('vi-VN')} đ</strong>
-                  </div>
+
                   <div className="p-3 bg-white rounded border border-slate-200">
                     <span className="text-slate-400 block text-[11px]">Chưa thu còn lại:</span>
                     <strong className="text-base font-mono text-amber-700">{totalUncollected.toLocaleString('vi-VN')} đ</strong>
@@ -1718,7 +1693,7 @@ export const ReportsView: React.FC = () => {
             </div>
 
             <div className="space-y-4">
-              {/* Nguồn 1: Thuê kỳ đầu PH-07 */}
+              {/* Nguồn 1: Thuê kỳ đầu */}
               <div className="p-3 bg-purple-50/70 border border-purple-200 rounded-xl space-y-2">
                 <strong className="font-bold text-purple-900 block">
                   1. Dữ liệu thanh toán ban đầu - {initialPaymentRecords.length} giao dịch: </strong>
@@ -1734,7 +1709,7 @@ export const ReportsView: React.FC = () => {
                 </div>
               </div>
 
-              {/* Nguồn 2: Thông báo thu tiền TT-03 */}
+              {/* Nguồn 2: Thông báo thu tiền */}
               <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl space-y-2">
                 <strong className="font-bold text-blue-900 block">
                   2. Thông báo thu tiền định kỳ - {paymentNotices.filter(n => n.noticeType !== 'DEBT').length} thông báo: </strong>
@@ -1752,7 +1727,7 @@ export const ReportsView: React.FC = () => {
                 </div>
               </div>
 
-              {/* Nguồn 3: Biên lai thu tiền UC08.2 */}
+              {/* Nguồn 3: Biên lai thu tiền */}
               <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-2">
                 <strong className="font-bold text-emerald-900 block">
                   3. Biên lai thu tiền chuyển khoản - {paymentReceipts.length} biên lai: </strong>
@@ -1770,24 +1745,6 @@ export const ReportsView: React.FC = () => {
                 </div>
               </div>
 
-              {/* Nguồn 4: Quyết toán cọc hoàn tất QT05 */}
-              <div className="p-3 bg-slate-100 border border-slate-200 rounded-xl space-y-2">
-                <strong className="font-bold text-slate-800 block">
-                  4. Quyết toán cọc bù trừ công nợ - {settlementSlips.length} hồ sơ: </strong>
-                <div className="space-y-1.5 text-[11px]">
-                  {settlementSlips.map(s => {
-                    const debtDed = s.deductions.filter(d => d.category === 'Công nợ kỳ trước').reduce((acc, d) => acc + d.amount, 0);
-                    return (
-                      <div key={s.id} className="p-2 bg-white rounded border border-slate-200 flex justify-between items-center">
-                        <div>
-                          Phòng <strong className="font-mono">{s.roomCode}</strong>: Cọc gốc {s.initialDepositAmount.toLocaleString('vi-VN')} đ · Khấu trừ nợ cũ: <strong className="text-indigo-700">{debtDed.toLocaleString('vi-VN')} đ</strong>
-                        </div>
-                        <span className="text-[10px] text-slate-500 font-mono">{s.status}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
             </div>
 
             <div className="flex justify-end pt-3 border-t border-slate-100">
