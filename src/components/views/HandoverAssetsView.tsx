@@ -3010,6 +3010,9 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
           validContractLease: hasValidContractLease
         });
         const canSaveOfficially304 = missingReturnRequirements.length === 0;
+        // Dữ liệu cũ có thể chưa lưu condition dù trình duyệt vẫn từng hiển thị lựa chọn đầu tiên.
+        // Giữ nguyên dữ liệu cũ và yêu cầu người dùng xác nhận tình trạng thực tế; không tự suy diễn Bình thường.
+        const itemsMissingPhysicalCondition = bg09Items.filter(item => item.inspected && !item.condition?.trim());
         const is305Confirmed = Boolean(returnInspectionTarget?.step305Confirmed);
 
         return (
@@ -3093,6 +3096,23 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                   Dòng chưa kiểm tra phải ghi rõ lý do </span>
               </div>
 
+              {itemsMissingPhysicalCondition.length > 0 && (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-amber-950">
+                  <span>
+                    <strong>{itemsMissingPhysicalCondition.length} tài sản chưa chọn tình trạng vật lý.</strong>{' '}
+                    Vui lòng kiểm tra thực tế và chọn từng dòng; nếu tất cả các dòng thiếu đều bình thường, hãy xác nhận bằng nút bên cạnh.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setBg09Items(prev => prev.map(item =>
+                      item.inspected && !item.condition?.trim() ? { ...item, condition: 'Bình thường' } : item
+                    ))}
+                    className="rounded-lg border border-amber-400 bg-white px-3 py-1.5 font-semibold text-amber-900 hover:bg-amber-100"
+                  >
+                    Xác nhận các tài sản thiếu đều Bình thường
+                  </button>
+                </div>
+              )}
               <div className="overflow-x-auto border border-slate-200 rounded-xl">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
@@ -3139,15 +3159,19 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                         <td className="py-2 px-3">
                           <select
                             disabled={!item.inspected}
-                            value={item.condition}
+                            value={item.condition ?? ''}
                             onChange={(e) => {
                               const cond = e.target.value;
                               setBg09Items(prev => prev.map((it, i) => i === idx ? { ...it, condition: cond } : it));
                             }}
-                            className={`px-2 py-1 border border-slate-300 rounded text-xs ${
-                              item.inspected ? 'bg-white' : 'bg-slate-100 text-slate-400'
+                            className={`px-2 py-1 border rounded text-xs ${
+                              item.inspected && !item.condition?.trim()
+                                ? 'border-amber-500 bg-amber-50 text-amber-900'
+                                : item.inspected ? 'border-slate-300 bg-white' : 'border-slate-300 bg-slate-100 text-slate-400'
                             }`}
+                            aria-label={`Tình trạng vật lý của ${item.name}`}
                           >
+                            <option value="">-- Chọn tình trạng --</option>
                             <option value="Bình thường">Bình thường</option>
                             <option value="Hư hỏng">Hư hỏng</option>
                             <option value="Khác">Khác</option>

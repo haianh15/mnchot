@@ -45,8 +45,11 @@ export function getReturnInspectionReadinessIssues(input: {
     }
     if (items.some(item => !Number.isInteger(item.quantity) || item.quantity < 0))
       issues.push('Số lượng thực tế của một số tài sản chưa hợp lệ (phải là số nguyên không âm).');
-    if (items.some(item => !item.condition?.trim()))
-      issues.push('Một số tài sản chưa có tình trạng vật lý.');
+    const noCondition = items.filter(item => item.inspected && !item.condition?.trim());
+    if (noCondition.length) {
+      const names = noCondition.slice(0, 3).map(item => item.name).join(', ');
+      issues.push(`Còn ${noCondition.length} tài sản chưa chọn tình trạng vật lý${names ? `: ${names}` : ''}.`);
+    }
   }
   if (finalElectricityKwh === '' || !Number.isFinite(finalElectricityKwh) || finalElectricityKwh < 0)
     issues.push('Chưa nhập chỉ số điện cuối kỳ hợp lệ.');

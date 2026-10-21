@@ -38,6 +38,7 @@ test('Số lượng âm và tình trạng rỗng báo riêng', () => {
   assert.equal(result.length, 2);
   assert.match(result.join(' '), /Số lượng thực tế/);
   assert.match(result.join(' '), /tình trạng vật lý/);
+  assert.match(result.join(' '), /Chìa khóa/);
 });
 test('Đã kiểm tra đủ nhưng liên kết hợp đồng thiếu không báo sai là thiếu tài sản', () => {
   const result = issues({validContractLease:false});
@@ -50,4 +51,19 @@ test('Màn hình nhận lại hiển thị danh sách thiếu và dùng chung lo
   assert.match(source,/missingReturnRequirements\.map/);
   assert.match(source,/Chưa thể lưu kết quả: \$\{missingReturnRequirements\.join/);
   assert.doesNotMatch(source,/Bảng chưa kiểm tra đầy đủ hoặc thiếu mô tả chứng cứ nhận lại\. Vui lòng kiểm tra lại/);
+});
+
+test('Dữ liệu cũ: Đã kiểm tra nhưng condition rỗng phải báo rõ tên, không được ngầm xem là Bình thường', () => {
+  const legacy = { ...valid.items[0], condition: '' };
+  const result = issues({items: [legacy, valid.items[1]]});
+  assert.equal(result.length, 1);
+  assert.match(result[0], /Chìa khóa/);
+  assert.match(result[0], /1 tài sản/);
+});
+test('Giao diện phải có trạng thái Chưa chọn, không hiển thị nhầm Bình thường khi condition rỗng', () => {
+  const view = fs.readFileSync(path.join(__dirname, '../src/components/views/HandoverAssetsView.tsx'),'utf8');
+  assert.match(view, /value=\{item\.condition \?\? ''\}/);
+  assert.match(view, /<option value="">-- Chọn tình trạng --<\/option>/);
+  assert.match(view, /Xác nhận các tài sản thiếu đều Bình thường/);
+  assert.match(view, /item\.inspected && !item\.condition\?\.trim\(\)/);
 });
