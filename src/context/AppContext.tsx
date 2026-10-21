@@ -1181,15 +1181,54 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { success: true, message: 'Đính chính thông tin chứng từ thành công! Lịch sử đã được ghi nhận.' };
   };
 
-  // Một nguồn cập nhật duy nhất cho Quản lý phòng, Hợp đồng và Hồ sơ khách.
-  // Cả xác nhận nhận phòng tại Quản lý phòng lẫn xác nhận biên bản ký giấy tại Bàn giao
-  // đều dùng hàm này để tránh chỉ cập nhật một bên.
-  const commitConfirmedCheckIn = (
-    room: Room, contract: Contract, report: HandoverReport, actualCheckInDate: string,
-    handoverVersion?: string
-  ) => {
-    const roomCode = room.roomCode;
-    const leaseId = contract.leaseId;
+  // UC-PH-05: Kiểm tra điều kiện nhận phòng & xác nhận hoàn tất nhận phòng
+  const confirmCheckInPH05 = (roomCode: string, leaseId: string, actualCheckInDate: string, handoverReportId?: string, handoverVersion?: string) => {
+    const room = rooms.find(r => r.roomCode === roomCode);
+    if (!room || room.status !== 'Trống') {
+      return { success: false, message: 'Chỉ có thể xác nhận nhận phòng khi phòng đang trống và tồn tại hồ sơ nguồn hợp lệ.' };
+    }
+    const contract = contracts.find(c => c.roomCode === roomCode && c.leaseId === leaseId &&
+      c.isSignedPaper && ['Đã ký', 'Chờ hiệu lực', 'Hiệu lực'].includes(c.status));
+    const report = handoverReports.find(h => h.roomCode === roomCode && h.leaseId === leaseId &&
+      h.contractId === contract?.id && (!handoverReportId || h.id === handoverReportId) &&
+      h.status === 'Đã xác nhận' && h.tenantSignedPaper === 'Đã ký giấy' && h.ownerSignedPaper === 'Đã ký giấy');
+
+    // Tiêu chí 1: Hợp đồng đã ký
+    if (!contract || (!contract.isSignedPaper && contract.status !== 'Hiệu lực' && contract.status !== 'Đã ký' && contract.status !== 'Chờ hiệu lực')) {
+      return { success: false, message: 'Tiêu chí 1 Chưa đạt: Hợp đồng chưa ký hoặc chưa có hiệu lực (EF-02).' };
+    }
+
+    // A signed contract is insufficient without an actual matching tenant profile.
+    const binding = validateContractTenantLink(contract, tenants);
+    if (!binding.valid) return { success: false, message: binding.message || 'Chưa có hồ sơ khách thuê khớp hợp đồng.' };
+    if (room.pendingLeaseId && room.pendingLeaseId !== leaseId) {
+      return { success: false, message: 'Phòng đang chờ nhận theo một lần thuê khác.' };
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(actualCheckInDate) ||
+        Number.isNaN(Date.parse(actualCheckInDate)) ||
+        new Date(actualCheckInDate).toISOString().slice(0, 10) !== actualCheckInDate ||
+        actualCheckInDate > new Date().toISOString().slice(0, 10)) {
+      return { success: false, message: 'Ngày nhận phòng thực tế không hợp lệ hoặc nằm trong tương lai.' };
+    }
+    if (leaseStartEvents.some(e => e.roomCode === roomCode && e.leaseId === leaseId)) {
+      return { success: false, message: 'Lần thuê này đã được xác nhận nhận phòng, không được tạo thêm lượt nhận.' };
+    }
+
+    // Tiêu chí 2 & 3: Cọc 1 tháng & Thuê đầu 1 tháng tại UC-PH-07
+    const initialPaymentStatus = getInitialPaymentStatus(contract, contracts, initialPaymentRecords);
+    if (!initialPaymentStatus.valid) {
+      return { success: false, message: `Chưa đủ điều kiện nhận phòng: ${initialPaymentStatus.message}` };
+    }
+
+    // Tiêu chí 4: Bàn giao nhận thực tế hoàn tất & UC-BG03 Đã xác nhận (hai bên đã ký tay)
+    if (!report) {
+      return { success: false, message: 'Tiêu chí 4 Chưa đạt: Biên bản nhận phòng UC-BG03 chưa ở trạng thái Đã xác nhận (chưa có chữ ký tay hai bên).' };
+    }
+
+    if (report.date > actualCheckInDate) {
+      return { success: false, message: 'Ngày nhận phòng không được trước ngày ký xác nhận biên bản bàn giao.' };
+    }
+
     // Lưu ngày nhận phòng thực tế, chuyển trạng thái Đang thuê theo UC-PH-04
     setRooms(prev => prev.map(r => r.roomCode === roomCode ? {
       ...r,
@@ -1242,57 +1281,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     logSecurity('PH05_CHECKIN_CONFIRMED', `Room ${roomCode} check-in confirmed on ${actualCheckInDate}. Status -> Đang thuê. Event ${newEvent.eventId} emitted to HSKT-02`);
     return { success: true, message: `Xác nhận nhận phòng hoàn tất! Phòng ${roomCode} đã chuyển sang Đang thuê. Kỳ thuê đầu được chốt từ ngày ${actualCheckInDate}. Sự kiện Bắt đầu lần thuê đã phát tới HSKT-02.` };
-  };
-
-  // UC-PH-05: Kiểm tra điều kiện nhận phòng & xác nhận hoàn tất nhận phòng
-  const confirmCheckInPH05 = (roomCode: string, leaseId: string, actualCheckInDate: string, handoverReportId?: string, handoverVersion?: string) => {
-    const room = rooms.find(r => r.roomCode === roomCode);
-    if (!room || room.status !== 'Trống') {
-      return { success: false, message: 'Chỉ có thể xác nhận nhận phòng khi phòng đang trống và tồn tại hồ sơ nguồn hợp lệ.' };
-    }
-    const contract = contracts.find(c => c.roomCode === roomCode && c.leaseId === leaseId &&
-      c.isSignedPaper && ['Đã ký', 'Chờ hiệu lực', 'Hiệu lực'].includes(c.status));
-    const report = handoverReports.find(h => h.roomCode === roomCode && h.leaseId === leaseId &&
-      h.contractId === contract?.id && (!handoverReportId || h.id === handoverReportId) &&
-      h.status === 'Đã xác nhận' && h.tenantSignedPaper === 'Đã ký giấy' && h.ownerSignedPaper === 'Đã ký giấy');
-
-    // Tiêu chí 1: Hợp đồng đã ký
-    if (!contract || (!contract.isSignedPaper && contract.status !== 'Hiệu lực' && contract.status !== 'Đã ký' && contract.status !== 'Chờ hiệu lực')) {
-      return { success: false, message: 'Tiêu chí 1 Chưa đạt: Hợp đồng chưa ký hoặc chưa có hiệu lực (EF-02).' };
-    }
-
-    // A signed contract is insufficient without an actual matching tenant profile.
-    const binding = validateContractTenantLink(contract, tenants);
-    if (!binding.valid) return { success: false, message: binding.message || 'Chưa có hồ sơ khách thuê khớp hợp đồng.' };
-    if (room.pendingLeaseId && room.pendingLeaseId !== leaseId) {
-      return { success: false, message: 'Phòng đang chờ nhận theo một lần thuê khác.' };
-    }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(actualCheckInDate) ||
-        Number.isNaN(Date.parse(actualCheckInDate)) ||
-        new Date(actualCheckInDate).toISOString().slice(0, 10) !== actualCheckInDate ||
-        actualCheckInDate > new Date().toISOString().slice(0, 10)) {
-      return { success: false, message: 'Ngày nhận phòng thực tế không hợp lệ hoặc nằm trong tương lai.' };
-    }
-    if (leaseStartEvents.some(e => e.roomCode === roomCode && e.leaseId === leaseId)) {
-      return { success: false, message: 'Lần thuê này đã được xác nhận nhận phòng, không được tạo thêm lượt nhận.' };
-    }
-
-    // Tiêu chí 2 & 3: Cọc 1 tháng & Thuê đầu 1 tháng tại UC-PH-07
-    const initialPaymentStatus = getInitialPaymentStatus(contract, contracts, initialPaymentRecords);
-    if (!initialPaymentStatus.valid) {
-      return { success: false, message: `Chưa đủ điều kiện nhận phòng: ${initialPaymentStatus.message}` };
-    }
-
-    // Tiêu chí 4: Bàn giao nhận thực tế hoàn tất & UC-BG03 Đã xác nhận (hai bên đã ký tay)
-    if (!report) {
-      return { success: false, message: 'Tiêu chí 4 Chưa đạt: Biên bản nhận phòng UC-BG03 chưa ở trạng thái Đã xác nhận (chưa có chữ ký tay hai bên).' };
-    }
-
-    if (report.date > actualCheckInDate) {
-      return { success: false, message: 'Ngày nhận phòng không được trước ngày ký xác nhận biên bản bàn giao.' };
-    }
-
-    return commitConfirmedCheckIn(room, contract, report, actualCheckInDate, handoverVersion);
   };
 
   // UC-PH-06: Ghi nhận điều kiện còn thiếu
@@ -1817,32 +1805,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, message: 'Chỉ biên bản Đã lập mới được ghi nhận ký giấy; hồ sơ đã xác nhận phải giữ nguyên.' };
     if (tenantSigned && ownerSigned && !(paperLocation || report.paperLocation)?.trim())
       return { success: false, message: 'Cần nhập nơi lưu bản giấy đã được hai bên ký.' };
-    // Hoàn tất ký giấy không chỉ thay trạng thái biên bản. Nếu đây là một lần
-    // nhận phòng mới và tất cả hồ sơ nguồn đã hợp lệ, cập nhật phòng và lần thuê
-    // ngay trong cùng thao tác; không phải quay về Quản lý phòng xác nhận lần nữa.
-    // Biên bản Đã lập / mới lưu Nháp KHÔNG được coi là đã nhận phòng.
-    const bothSigned = tenantSigned && ownerSigned;
-    const receiveRoom = rooms.find(r => r.roomCode === report.roomCode);
-    const receiveContract = contracts.find(c => c.id === report.contractId &&
-      c.roomCode === report.roomCode && c.leaseId === report.leaseId && c.isSignedPaper &&
-      ['Đã ký', 'Chờ hiệu lực', 'Hiệu lực'].includes(c.status));
-    let receiveBlocker = '';
-    if (bothSigned && receiveRoom?.status === 'Trống') {
-      if (!receiveContract) receiveBlocker = 'hợp đồng đã ký chưa hợp lệ';
-      else if (receiveRoom.pendingLeaseId && receiveRoom.pendingLeaseId !== report.leaseId)
-        receiveBlocker = 'phòng đang chờ nhận cho lần thuê khác';
-      else if (!validateContractTenantLink(receiveContract, tenants).valid)
-        receiveBlocker = 'thiếu hồ sơ khách thuê khớp hợp đồng';
-      else if (!getInitialPaymentStatus(receiveContract, contracts, initialPaymentRecords).valid)
-        receiveBlocker = 'chưa đủ chứng từ cọc và tiền thuê đầu đã đối chiếu';
-      else if (!/^\d{4}-\d{2}-\d{2}$/.test(report.date) ||
-        Number.isNaN(Date.parse(report.date)) ||
-        new Date(report.date).toISOString().slice(0,10) !== report.date ||
-        report.date > new Date().toISOString().slice(0,10))
-        receiveBlocker = 'ngày bàn giao nhận phòng không hợp lệ';
-      else if (leaseStartEvents.some(e => e.roomCode === report.roomCode && e.leaseId === report.leaseId))
-        receiveBlocker = 'lần thuê này đã được ghi nhận nhận phòng';
-    }
     setHandoverReports(prev => prev.map(r => r.id !== reportId ? r : ({
       ...r,
       tenantSignedPaper: tenantSigned ? 'Đã ký giấy' : 'Chưa ký',
@@ -1852,15 +1814,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       signedDocumentScanUrl: scanUrl?.trim() || r.signedDocumentScanUrl,
       confirmedAt: tenantSigned && ownerSigned ? new Date().toISOString() : undefined
     })));
-    if (bothSigned && receiveRoom?.status === 'Trống' && !receiveBlocker && receiveContract) {
-      // Phòng vẫn trống trước thời điểm xác nhận cả hai chữ ký và chứng từ.
-      // Cập nhật phòng, liên kết tenant, hợp đồng và sự kiện bắt đầu lần thuê.
-      return commitConfirmedCheckIn(receiveRoom, receiveContract, report, report.date, `v${report.version}`);
-    }
-    if (bothSigned && receiveBlocker) {
-      return { success: true, message: `Đã xác nhận biên bản đủ chữ ký, nhưng chưa thể chuyển phòng sang Đang thuê vì ${receiveBlocker}. Kiểm tra hồ sơ nguồn hoặc dùng Xác nhận nhận phòng sau khi bổ sung.` };
-    }
-    return { success: true, message: bothSigned ? 'Đã xác nhận biên bản nhận phòng đủ chữ ký; trạng thái phòng hiện tại được giữ nguyên.' : 'Đã lưu tình trạng ký giấy hiện tại; cần đủ chữ ký hai bên mới xác nhận nhận phòng.' };
+    return { success: true, message: tenantSigned && ownerSigned ? 'Đã xác nhận biên bản nhận phòng đủ chữ ký.' : 'Đã lưu tình trạng ký giấy hiện tại.' };
   };
 
   const recordIncidentBG04 = (incident: AssetIncident) => {

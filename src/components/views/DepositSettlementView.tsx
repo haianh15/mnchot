@@ -35,7 +35,7 @@ export const DepositSettlementView: React.FC<{leaseId?: string; contractId?: str
   const contractFocus = contracts.find(c => c.id === contractId && (!leaseId || c.leaseId === leaseId));
   const [selectedSlipId, setSelectedSlipId] = useState<string>(initialSlipId || (leaseId ? getCurrentSettlementSlip(settlementSlips, leaseId, contractFocus?.roomCode)?.id : settlementSlips[0]?.id) || '');
   const [isEditMode, setIsEditMode] = useState(initialMode === 'edit');
-  const selectedSlip = useMemo(() => settlementSlips.find(s => s.id === selectedSlipId && (!leaseId || s.leaseId === leaseId) && (!contractFocus || s.roomCode === contractFocus.roomCode)) || (leaseId ? (getCurrentSettlementSlip(settlementSlips, leaseId, contractFocus?.roomCode) || null) : settlementSlips[0] || null), [settlementSlips, selectedSlipId, leaseId, contractId]);
+  const selectedSlip = useMemo(() => settlementSlips.find(s => s.id === selectedSlipId && (!leaseId || s.leaseId === leaseId) && (!contractFocus || s.roomCode === contractFocus.roomCode)) || (leaseId ? getCurrentSettlementSlip(settlementSlips, leaseId, contractFocus?.roomCode) : settlementSlips[0] || null), [settlementSlips, selectedSlipId, leaseId, contractId]);
 
   useEffect(() => { if (initialSlipId) setSelectedSlipId(initialSlipId); else setSelectedSlipId(leaseId ? (getCurrentSettlementSlip(settlementSlips, leaseId, contractFocus?.roomCode)?.id || '') : (settlementSlips[0]?.id || '')); }, [leaseId, contractId, initialSlipId]);
   // Filters & Search
@@ -96,30 +96,6 @@ export const DepositSettlementView: React.FC<{leaseId?: string; contractId?: str
   // -------------------------------------------------------------
   // Filtered slips list
   // -------------------------------------------------------------
-  // Context from the exact signed contract / lease: show handover and deposit source
-  // even before a settlement slip has been created.
-  const focusedReturnInspection = contractFocus
-    ? returnInspections.find(i => i.roomCode === contractFocus.roomCode &&
-        i.leaseId === contractFocus.leaseId && i.step304Status === 'Đã nhận lại' && i.step305Confirmed)
-    : undefined;
-  const focusedInitialPayment = contractFocus
-    ? [...initialPaymentRecords].filter(p => p.roomCode === contractFocus.roomCode &&
-        p.leaseId === contractFocus.leaseId && p.depositAmount > 0 && p.depositCode)
-        .sort((a, b) => a.receivedDate.localeCompare(b.receivedDate))[0]
-    : undefined;
-  const focusedAssetResult = contractFocus
-    ? assetComparisonResults.find(r => r.roomCode === contractFocus.roomCode && r.leaseId === contractFocus.leaseId)
-    : undefined;
-  const focusedLastBill = contractFocus
-    ? [...periodBills].filter(b => b.roomCode === contractFocus.roomCode && b.leaseId === contractFocus.leaseId)
-        .sort((a, b) => b.periodCode.localeCompare(a.periodCode))[0]
-    : undefined;
-  const focusedCurrentSlip = contractFocus
-    ? getCurrentSettlementSlip(settlementSlips, contractFocus.leaseId, contractFocus.roomCode)
-    : null;
-  const canCreateFocusedSlip = Boolean(contractFocus && focusedReturnInspection &&
-    !focusedCurrentSlip && focusedInitialPayment);
-
   const filteredSlips = useMemo(() => {
     return settlementSlips.filter(slip => {
       if (leaseId && slip.leaseId !== leaseId) return false;
@@ -181,8 +157,7 @@ export const DepositSettlementView: React.FC<{leaseId?: string; contractId?: str
       return;
     }
 
-    const defaultRoomCode = eligibleRooms.find(i => i.roomCode === (contractFocus?.roomCode || roomCodeCandidate) &&
-      (!contractFocus || i.leaseId === contractFocus.leaseId))?.roomCode || (contractFocus ? '' : eligibleRooms[0]?.roomCode || ''); 
+    const defaultRoomCode = eligibleRooms.find(i => i.roomCode === (contractFocus?.roomCode || roomCodeCandidate))?.roomCode || (contractFocus ? '' : eligibleRooms[0]?.roomCode || ''); 
     setCreateSelectedRoom(defaultRoomCode);
     setShowCreateModal(true);
   };
@@ -393,7 +368,7 @@ export const DepositSettlementView: React.FC<{leaseId?: string; contractId?: str
       auditHistory: [
         {
           timestamp: new Date().toISOString(),
-          user: currentUser?.fullName || 'Chủ nhà',
+          user: currentUser?.fullName || 'Nguyễn Văn An (Chủ nhà)',
           action: 'Lập phiếu quyết toán cọc ',
           schemeVersion: 1,
           note: `Khởi tạo phiếu quyết toán cọc ${slipId} trong hồ sơ chờ quyết toán cọc do BG07 chuyển giao (Đã liên kết). Cọc gốc: ${roomCandidateData.depositAmount.toLocaleString('vi-VN')} đ lấy từ hợp đồng đầu tiên.`
@@ -647,7 +622,7 @@ export const DepositSettlementView: React.FC<{leaseId?: string; contractId?: str
       transferDate: receiptDate,
       transactionCode: receiptTxnCode.trim(),
       evidenceFile: receiptProofFile,
-      verifiedBy: currentUser?.fullName || 'Chủ nhà',
+      verifiedBy: currentUser?.fullName || 'Nguyễn Văn An (Chủ nhà)',
       confirmedAt: new Date().toISOString()
     };
 
@@ -692,58 +667,6 @@ export const DepositSettlementView: React.FC<{leaseId?: string; contractId?: str
             Lập quyết toán cọc </button>
         </div>
       </div>
-
-      {contractFocus && (
-        <section className="rounded-xl border border-blue-200 bg-blue-50/50 p-4 space-y-3" aria-label="Thông tin nguồn quyết toán cọc">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h2 className="text-sm font-bold text-blue-950">Hồ sơ bàn giao và tiền cọc của phòng {contractFocus.roomCode}</h2>
-              <p className="text-xs text-slate-600 mt-1">Hợp đồng {contractFocus.id} · Lần thuê {contractFocus.leaseId} · Khách thuê {contractFocus.tenantName}</p>
-            </div>
-            <span className={`rounded-lg border px-2 py-1 text-xs font-semibold ${focusedReturnInspection ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-amber-50 border-amber-200 text-amber-900'}`}>
-              {focusedReturnInspection ? 'Đã xác nhận nhận lại phòng' : 'Chưa xác nhận nhận lại phòng'}
-            </span>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-            <div className="rounded-lg border border-slate-200 bg-white p-3">
-              <div className="text-slate-500">Tiền cọc gốc đã ghi nhận</div>
-              <strong className="block mt-1 text-slate-900">{focusedInitialPayment ? `${focusedInitialPayment.depositAmount.toLocaleString('vi-VN')} đ` : 'Chưa có chứng từ cọc gốc phù hợp'}</strong>
-              <span className="text-slate-500">{focusedInitialPayment ? `Mã cọc: ${focusedInitialPayment.depositCode}` : 'Kiểm tra lại khoản tiền đã đối chiếu của lần thuê này'}</span>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-white p-3">
-              <div className="text-slate-500">Bàn giao trả phòng</div>
-              <strong className="block mt-1 text-slate-900">{focusedReturnInspection ? `Đã nhận lại ngày ${focusedReturnInspection.inspectionDate}` : 'Chưa có xác nhận nhận lại'}</strong>
-              <span className="text-slate-500">{focusedReturnInspection ? `Biên bản: ${focusedReturnInspection.id}` : 'Bàn giao nhận phòng không thay thế bàn giao trả phòng'}</span>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-white p-3">
-              <div className="text-slate-500">Kết quả đối chiếu tài sản</div>
-              <strong className="block mt-1 text-slate-900">{focusedAssetResult ? `Đã có hồ sơ ${focusedAssetResult.id}` : 'Chưa có kết quả đối chiếu'}</strong>
-              <span className="text-slate-500">{focusedAssetResult?.compensationAmount != null ? `Khoản bồi thường ghi nhận: ${focusedAssetResult.compensationAmount.toLocaleString('vi-VN')} đ` : 'Chưa có khoản bồi thường được xác định'}</span>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-white p-3">
-              <div className="text-slate-500">Bảng tính tiền kỳ cuối</div>
-              <strong className="block mt-1 text-slate-900">{focusedLastBill ? `${focusedLastBill.periodCode} · ${focusedLastBill.isConfirmed ? 'Đã xác nhận' : 'Chưa xác nhận'}` : 'Chưa có bảng tính kỳ cuối'}</strong>
-              <span className="text-slate-500">Nếu chưa xác nhận, phiếu chỉ có thể ở trạng thái Đang lập, chưa chốt số hoàn/thu thêm</span>
-            </div>
-          </div>
-          {!focusedReturnInspection ? (
-            <p className="text-xs font-medium text-amber-900">Chỉ được lập quyết toán cọc sau khi đã xác nhận nhận lại phòng thực tế. Nếu vừa lập biên bản nhận phòng cho khách mới, đây chưa phải bước quyết toán cọc.</p>
-          ) : focusedCurrentSlip ? (
-            <p className="text-xs font-medium text-blue-900">Đã có phiếu {focusedCurrentSlip.id} ({focusedCurrentSlip.status}). Chọn phiếu ở danh sách bên dưới để tiếp tục, không lập thêm phiếu trùng.</p>
-          ) : !focusedInitialPayment ? (
-            <p className="text-xs font-medium text-amber-900">Phòng đã được nhận lại nhưng chưa tìm thấy chứng từ cọc gốc đúng lần thuê. Hãy đối chiếu thông tin cọc đã nhận trong hồ sơ hợp đồng; hệ thống không tự tạo giao dịch.</p>
-          ) : (
-            <div className="flex flex-wrap items-center gap-3">
-              <button type="button" onClick={() => handleOpenCreateModal(contractFocus.roomCode)}
-                disabled={!canCreateFocusedSlip}
-                className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">
-                Lập phiếu quyết toán cọc cho phòng {contractFocus.roomCode}
-              </button>
-              <p className="text-xs text-slate-600">Dữ liệu bàn giao và cọc được lấy từ đúng lần thuê; các khoản trừ chỉ được tính sau khi bạn kiểm tra và bấm Tính kết quả.</p>
-            </div>
-          )}
-        </section>
-      )}
 
       {/* ======================================================== */}
       {/* 2. Top Metric Cards / Workflow Stages */}
@@ -838,11 +761,6 @@ export const DepositSettlementView: React.FC<{leaseId?: string; contractId?: str
             <option value="Đã hủy">Đã hủy</option>
           </select>
           {/* Slips Cards */}
-          {contractFocus && (
-            <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-900">
-              Phòng đang đối soát: {contractFocus.roomCode} · Lần thuê {contractFocus.leaseId}
-            </div>
-          )}
           <div className="space-y-2 max-h-[680px] overflow-y-auto pr-1">
             {filteredSlips.length === 0 ? (
               <div className="p-8 text-center text-xs text-slate-400 space-y-2">
@@ -867,9 +785,7 @@ export const DepositSettlementView: React.FC<{leaseId?: string; contractId?: str
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5">
                         <span className="font-mono font-bold text-slate-900">{slip.id}</span>
-                        <span className={`px-1.5 py-0.5 rounded font-mono text-[10px] font-bold ${
-                          isSelected ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700'
-                        }`}>
+                        <span className="px-1.5 py-0.5 rounded bg-slate-100 font-mono text-[10px] text-slate-700 font-bold">
                           {slip.roomCode}
                         </span>
                       </div>
@@ -1360,8 +1276,8 @@ export const DepositSettlementView: React.FC<{leaseId?: string; contractId?: str
           ): (
             <div className="p-12 text-center text-slate-400 space-y-2">
               <Scale className="w-10 h-10 text-slate-300 mx-auto" />
-              <p className="text-sm font-semibold">{contractFocus ? `Chưa có phiếu quyết toán cho phòng ${contractFocus.roomCode} trong lần thuê ${contractFocus.leaseId}.` : 'Chọn một phiếu quyết toán ở cột bên trái để xem chi tiết.'}</p>
-              <p className="text-xs">{contractFocus ? 'Xem phần thông tin bàn giao và tiền cọc phía trên để biết điều kiện còn thiếu, hoặc lập phiếu mới cho đúng lần thuê.' : 'Hoặc nhấn Lập quyết toán cọc để tạo phiếu mới cho phòng đã xác nhận nhận lại.'}</p>
+              <p className="text-sm font-semibold">Chọn một phiếu quyết toán ở cột bên trái để xem chi tiết.</p>
+              <p className="text-xs">Hoặc nhấn "Lập quyết toán cọc" ở góc trên để tạo phiếu mới cho phòng đã nhận lại.</p>
             </div>
           )}
         </div>

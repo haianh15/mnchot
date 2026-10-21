@@ -45,5 +45,5 @@ test('Chặn nhận phòng trùng', () => assert(ck.includes('leaseStartEvents.s
 const plan=ctx.slice(ctx.indexOf('const updateExpectedReturnDatePH11_12'),ctx.indexOf('const autoCancelReturnPlanPH14'));
 test('Không chuyển sang Sắp trả khi dữ liệu cũ thiếu hồ sơ', () => assert(plan.includes('auditOccupiedRoom(room, contracts, tenants, initialPaymentRecords, handoverReports)')));
 const view=fs.readFileSync('src/components/views/RoomsView.tsx','utf8');
-test('Danh sách phòng đối chiếu chứng từ nguồn và hiển thị thống nhất',()=>assert(view.includes('getInitialPaymentStatus(verifiedContract, contracts, initialPaymentRecords).valid') && view.includes("verifiedPayment ? 'Đã đối chiếu' : 'Chưa xác nhận'") && !view.includes('DEMO - giả lập')));
+test('Danh sách hiển thị nguồn cọc đối chiếu thay cờ lưu sẵn',()=>assert(view.includes('getInitialPaymentStatus(verifiedContract, contracts, initialPaymentRecords).valid') && view.includes('Cần đối chiếu hồ sơ') && view.includes('DEMO - giả lập')));
 console.log(`Room readiness: ${count}/${count} tests passed.`);

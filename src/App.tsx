@@ -20,7 +20,7 @@ const MainAppContent: React.FC = () => {
   const [currentTab, setCurrentTab] = useState<NavTabKey>('rooms');
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [target, setTarget] = useState<{roomCode?: string; contractId?: string; tenantId?: string; leaseId?: string; billId?: string; noticeId?: string; action?: 'create' | 'return-plans' | 'deposit-settlement' | 'return'; handoverMode?: 'receive' | 'return' | 'view'; handoverStep?: 'deposit' | 'final'}>({});
+  const [target, setTarget] = useState<{roomCode?: string; contractId?: string; tenantId?: string; leaseId?: string; billId?: string; noticeId?: string; action?: 'create' | 'return-plans'; handoverMode?: 'receive' | 'return' | 'view'}>({});
   const navigate = (tab: NavTabKey, record: typeof target = {}) => { setTarget(record); setCurrentTab(tab); };
   const authenticated = currentSession?.type === 'admin' && currentSession.expiresAt > Date.now();
 
@@ -45,21 +45,20 @@ const MainAppContent: React.FC = () => {
 
         {/* Viewport Canvas */}
         <main className="flex-1 p-3 sm:p-5 lg:p-6 overflow-y-auto min-w-0 max-w-full">
+          <p className="mb-3 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2">Bản chạy thử: dữ liệu hiện lưu trên trình duyệt, chưa có backend xác thực/lưu trữ an toàn. Không nhập dữ liệu cá nhân hoặc giao dịch thật.</p>
           {authNotification && (
             <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900 font-medium">
               {authNotification}
             </div>
           )}
 
-          {currentTab === 'rooms' && <RoomsView onNavigate={navigate} initialRoomCode={target.roomCode} initialAction={target.action} initialLeaseId={target.leaseId} initialContractId={target.contractId} />}
+          {currentTab === 'rooms' && <RoomsView onNavigate={navigate} initialRoomCode={target.roomCode} />}
 
-          {currentTab === 'handover' && <HandoverAssetsView initialRoomCode={target.roomCode} initialLeaseId={target.leaseId} initialContractId={target.contractId} initialMode={target.handoverMode} initialStep={target.handoverStep}
-            onOpenDepositSettlement={(record) => navigate('contracts', { ...record, action: 'deposit-settlement' })}
-            onContinueReturn={(record) => navigate('rooms', { ...record, action: 'return' })} />}
+          {currentTab === 'handover' && <HandoverAssetsView initialRoomCode={target.roomCode} initialLeaseId={target.leaseId} initialContractId={target.contractId} initialMode={target.handoverMode} onNavigateToRooms={(roomCode) => navigate('rooms', {roomCode})} />}
 
           {currentTab === 'tenants' && <TenantsView initialTenantId={target.tenantId} initialRoomCode={target.roomCode} initialLeaseId={target.leaseId} />}
 
-          {currentTab === 'contracts' && <ContractsView initialContractId={target.contractId} initialRoomCode={target.roomCode} initialLeaseId={target.leaseId} initialAction={target.action} onBackToRooms={(roomCode) => navigate('rooms', {roomCode})} onOpenTenant={(record) => navigate('tenants', record)} onResumeHandover={(record) => navigate('handover', { ...record, handoverMode: 'return', handoverStep: 'deposit' })} />}
+          {currentTab === 'contracts' && <ContractsView initialContractId={target.contractId} initialRoomCode={target.roomCode} initialLeaseId={target.leaseId} initialAction={target.action} onBackToRooms={(roomCode) => navigate('rooms', {roomCode})} onOpenTenant={(record) => navigate('tenants', record)} />}
 
           {currentTab === 'billing' && (
             <BillingView />
