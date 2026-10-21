@@ -75,9 +75,23 @@ test('Nếu cấn trừ cọc sau khi phát hành QR, từ chối xác nhận th
  assert.equal(e.fn('confirmPaymentReceipt08_2')(debt.id,debt.totalAmount,dayToday,'tx-invalid','MB').success,false);
  assert.equal(e.receipts().length,0);
 });
-test('Giữ nguyên logic phòng/đại diện bản B, hiển thị cả giao diện A và B',()=>{
+test('Dùng giao diện A nguyên dạng làm giao diện chính, không còn tab ghép A/B',()=>{
  const app=fs.readFileSync(path.join(__dirname,'../src/App.tsx'),'utf8');
- assert.match(app,/PaymentNoticesView initialBillId/);assert.match(app,/PaymentNoticesAView/);assert.match(app,/DebtsAView/);assert.match(app,/DebtsView/);
+ assert.match(app,/<PaymentNoticesView[\s\S]*initialBillId=/);
+ assert.match(app,/<PaymentReceiptsView initialNoticeId=/);
+ assert.match(app,/<DebtsView onNavigate=/);
+ assert.doesNotMatch(app,/PaymentNoticesAView|DebtsAView|setNoticeMode|setDebtMode/);
+ const notice=fs.readFileSync(path.join(__dirname,'../src/components/views/PaymentNoticesView.tsx'),'utf8');
+ assert.match(notice,/setMainTab\('debt'\)/);
+ assert.match(notice,/Lập thông báo thu công nợ/);
+ assert.match(notice,/issuePeriodNoticeFromA\(billId, dueDate, selectedBankAccountId\)/);
+ const debt=fs.readFileSync(path.join(__dirname,'../src/components/views/DebtsView.tsx'),'utf8');
+ assert.match(debt,/grouped_by_room/);
+ assert.match(debt,/recordDebtReminder09_2/);
+ assert.match(debt,/n\.leaseId === n\.leaseId|c\.leaseId === n\.leaseId/);
  const ctx=fs.readFileSync(path.join(__dirname,'../src/context/AppContext.tsx'),'utf8');
- assert.match(ctx,/findRepresentativeRoomConflict/);assert.match(ctx,/reconcileRoomWorkflowLinks/);
+ assert.match(ctx,/findRepresentativeRoomConflict/);
+ assert.match(ctx,/reconcileRoomWorkflowLinks/);
+ const billing=fs.readFileSync(path.join(__dirname,'../src/components/views/BillingView.tsx'),'utf8');
+ assert.match(billing,/onNavigateToNotices\(bill\.id\)/);
 });

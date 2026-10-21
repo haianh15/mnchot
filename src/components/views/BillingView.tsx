@@ -10,11 +10,15 @@ import {
   ExternalLink, Layers, ArrowDownRight, Eye
 } from 'lucide-react';
 
-export const BillingView: React.FC = () => {
+interface BillingViewProps {
+  onNavigateToNotices?: (billId?: string, noticeId?: string) => void;
+}
+export const BillingView: React.FC<BillingViewProps> = ({ onNavigateToNotices }) => {
   const {
     rooms,
     meterReadings,
     periodBills,
+    paymentNotices,
     handoverReports,
     handoverConditions,
     saveMeterReadingTT01,
@@ -742,6 +746,7 @@ export const BillingView: React.FC = () => {
                 <div className="divide-y divide-slate-100">
                   {bills.map(bill => {
                     const reading = meterReadings.find(m => m.roomCode === bill.roomCode && m.leaseId === bill.leaseId && m.periodCode === bill.periodCode);
+                    const relatedNotice = paymentNotices.find(n => n.noticeType !== 'DEBT' && n.roomCode === bill.roomCode && n.leaseId === bill.leaseId && n.periodCode === bill.periodCode && n.status === 'Đang hiệu lực');
                     const hasPendingReading = !reading || Boolean(reading.pendingVerificationFlag || reading.needsRecalculateFlag);
                     return (
                       <div key={bill.id} className="p-4 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
@@ -769,7 +774,19 @@ export const BillingView: React.FC = () => {
                             <button type="button" onClick={() => handleConfirmBillAction(bill.id)} disabled={hasPendingReading} className="px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold">
                               <CheckCircle2 className="w-3.5 h-3.5 inline mr-1"/> Xác nhận bảng tính
                             </button>
-                          ) : null}
+                          ) : (
+                            onNavigateToNotices ? (
+                              relatedNotice ? (
+                                <button type="button" onClick={() => onNavigateToNotices(undefined, relatedNotice.id)} className="px-3 py-2 border border-indigo-300 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg text-xs font-semibold">
+                                  Xem thông báo →
+                                </button>
+                              ) : (
+                                <button type="button" onClick={() => onNavigateToNotices(bill.id)} className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold">
+                                  Lập thông báo →
+                                </button>
+                              )
+                            ) : null
+                          )}
                         </div>
                       </div>
                     );

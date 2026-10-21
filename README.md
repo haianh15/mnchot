@@ -1,3 +1,9 @@
+# BẢN B LÀM GỐC – GIAO DIỆN A CHO THÔNG BÁO / THU TIỀN / CÔNG NỢ
+
+Ba phân hệ Thông báo thanh toán, Thu tiền và Công nợ hiển thị theo giao diện A; tất cả sử dụng chung `AppContext`, dữ liệu phòng, lượt thuê, hợp đồng, tính tiền và nguyên tắc kiểm soát của B. Không còn tab chọn giao diện A/B nằm ngoài màn hình. Đọc `BAO_CAO_GIAO_DIEN_A_DONG_BO_DU_LIEU_B_21_10.md` để xem chi tiết và giới hạn kiểm thử.
+
+---
+
 # Hệ thống quản lý chung cư mini
 
 Ứng dụng dành cho một vai trò **Quản lý/Chủ nhà**, giao diện bằng tiếng Việt.

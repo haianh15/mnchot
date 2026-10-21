@@ -11,8 +11,12 @@ import {
 
 const formatDateDMY = (dateStr?: string): string => {
   if (!dateStr) return '—';
-  const parts = dateStr.slice(0, 10).split('-');
-  return parts.length === 3 && parts[0].length === 4 ? `${parts[2]}/${parts[1]}/${parts[0]}` : dateStr;
+  const clean = dateStr.slice(0, 10);
+  const parts = clean.split('-');
+  if (parts.length === 3 && parts[0].length === 4) {
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+  return dateStr;
 };
 
 export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initialNoticeId}) => {
@@ -319,7 +323,12 @@ export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initi
                         </div>
                         <div className="text-slate-500 text-[11px] flex flex-wrap items-center gap-x-2 gap-y-1">
                           <span>Hạn thanh toán: <strong className="font-mono text-slate-700">{formatDateDMY(n.originalDueDate || n.dueDate)}</strong></span>
-                          {relatedPromise?.promisedDate && <span className="text-blue-700">Hẹn trả: <strong>{formatDateDMY(relatedPromise.promisedDate)}</strong></span>}
+                          {relatedPromise?.hasPromiseDate && relatedPromise.promisedDate && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200" title="Khách đã có lịch hẹn thanh toán nợ">
+                              <Clock className="w-3 h-3 text-blue-600" />
+                              Hẹn trả: <strong className="font-mono">{formatDateDMY(relatedPromise.promisedDate)}</strong>
+                            </span>
+                          )}
                           {bundledNotice && <span className="text-amber-700 font-semibold">Thu theo {bundledNotice.noticeCode}</span>}
                           <span>· Nội dung CK: <strong className="font-mono text-slate-800">{n.qrBankSnapshot.transferContent}</strong></span>
                         </div>
@@ -943,6 +952,12 @@ export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initi
                 <span>Hạn thanh toán:</span> <span className="font-mono font-bold">{formatDateDMY(inspectNotice.originalDueDate || inspectNotice.dueDate)}</span>
               </div>
 
+              {debtPromises.find(p => p.noticeId === inspectNotice.id && p.hasPromiseDate)?.promisedDate && (
+                <div className="flex justify-between text-blue-800 bg-blue-50 px-3 py-2 rounded-lg border border-blue-200 text-xs">
+                  <span className="font-semibold flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-blue-600" /> Ngày hẹn thanh toán nợ:</span>
+                  <span className="font-mono font-bold">{formatDateDMY(debtPromises.find(p => p.noticeId === inspectNotice.id && p.hasPromiseDate)?.promisedDate)}</span>
+                </div>
+              )}
               <div className="p-3 bg-slate-100 rounded-xl space-y-1">
                 <span className="font-bold text-slate-900 block">Tài khoản nhận tiền ghi nhận lúc tạo:</span>
                 <div>Ngân hàng: <strong>{inspectNotice.qrBankSnapshot.bankName}</strong></div>

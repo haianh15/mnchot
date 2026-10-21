@@ -346,6 +346,8 @@ interface AppContextType {
   confirmReconciliationUC07_1: (reconciliationId: string) => { success: boolean; message: string };
   paymentNotices: PaymentNotice[];
   generatePaymentNotice07_2: (billId: string, dueDate: string, reconciliationId?: string) => { success: boolean; noticeId?: string; message: string };
+  /** Bản A: phát hành thông báo từ bảng tính xác nhận, đối chiếu đủ nhóm tiền theo nghiệp vụ B. */
+  issuePeriodNoticeFromA: (billId: string, dueDate: string, bankAccountId?: string) => { success: boolean; noticeId?: string; message: string };
   replacePaymentNotice07_2: (oldNoticeId: string, reason?: string) => { success: boolean; noticeId?: string; message: string };
   createDebtPaymentNotice: (roomCode: string, selectedDebtNoticeIds: string[], dueDate: string, bankAccountId?: string) => { success: boolean; noticeId?: string; message: string };
   updateNoticeDueDate: (noticeId: string, newDueDate: string) => { success: boolean; message: string };
@@ -4273,7 +4275,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Tổng tiền còn phải trả thực tế sau khi loại bỏ tiền cọc, tiền thuê đã trả trước
     const netReceivable = nextRentAmount + serviceTotal;
 
-    const recId = 'rec_' + bill.roomCode.replace(/\D/g, '') + '_' + Date.now().toString().slice(-4);
+    const recId = 'rec_' + bill.roomCode.replace(/\D/g, '') + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
     const result: ReceivableReconciliation = {
       id: recId,
       roomCode: bill.roomCode,
@@ -4349,7 +4351,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { success: true, message: 'Đã xác nhận đối chiếu thành công ! Chuyển sang lập thông báo thanh toán.' };
   };
 
-  const generatePaymentNotice07_2 = (billId: string, dueDate: string, reconciliationId?: string) => {
+  // Chế độ A dùng chính phép đối chiếu nguồn B, nhưng thao tác xác nhận/lập thông báo trong một lần nhấn.
+  // Tham số thứ 4 là nội bộ, không làm thay đổi các luồng có bước đối chiếu tường minh của B.
+  const generatePaymentNotice07_2 = (
+    billId: string, dueDate: string, reconciliationId?: string,
+    options?: { preparedReconciliation?: ReceivableReconciliation; bankAccountId?: string }
+  ) => {
     const bill = periodBills.find(b => b.id === billId);
     if (!bill || !bill.isConfirmed) {
       return { success: false, message: 'Bảng tính tiền chưa được xác nhận.' };
@@ -4362,12 +4369,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     // Phải có tài khoản ngân hàng nhận tiền
-    const bank = activeBankAccount;
+    const bank = options?.bankAccountId ? bankAccounts.find(b => b.id === options.bankAccountId && b.status === 'Đang sử dụng') : activeBankAccount;
     if (!bank) {
       return { success: false, message: 'Chưa thiết lập tài khoản ngân hàng nhận tiền tại Cài đặt . Không thể tạo mã QR.' };
     }
 
-    const rec = reconciliationId ? reconciliations.find(r => r.id === reconciliationId && r.billId === billId) : undefined;
+    const rec = options?.preparedReconciliation || (reconciliationId ? reconciliations.find(r => r.id === reconciliationId && r.billId === billId) : undefined);
     if (!rec || !rec.isReconciled || rec.leaseId !== bill.leaseId || rec.roomCode !== bill.roomCode || rec.periodCode !== bill.periodCode) {
       return {success:false, message:'Phải kiểm tra và xác nhận đối chiếu khoản phải thu cho đúng bảng tính, phòng và lần thuê trước khi lập thông báo.'};
     }
@@ -4375,7 +4382,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return {success:false, message:'Kết quả đối chiếu đã cũ hoặc không còn khoản phải thu. Vui lòng kiểm tra lại bảng tính.'};
     }
     const room = rooms.find(r => r.roomCode === bill.roomCode);
-    const contract = contracts.find(c => c.leaseId === bill.leaseId);
+    const contract = contracts.find(c => c.leaseId === bill.leaseId && c.roomCode === bill.roomCode);
 
     // Tính toán số tiền theo 2 nhóm (BR-UC07.2-02, BR-UC07.1-02)
     const isRentEnded = Boolean(bill.isRentPeriodEnded || room?.status === 'Trống');
@@ -4413,13 +4420,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Overdue debt reference (chỉ tra cứu, không cộng dồn - BR-UC07.2-02)
     const overdueDebt = paymentNotices.find(n =>
-      n.roomCode === bill.roomCode && n.leaseId === bill.leaseId &&
+      n.noticeType !== 'DEBT' && n.roomCode === bill.roomCode && n.leaseId === bill.leaseId &&
       n.paymentStatus === 'Chưa thu' &&
       n.status === 'Đang hiệu lực' &&
       n.periodCode !== bill.periodCode
     );
 
-    const noticeId = 'not_' + bill.roomCode.replace(/\D/g, '') + '_' + Date.now().toString().slice(-4);
+    const noticeId = 'not_' + bill.roomCode.replace(/\D/g, '') + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
     const noticeCode = 'TB-' + bill.roomCode.replace(/\D/g, '') + '-' + bill.periodCode.replace(/\D/g, '');
 
     const notice: PaymentNotice = {
@@ -4471,6 +4478,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setPaymentNotices(prev => [notice, ...prev]);
     logSecurity('PAYMENT_NOTICE_CREATED_07_2', `Notice ${noticeCode} created with QR fixed amount ${totalAmount} đ`);
     return { success: true, noticeId, message: 'Lập thông báo thanh toán và mã QR thành công !' };
+  };
+
+  // A UI, B data: một lần nhấn phát hành của Chủ nhà dùng cùng hồ sơ đối chiếu QT07.1.
+  // Không sinh dữ liệu độc lập: PeriodBill, Contract, Room và leaseId vẫn là nguồn chuẩn.
+  const issuePeriodNoticeFromA = (billId: string, dueDate: string, bankAccountId?: string):
+    { success: boolean; noticeId?: string; message: string } => {
+    const bill = periodBills.find(b => b.id === billId);
+    if (!bill || !bill.isConfirmed) return {success: false, message: 'Phải xác nhận bảng tính tiền nguồn trước khi phát hành thông báo.'};
+    const contract = contracts.find(c => c.roomCode === bill.roomCode && c.leaseId === bill.leaseId);
+    if (!contract) return {success: false, message: `Phòng ${bill.roomCode}: bảng tính không liên kết đúng hợp đồng và lượt thuê.`};
+    const today = new Date();
+    const todayISO = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate) || dueDate < todayISO)
+      return {success: false, message: 'Hạn thanh toán phải là ngày hợp lệ, không trước ngày phát hành.'};
+    if (!bankAccountId ? !activeBankAccount : !bankAccounts.some(b => b.id === bankAccountId && b.status === 'Đang sử dụng'))
+      return {success: false, message: 'Tài khoản ngân hàng nhận tiền không còn được sử dụng. Hãy chọn tài khoản hợp lệ.'};
+    if (paymentNotices.some(n => n.noticeType !== 'DEBT' && n.roomCode === bill.roomCode && n.leaseId === bill.leaseId && n.periodCode === bill.periodCode && n.status === 'Đang hiệu lực'))
+      return {success: false, message: `Phòng ${bill.roomCode} kỳ ${bill.periodCode} đã có thông báo hiệu lực; cần thay thế thông báo cũ nếu có sai sót.`};
+    const current = reconciliations.find(r => r.billId === bill.id && r.roomCode === bill.roomCode && r.leaseId === bill.leaseId && r.periodCode === bill.periodCode && r.billVersion === bill.version && r.isReconciled);
+    if (current) return generatePaymentNotice07_2(billId, dueDate, current.id, {bankAccountId});
+    const performed = performReconciliationUC07_1(billId);
+    if (!performed.success || !performed.result) return {success: false, message: performed.message};
+    if (performed.result.netReceivableAmount <= 0) return {success: false, message: 'Không có khoản phải thu mới, không lập thông báo/QR 0 đồng.'};
+    // Chủ nhà đã chọn bảng tính và nhấn lập thông báo: ghi nhận kết quả kiểm tra nguồn trước khi phát hành.
+    const prepared: ReceivableReconciliation = {
+      ...performed.result, isReconciled: true,
+      reconciledAt: new Date().toISOString(), reconciledBy: currentUser?.fullName || 'Chủ nhà'
+    };
+    setReconciliations(prev => [prepared, ...prev.filter(r => r.billId !== billId)]);
+    return generatePaymentNotice07_2(billId, dueDate, prepared.id, {preparedReconciliation: prepared, bankAccountId});
   };
 
   const replacePaymentNotice07_2 = (oldNoticeId: string, reason?: string) => {
@@ -4985,6 +5022,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       confirmReconciliationUC07_1,
       paymentNotices,
       generatePaymentNotice07_2,
+      issuePeriodNoticeFromA,
       replacePaymentNotice07_2,
       createDebtPaymentNotice,
       updateNoticeDueDate,
