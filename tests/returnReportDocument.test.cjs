@@ -1,0 +1,25 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const handover = fs.readFileSync('src/components/views/HandoverAssetsView.tsx','utf8');
+const rooms = fs.readFileSync('src/components/views/RoomsView.tsx','utf8');
+const contracts = fs.readFileSync('src/components/views/ContractsView.tsx','utf8');
+const app = fs.readFileSync('src/App.tsx','utf8');
+let n=0;
+function check(label, fn) {fn(); ++n; console.log('PASS',label);}
+const docStart=handover.indexOf('BIÊN BẢN BÀN GIAO, NHẬN LẠI PHÒNG VÀ TÀI SẢN');
+const signature=handover.indexOf('{/* Ghi nhận kết quả ký giấy thực tế ngoài hệ thống');
+check('Biên bản trả có quốc hiệu và tiêu ngữ',()=>{assert(docStart>0); assert(handover.slice(docStart-400,docStart).includes('CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM'));assert(handover.slice(docStart-400,docStart).includes('Độc lập - Tự do - Hạnh phúc'));});
+check('Nội dung biên bản đứng trước ghi nhận chữ ký',()=>assert(signature>docStart));
+for (const section of ['I. Thời gian, địa điểm và căn cứ bàn giao','II. Thông tin các bên','III. Nội dung kiểm tra và bàn giao lại phòng','IV. Chỉ số điện, nước tại thời điểm trả phòng','V. Đối chiếu tài sản và xử lý các vấn đề phát sinh','VI. Thông tin quyết toán tiền đặt cọc','VII. Kết luận bàn giao']) check('Có mục '+section,()=>assert(handover.slice(docStart,signature).includes(section)));
+check('Biên bản lấy hồ sơ đúng phòng và lần thuê',()=>assert(handover.includes('returnInspections.find(r => r.roomCode === selectedRoomCode && r.leaseId === selectedLeaseId)') && handover.includes('assetComparisonResults.find(r => r.roomCode === selectedRoomCode && r.leaseId === selectedLeaseId)')));
+check('Biên bản lấy chỉ số đã lưu, không lấy ô nhập',()=>assert(handover.slice(docStart,signature).includes('returnInspectionTarget?.finalElectricityKwh ??') && handover.slice(docStart,signature).includes('returnInspectionTarget?.finalWaterM3 ??')));
+check('Có bảng tài sản của hồ sơ kiểm tra',()=>assert(handover.slice(docStart,signature).includes('returnInspectionTarget.items.map')));
+check('Thiếu số liệu được ghi Chưa ghi nhận, không tự đặt 0',()=>assert(handover.slice(docStart,signature).includes("'Chưa ghi nhận'") && !handover.slice(docStart,signature).includes('bg09FinalElec}')));
+check('Quyết toán cọc hiển thị sau khi có kết quả hợp lệ',()=>assert(handover.slice(docStart,signature).includes('matchingSettlementSlip && validSettlement ?')));
+check('Biên bản chứa cả nơi ký và họ tên hai bên',()=>assert(handover.slice(docStart,signature).includes('BÊN BÀN GIAO (BÊN THUÊ)') && handover.slice(docStart,signature).includes('BÊN NHẬN (BÊN CHO THUÊ)')));
+check('Nơi lập và ghi chú ban đầu được giữ lại khi lưu',()=>assert((handover.match(/handoverPlace: existingReturnReport\?\.handoverPlace \|\| bg08Place/g)||[]).length===2));
+check('Không còn chữ DEMO trên bảng quản lý phòng',()=>assert(!rooms.includes('Hồ sơ DEMO') && !rooms.includes('Bổ sung hồ sơ DEMO')));
+check('Đã đối chiếu thay nội dung mô phỏng',()=>assert(rooms.includes("verifiedPayment ? 'Đã đối chiếu' : 'Chưa xác nhận'")));
+check('Bộ lọc hợp đồng vẫn được giữ và xóa nhãn phụ',()=>assert(contracts.includes('id="settlement-contract-filter"')&&!contracts.includes('>Tình trạng quyết toán cọc</label>')));
+check('Từ biên bản nhận đã ký về đúng phòng để xác nhận nhận phòng',()=>assert(handover.includes('onBackToRoom(selectedRoomCode)')&&app.includes('onBackToRoom={(roomCode) => navigate(')));
+console.log(`Return report and UI: ${n}/${n} checks passed.`);

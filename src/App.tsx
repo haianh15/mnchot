@@ -45,7 +45,6 @@ const MainAppContent: React.FC = () => {
 
         {/* Viewport Canvas */}
         <main className="flex-1 p-3 sm:p-5 lg:p-6 overflow-y-auto min-w-0 max-w-full">
-          <p className="mb-3 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2">Bản chạy thử: dữ liệu hiện lưu trên trình duyệt, chưa có backend xác thực/lưu trữ an toàn. Không nhập dữ liệu cá nhân hoặc giao dịch thật.</p>
           {authNotification && (
             <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900 font-medium">
               {authNotification}
@@ -54,7 +53,7 @@ const MainAppContent: React.FC = () => {
 
           {currentTab === 'rooms' && <RoomsView onNavigate={navigate} initialRoomCode={target.roomCode} />}
 
-          {currentTab === 'handover' && <HandoverAssetsView initialRoomCode={target.roomCode} initialLeaseId={target.leaseId} initialContractId={target.contractId} initialMode={target.handoverMode} onNavigateToRooms={(roomCode) => navigate('rooms', {roomCode})} />}
+          {currentTab === 'handover' && <HandoverAssetsView initialRoomCode={target.roomCode} initialLeaseId={target.leaseId} initialContractId={target.contractId} initialMode={target.handoverMode} onBackToRoom={(roomCode) => navigate('rooms',{roomCode})} />}
 
           {currentTab === 'tenants' && <TenantsView initialTenantId={target.tenantId} initialRoomCode={target.roomCode} initialLeaseId={target.leaseId} />}
 

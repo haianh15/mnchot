@@ -43,3 +43,8 @@ Xem `BAO_CAO_SUA_LUONG_PHONG_BAN_GIAO_20_10_2026.md` để biết các sửa l�
 Đã rà soát lại liên kết mã phòng/hợp đồng/lần thuê, hồ sơ nhận phòng kế thừa, kết quả trả phòng, xác nhận ký giấy, dữ liệu kiểm kê, hiện trạng và đối chiếu cọc. Xem `BAO_CAO_KIEM_TRA_SUA_LIEN_KET_PHONG_BAN_GIAO_20_10.md`.
 
 Sau khi `npm install`, chạy `npm run test:handover` (có thêm 29 trường hợp kiểm tra), cùng `npm run test:occupancy`, `npm run test:settlement` và `npm run test:contract`.
+
+## Bổ sung 21/10/2026 – Biên bản trả phòng
+Biên bản trả phòng ở Bàn giao → Hoàn thiện biên bản đã có đủ nội dung và bảng kiểm kê/công tơ, được điền từ hồ sơ đã lưu theo phòng, hợp đồng, lần thuê. Ghi nhận chữ ký nằm sau nội dung. Từ biên bản nhận phòng đã xác nhận có liên kết về Chi tiết phòng để chủ nhà xác nhận nhận phòng trước khi chuyển trạng thái Đang thuê.
+
+**Lưu ý:** Các bản ghi mẫu được tạo để phát triển/kiểm thử và không phải chứng cứ tiền chuyển khoản hoặc chữ ký thực tế. Giao diện được giản lược nhãn mẫu theo yêu cầu nhưng bản chất dữ liệu vẫn là mô phỏng. Đây vẫn là bản ứng dụng lưu trong trình duyệt, không nên nhập dữ liệu nhạy cảm/thanh toán thật.
