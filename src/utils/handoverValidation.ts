@@ -20,6 +20,45 @@ export function hasValidHandoverSource(
   return room.currentLeaseId === leaseId;
 }
 
+
+/**
+ * Giải thích chính xác vì sao chưa thể lưu kết quả nhận lại "Đã nhận lại".
+ * Kiểm tra cùng bộ điều kiện với màn hình, không suy diễn từ mỗi cột "Đã kiểm tra".
+ * Giá trị công tơ bằng 0 là hợp lệ nếu được nhập thực tế.
+ */
+export function getReturnInspectionReadinessIssues(input: {
+  items: ReturnInspection['items'];
+  finalElectricityKwh: number | '';
+  finalWaterM3: number | '';
+  evidence: string;
+  validContractLease: boolean;
+}): string[] {
+  const { items, finalElectricityKwh, finalWaterM3, evidence, validContractLease } = input;
+  const issues: string[] = [];
+  if (!items.length) {
+    issues.push('Chưa có danh sách tài sản để kiểm tra.');
+  } else {
+    const unchecked = items.filter(item => !item.inspected);
+    if (unchecked.length) {
+      const names = unchecked.slice(0, 3).map(item => item.name).join(', ');
+      issues.push(`Còn ${unchecked.length} tài sản chưa đánh dấu Đã kiểm tra${names ? `: ${names}` : ''}.`);
+    }
+    if (items.some(item => !Number.isInteger(item.quantity) || item.quantity < 0))
+      issues.push('Số lượng thực tế của một số tài sản chưa hợp lệ (phải là số nguyên không âm).');
+    if (items.some(item => !item.condition?.trim()))
+      issues.push('Một số tài sản chưa có tình trạng vật lý.');
+  }
+  if (finalElectricityKwh === '' || !Number.isFinite(finalElectricityKwh) || finalElectricityKwh < 0)
+    issues.push('Chưa nhập chỉ số điện cuối kỳ hợp lệ.');
+  if (finalWaterM3 === '' || !Number.isFinite(finalWaterM3) || finalWaterM3 < 0)
+    issues.push('Chưa nhập chỉ số nước cuối kỳ hợp lệ.');
+  if (!evidence.trim())
+    issues.push('Chưa nhập mô tả bằng chứng nhận lại phòng thực tế (chìa khóa, hiện trạng...).');
+  if (!validContractLease)
+    issues.push('Hợp đồng đã ký chưa liên kết hợp lệ với phòng và lượt thuê hiện tại.');
+  return issues;
+}
+
 /** 0 is a legitimate meter reading; absence is not. Never accept demo evidence. */
 export function validateReturnConfirmation(inspection: ReturnInspection | undefined, evidence: string): string | null {
   if (!inspection) return 'Chưa có hồ sơ kiểm tra nhận lại được lưu.';

@@ -1,6 +1,7 @@
 import { toUserMessage } from '../../utils/userMessages';
 import React, { useState, useEffect } from 'react';
 import { getConfirmedRoomHandover, getLeaseContractChain, resolveRoomContract } from '../../utils/roomLinks';
+import { getReturnInspectionReadinessIssues, hasValidHandoverSource } from '../../utils/handoverValidation';
 import { useApp } from '../../context/AppContext';
 import {
   InventoryRecord,
@@ -1483,7 +1484,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                   className={`px-4 py-2 rounded-lg font-semibold cursor-pointer shadow-xs ${
                     canSaveOfficially106
                       ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                      : 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                      : 'bg-slate-200 hover:bg-slate-300 text-slate-700 cursor-pointer'
                   }`}
                 >
                   Lưu Đã lập </button>
@@ -2148,7 +2149,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                   className={`px-4 py-2 rounded-lg font-semibold cursor-pointer shadow-xs ${
                     canPerformOfficialComparison
                       ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                      : 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                      : 'bg-slate-200 hover:bg-slate-300 text-slate-700 cursor-pointer'
                   }`}
                 >
                   Lưu kết quả đối chiếu </button>
@@ -2968,7 +2969,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                     className={`px-4 py-2 rounded-lg font-semibold cursor-pointer shadow-xs ${
                       !isHistoricContractConflict && canCreateReturnSlip
                         ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                        : 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                        : 'bg-slate-200 hover:bg-slate-300 text-slate-700 cursor-pointer'
                     }`}
                   >
                     Lập phiếu trả phòng (Nháp) </button>
@@ -2996,16 +2997,19 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
       ========================================================================= */}
       {selectedRoomCode && !linkedRoomMismatch && targetContract && activeTab === 'return_room_bg09' && (() => {
         // Evaluate completeness of 
-        const allItemsChecked = bg09Items.every(i => i.inspected);
-        const hasMissingReason = bg09Items.filter(i => !i.inspected).every(i => Boolean(i.reasonIfNotInspected && i.reasonIfNotInspected.trim()));
-        const is303Complete = allItemsChecked;
-
-        // Condition for  = "Đã nhận lại"
-        const canSaveOfficially304 = is303Complete && bg09Items.length > 0 &&
-          bg09Items.every(i => Number.isInteger(i.quantity) && i.quantity >= 0 && Boolean(i.condition)) &&
-          bg09FinalElec !== '' && Number.isFinite(bg09FinalElec) && bg09FinalElec >= 0 &&
-          bg09FinalWater !== '' && Number.isFinite(bg09FinalWater) && bg09FinalWater >= 0 &&
-          Boolean(bg09Evidence.trim()) && Boolean(targetContract?.id && selectedLeaseId);
+        const is303Complete = bg09Items.length > 0 && bg09Items.every(i => i.inspected);
+        const hasValidContractLease = hasValidHandoverSource(
+          rooms, contracts, selectedRoomCode, selectedLeaseId, targetContract?.id,
+          returnInspections, leaseStartEvents
+        );
+        const missingReturnRequirements = getReturnInspectionReadinessIssues({
+          items: bg09Items,
+          finalElectricityKwh: bg09FinalElec,
+          finalWaterM3: bg09FinalWater,
+          evidence: bg09Evidence,
+          validContractLease: hasValidContractLease
+        });
+        const canSaveOfficially304 = missingReturnRequirements.length === 0;
         const is305Confirmed = Boolean(returnInspectionTarget?.step305Confirmed);
 
         return (
@@ -3255,8 +3259,20 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
 
               {/* Notice  validation */}
               {bg09Step304Status === 'Đã nhận lại' && !canSaveOfficially304 && (
-                <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 text-[11px]">
-                  <strong>:</strong> Để lưu chính thức kết quả <strong>Đã nhận lại</strong> tại, bảng kiểm tra phải <strong>Đã kiểm tra đầy đủ 100%</strong> và có mô tả bằng chứng. Nếu chưa đủ, chỉ cho phép <em>Lưu nháp - chờ bổ sung</em> và chưa kích hoạt xác nhận. </div>
+                <div role="alert" className="p-3 bg-amber-50 border border-amber-300 rounded-lg text-amber-900 text-xs space-y-2">
+                  <strong>Chưa thể lưu kết quả “Đã nhận lại”. Vui lòng bổ sung:</strong>
+                  <ul className="list-disc pl-5 space-y-1">
+                    {missingReturnRequirements.map((message, index) => (
+                      <li key={index}>{message}</li>
+                    ))}
+                  </ul>
+                  <p className="text-[11px]">Bạn có thể chọn “Lưu nháp kiểm tra” để giữ lại thông tin đã nhập.</p>
+                </div>
+              )}
+              {bg09Step304Status === 'Đã nhận lại' && canSaveOfficially304 && !is305Confirmed && (
+                <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-900 text-[11px]">
+                  Đã đủ thông tin để lưu kết quả nhận lại. Chọn “Lưu kết quả nhận lại”, sau đó xác nhận độc lập.
+                </div>
               )}
             </div>
 
@@ -3296,7 +3312,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                 <button
                   onClick={() => {
                     if (bg09Step304Status === 'Đã nhận lại' && !canSaveOfficially304) {
-                      showToast('error', ": Bảng chưa kiểm tra đầy đủ hoặc thiếu mô tả chứng cứ nhận lại. Vui lòng kiểm tra lại hoặc chọn Lưu nháp.");
+                      showToast('error', `Chưa thể lưu kết quả: ${missingReturnRequirements.join(' ')}`);
                       return;
                     }
 
@@ -3333,14 +3349,18 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
               {/* Thao tác: Chủ nhà xác nhận độc lập */}
               <div className="flex items-center gap-2">
                 <button
-                  disabled={is305Confirmed || bg09Step304Status !== 'Đã nhận lại' || !canSaveOfficially304}
+                  disabled={is305Confirmed}
                   onClick={() => {
                     if (is305Confirmed) {
                       showToast('info', "Chủ nhà đã xác nhận độc lập tại trước đó.");
                       return;
                     }
-                    if (bg09Step304Status !== 'Đã nhận lại' || !canSaveOfficially304) {
-                      showToast('error', ": Chưa có kết quả = Đã nhận lại hợp lệ để thực hiện xác nhận.");
+                    if (bg09Step304Status !== 'Đã nhận lại') {
+                      showToast('error', 'Cần chọn kết quả “Đã nhận lại” trước khi xác nhận độc lập.');
+                      return;
+                    }
+                    if (!canSaveOfficially304) {
+                      showToast('error', `Chưa đủ điều kiện xác nhận: ${missingReturnRequirements.join(' ')}`);
                       return;
                     }
                     const result = confirmReturnInspectionStep305(
@@ -3358,7 +3378,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                       ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                       : bg09Step304Status === 'Đã nhận lại' && canSaveOfficially304
                       ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                      : 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                      : 'bg-slate-200 hover:bg-slate-300 text-slate-700 cursor-pointer'
                   }`}
                 >
                   <CheckCircle2 className="w-4 h-4" />
@@ -3568,7 +3588,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                   className={`px-4 py-2 rounded-lg font-semibold cursor-pointer shadow-xs ${
                     is58Valid
                       ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                      : 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                      : 'bg-slate-200 hover:bg-slate-300 text-slate-700 cursor-pointer'
                   }`}
                 >
                   Ghi kết quả vào biên bản (Thao tác) </button>
@@ -3920,7 +3940,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                   className={`px-4 py-2 rounded-lg font-semibold cursor-pointer shadow-xs ${
                     canSaveOfficially1102
                       ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                      : 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                      : 'bg-slate-200 hover:bg-slate-300 text-slate-700 cursor-pointer'
                   }`}
                 >
                   Lưu Đã lập </button>
@@ -3947,7 +3967,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                   className={`px-4 py-2 rounded-lg font-semibold cursor-pointer shadow-xs flex items-center gap-1.5 ${
                     canConfirmFinal324
                       ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                      : 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                      : 'bg-slate-200 hover:bg-slate-300 text-slate-700 cursor-pointer'
                   }`}
                 >
                   <FileCheck2 className="w-4 h-4" />
