@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 
 interface HDT06Props {
-  onNavigateToTab?: (tab: 'conditions' | 'draft' | 'negotiate' | 'sign' | 'schedules' | 'renewal' | 'activate') => void;
+  onNavigateToTab?: (tab: 'draft' | 'negotiate' | 'sign' | 'schedules' | 'renewal' | 'activate') => void;
   onSelectContractForActivation?: (contractId: string) => void;
   initialContractId?: string;
 }

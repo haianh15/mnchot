@@ -12,7 +12,7 @@ import {
 interface HDT04Props {
   initialContract?: Contract | null;
   onSigned?: (contractId: string) => void;
-  onNavigateToTab?: (tab: 'conditions' | 'draft' | 'negotiate' | 'sign' | 'schedules' | 'renewal' | 'activate') => void;
+  onNavigateToTab?: (tab: 'draft' | 'negotiate' | 'sign' | 'schedules' | 'renewal' | 'activate') => void;
 }
 
 export const HDT04ReceiveSignedContract: React.FC<HDT04Props> = ({

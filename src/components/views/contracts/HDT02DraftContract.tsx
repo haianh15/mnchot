@@ -10,12 +10,14 @@ import {
 } from 'lucide-react';
 
 interface HDT02Props {
+  initialRoomCode?: string;
   initialCondition?: LeaseConditionDraft | null;
-  onNavigateToTab?: (tab: 'conditions' | 'draft' | 'negotiate' | 'sign' | 'schedules' | 'renewal' | 'activate') => void;
+  onNavigateToTab?: (tab: 'draft' | 'negotiate' | 'sign' | 'schedules' | 'renewal' | 'activate') => void;
   onContractCreated?: (contractId: string) => void;
 }
 
 export const HDT02DraftContract: React.FC<HDT02Props> = ({
+  initialRoomCode,
   initialCondition,
   onNavigateToTab,
   onContractCreated
@@ -29,11 +31,12 @@ export const HDT02DraftContract: React.FC<HDT02Props> = ({
     returnInspections,
     leaseStartEvents,
     createContractDraftHDT02,
+    checkLeaseConditionHDT01,
     currentUser
   } = useApp();
 
   const [selectedConditionId, setSelectedConditionId] = useState<string>(initialCondition?.id || '');
-  const [selectedRoomCode, setSelectedRoomCode] = useState<string>(initialCondition?.roomCode || rooms[0]?.roomCode || 'P.103');
+  const [selectedRoomCode, setSelectedRoomCode] = useState<string>(initialRoomCode || initialCondition?.roomCode || rooms.find(r => r.status === 'Trống')?.roomCode || rooms[0]?.roomCode || '');
   const [selectedTenantId, setSelectedTenantId] = useState<string>(initialCondition?.tenantId || '');
   const [selectedBatchCode, setSelectedBatchCode] = useState<string>(initialCondition?.batchCode || batchSchedules[0]?.batchCode || 'DOT-2026-K10');
   const [startDate, setStartDate] = useState<string>(initialCondition?.startDate || batchSchedules[0]?.startDate || '2026-10-01');
@@ -52,6 +55,18 @@ export const HDT02DraftContract: React.FC<HDT02Props> = ({
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [createdContractSuccess, setCreatedContractSuccess] = useState<string | null>(null);
   const [createContractError, setCreateContractError] = useState<string | null>(null);
+
+  // Mở thẳng từ Quản lý phòng: cố định đúng phòng đang chọn, không kế thừa khách
+  // hoặc yêu cầu tiếp nhận của lượt thuê trước. Không cần tạo phiếu điều kiện thuê.
+  useEffect(() => {
+    if (initialRoomCode) {
+      setSelectedRoomCode(initialRoomCode);
+      setSelectedTenantId('');
+      setSelectedConditionId('');
+      setCreatedContractSuccess(null);
+      setCreateContractError(null);
+    }
+  }, [initialRoomCode]);
 
   // Sync if initialCondition changes
   useEffect(() => {
@@ -119,9 +134,6 @@ export const HDT02DraftContract: React.FC<HDT02Props> = ({
   // Check preliminary warning ( 3.6 /  ghi nhận ký)
   const isPreliminaryTenant = selectedTenant?.isPreliminary || selectedTenant?.verificationStatus === 'Chưa xác minh';
 
-  // Available agreed conditions
-  const agreedConditions = leaseConditions.filter(c => c.status === 'Đã thống nhất');
-
   // Handle Create Draft
   const handleCreateDraft = (e: React.FormEvent) => {
     e.preventDefault();
@@ -132,6 +144,23 @@ export const HDT02DraftContract: React.FC<HDT02Props> = ({
     }
     if (!selectedBatch) {
       alert('Vui lòng chọn đợt hợp đồng chung!');
+      return;
+    }
+
+    // Các kiểm tra của bước điều kiện thuê vẫn được thực hiện ngay trên form
+    // và khi lưu hợp đồng, dù màn hình ghi nhận điều kiện đã được bỏ.
+    const checkResult = checkLeaseConditionHDT01({
+      roomCode: selectedRoomCode,
+      tenantId: selectedTenant.id,
+      prospectiveTenantName: selectedTenant.fullName,
+      prospectivePhone: selectedTenant.phoneNumber,
+      prospectiveIdNumber: selectedTenant.idNumber,
+      batchCode: selectedBatch.batchCode,
+      startDate, endDate, monthlyRent, depositAmount: monthlyRent,
+    });
+    if (!checkResult.isValid) {
+      setCreateContractError(checkResult.blockingErrors.join(' · '));
+      setCreatedContractSuccess(null);
       return;
     }
 
@@ -219,25 +248,6 @@ export const HDT02DraftContract: React.FC<HDT02Props> = ({
             <span className="text-[11px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">
               Trạng thái khởi tạo: Nháp </span>
           </div>
-
-          {/* Quick source selector from agreed conditions */}
-          {agreedConditions.length > 0 && (
-            <div className="p-3 bg-emerald-50/60 rounded-xl border border-emerald-200 space-y-1.5">
-              <label className="block text-[11px] font-bold text-emerald-900">
-                CHỌN TỪ YÊU CẦU TIẾP NHẬN ĐÃ THỐNG NHẤT: </label>
-              <select
-                value={selectedConditionId}
-                onChange={(e) => handleSelectCondition(e.target.value)}
-                className="w-full px-2.5 py-1.5 border border-emerald-300 rounded-lg text-xs font-medium bg-white"
-              >
-                <option value="">-- Điền thủ công hoặc chọn từ danh sách đã thống nhất --</option>
-                {agreedConditions.map(c => (
-                  <option key={c.id} value={c.id}>
-                    {c.requestCode} - {c.prospectiveTenantName} (Phòng {c.roomCode} - {c.monthlyRent.toLocaleString('vi-VN')} đ/tháng) </option>
-                ))}
-              </select>
-            </div>
-          )}
 
           <form onSubmit={handleCreateDraft} className="space-y-4 text-xs">
             {/* Room & Tenant */}

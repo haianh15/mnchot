@@ -4806,7 +4806,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const newRem: DebtHistoryReminder = {
       ...reminder,
-      id: 'drm_' + Date.now(),
+      // Phân biệt các kỳ nợ được lưu cùng một lần nhắc để không trùng khóa lịch sử.
+      id: 'drm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10),
       loggedAt: new Date().toISOString(),
       loggedBy: currentUser?.fullName || 'Quản lý / Chủ nhà'
     };

@@ -187,15 +187,6 @@ export const DebtsView: React.FC<DebtsViewProps> = ({ onNavigate }) => {
   const [remIsRetrospective, setRemIsRetrospective] = useState(false);
   const [remConfirmedContact, setRemConfirmedContact] = useState(true);
 
-  // State kiểm soát chỉ hiển thị mã QR khi đã ấn lưu lịch sử nhắc nợ
-  const [remSavedSuccess, setRemSavedSuccess] = useState(false);
-  const [savedReminderDetails, setSavedReminderDetails] = useState<{
-    loggedAt: string;
-    channel: string;
-    result: string;
-    roomCode: string;
-    periods: string;
-  } | null>(null);
 
   // Form states - Promise & Feedback
   const [promContactTime, setPromContactTime] = useState(() => new Date().toISOString().substring(0, 16));
@@ -350,6 +341,35 @@ export const DebtsView: React.FC<DebtsViewProps> = ({ onNavigate }) => {
       showToast(route.mode === 'split' ? 'info' : 'error', route.message);
       if (route.mode === 'split') setViewMode('grouped_by_room');
     }
+  };
+
+  // Lịch sử nhắc nợ chỉ dẫn đến thông báo Thu công nợ; tuyệt đối không lấy QR
+  // được chụp/tạo riêng từ Công nợ. Thông báo đã thu không còn hiển thị QR.
+  const openSavedReminderPayment = (reminder: DebtHistoryReminder) => {
+    const matching = paymentNotices.filter(n => n.noticeType === 'DEBT' &&
+      n.roomCode === reminder.roomCode && n.leaseId === reminder.leaseId &&
+      (n.id === reminder.noticeId || n.debtNoticeIds?.includes(reminder.noticeId)));
+    const payable = matching.filter(n => n.status === 'Đang hiệu lực' && n.paymentStatus === 'Chưa thu');
+    if (payable.length > 1) {
+      showToast('error', 'Một khoản thuộc nhiều thông báo Thu công nợ. Cần đối chiếu trước khi thanh toán.');
+      return;
+    }
+    if (payable.length === 1) {
+      onNavigate?.('notices', { noticeId: payable[0].id });
+      return;
+    }
+    const item = allPeriodDebtItems.find(i => i.noticeId === reminder.noticeId &&
+      i.roomCode === reminder.roomCode && i.leaseId === reminder.leaseId);
+    if (item && item.uncollectedBalance > 0 && item.isOverdue) {
+      openDebtPayment([item]); // Chưa có thông báo: mở trình tạo đã chọn sẵn kỳ nguồn
+      return;
+    }
+    const latest = matching.find(n => n.status === 'Đang hiệu lực') || matching[0];
+    if (latest) {
+      onNavigate?.('notices', { noticeId: latest.id }); // Đã thu: xem trạng thái, không có QR
+      return;
+    }
+    showToast('warning', 'Không còn khoản nợ đủ điều kiện để mở mã QR Thu công nợ. Vui lòng kiểm tra thông báo và trạng thái thu tiền.');
   };
 
   // Danh sách các kỳ công nợ QUÁ HẠN chưa thu
@@ -698,8 +718,6 @@ ${qr.qrUrl ? `THÔNG TIN THU CÔNG NỢ (THEO THÔNG BÁO ĐÃ PHÁT HÀNH):
       setSelectedPeriodIds([overdueDebtList[0].id]);
       setSelectedDebtId(overdueDebtList[0].id);
     }
-    setRemSavedSuccess(false);
-    setSavedReminderDetails(null);
     setShowReminderModal(true);
   };
 
@@ -774,11 +792,15 @@ ${qr.qrUrl ? `THÔNG TIN THU CÔNG NỢ (THEO THÔNG BÁO ĐÃ PHÁT HÀNH):
     }
 
     const targetItems = selectedPeriodDebtItems.length > 0 ? selectedPeriodDebtItems : [activeSelectedDebt];
-    const periodListText = targetItems.map(t => t.periodCode).join(', ');
     const primaryItem = targetItems[0];
+    if (targetItems.some(item => item.roomCode !== primaryItem.roomCode || item.leaseId !== primaryItem.leaseId)) {
+      showToast('error', 'Các kỳ nhắc nợ phải thuộc cùng phòng và cùng lượt thuê.');
+      return;
+    }
 
     let lastResult = { success: false, message: '' };
-    targetItems.forEach(item => {
+    let savedCount = 0;
+    for (const item of targetItems) {
       lastResult = recordDebtReminder09_2({
         noticeId: item.noticeId,
         roomCode: item.roomCode,
@@ -791,28 +813,24 @@ ${qr.qrUrl ? `THÔNG TIN THU CÔNG NỢ (THEO THÔNG BÁO ĐÃ PHÁT HÀNH):
         isRetrospective: remIsRetrospective,
         tenantConfirmedContact: remConfirmedContact
       });
-    });
-
-    if (lastResult.success) {
-      showToast('success', `Đã lưu lịch sử nhắc nợ cho ${targetItems.length} kỳ của Phòng ${primaryItem.roomCode}. Thanh toán qua thông báo thu công nợ chính thức.`);
-      setRemSavedSuccess(true);
-      setSavedReminderDetails({
-        loggedAt: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ' + formatDateDMY(new Date().toISOString().split('T')[0]),
-        channel: remChannel,
-        result: remResult.trim(),
-        roomCode: primaryItem.roomCode,
-        periods: periodListText
-      });
-    } else {
-      showToast('error', toUserMessage(lastResult.message));
+      if (!lastResult.success) break;
+      savedCount++;
     }
+
+    if (!lastResult.success) {
+      showToast('error', `${savedCount ? `Đã lưu ${savedCount}/${targetItems.length} kỳ. ` : ''}${toUserMessage(lastResult.message)}`);
+      return;
+    }
+    // Lưu xong mở đúng thông báo Thu công nợ của phòng/lượt thuê/kỳ đã ghi.
+    // Nếu chưa có thông báo, openDebtPayment sẽ chuyển đến bước lập thông báo
+    // đã chọn sẵn các kỳ, rồi hệ thống mới phát hành QR sau xác nhận của Chủ nhà.
+    handleCloseReminderModal();
+    openDebtPayment(targetItems);
   };
 
   // Đóng form nhắc nợ và đặt lại trạng thái
   const handleCloseReminderModal = () => {
     setShowReminderModal(false);
-    setRemSavedSuccess(false);
-    setSavedReminderDetails(null);
     setRemResult('');
     setRemNotes('');
     setRemProofFile('');
@@ -1732,12 +1750,12 @@ ${qr.qrUrl ? `THÔNG TIN THU CÔNG NỢ (THEO THÔNG BÁO ĐÃ PHÁT HÀNH):
                         )}
                         <button
                           type="button"
-                          onClick={() => setHistoryQrModalReminder(r)}
+                          onClick={() => openSavedReminderPayment(r)}
                           className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded text-[10px] font-semibold flex items-center gap-1 cursor-pointer transition-colors"
-                          title="Xem mã VietQR gắn liền với lần nhắc nợ đã lưu này"
+                          title="Mở Chi tiết thanh toán trong Thông báo thanh toán → Thu công nợ để xem QR chính thức"
                         >
                           <QrCode className="w-3 h-3 text-amber-600" />
-                          Xem mã QR đã lưu
+                          Mở chi tiết Thu công nợ
                         </button>
                       </div>
                     </div>
@@ -2147,7 +2165,7 @@ ${qr.qrUrl ? `THÔNG TIN THU CÔNG NỢ (THEO THÔNG BÁO ĐÃ PHÁT HÀNH):
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-900 text-base">
-                    {remSavedSuccess ? 'Đã lưu nhắc nợ · Xem thanh toán chính thức' : 'Ghi nhận lịch sử nhắc nợ'}
+                    Ghi nhận lịch sử nhắc nợ
                   </h3>
                   <span className="text-[11px] font-semibold text-purple-700 font-mono">
                     {selectedPeriodDebtItems.length > 0 ? `${selectedPeriodDebtItems.length} kỳ nợ` : activeSelectedDebt.periodCode} · Phòng {activeSelectedDebt.roomCode}
@@ -2192,9 +2210,8 @@ ${qr.qrUrl ? `THÔNG TIN THU CÔNG NỢ (THEO THÔNG BÁO ĐÃ PHÁT HÀNH):
               </div>
             </div>
 
-            {/* TRƯỜNG HỢP 1: CHƯA LƯU LỊCH SỬ NHẮC NỢ (remSavedSuccess === false) */}
-            {!remSavedSuccess ? (
-              <form onSubmit={handleSaveReminder} className="space-y-4">
+            {/* Lưu nhắc nợ xong chuyển ngay sang chi tiết Thu công nợ chính thức. */}
+            <form onSubmit={handleSaveReminder} className="space-y-4">
                 <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-xl space-y-1 text-[11px] text-amber-950">
                   <strong className="block font-semibold text-amber-900 flex items-center gap-1.5">
                     <ShieldAlert className="w-4 h-4 text-amber-700 shrink-0" />
@@ -2315,7 +2332,7 @@ ${qr.qrUrl ? `THÔNG TIN THU CÔNG NỢ (THEO THÔNG BÁO ĐÃ PHÁT HÀNH):
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-600 leading-relaxed">
-                    Mã QR thanh toán lấy từ <strong>Thông báo thanh toán → Thu công nợ</strong>, không tạo QR riêng trong Công nợ. Sau khi lưu nhắc nợ, bạn có thể mở thông báo chính thức để thanh toán.
+                    Sau khi lưu, hệ thống tự chuyển đến <strong>Thông báo thanh toán → Thu công nợ → Chi tiết thanh toán</strong> để xem QR chính thức. Nếu chưa có thông báo, hệ thống mở bước lập thông báo cho đúng kỳ nợ; không tự tạo QR mới.
                   </p>
                 </div>
 
@@ -2332,153 +2349,10 @@ ${qr.qrUrl ? `THÔNG TIN THU CÔNG NỢ (THEO THÔNG BÁO ĐÃ PHÁT HÀNH):
                     className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-semibold cursor-pointer shadow-xs flex items-center gap-1.5 transition-colors"
                   >
                     <CheckCircle2 className="w-4 h-4" />
-                    Lưu lịch sử nhắc nợ
+                    Lưu lịch sử nhắc & mở mã QR
                   </button>
                 </div>
               </form>
-            ) : (
-              /* Sau lưu nhắc nợ chỉ hiển thị QR nếu đã có thông báo thu công nợ hợp lệ */
-              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
-                {/* Thông báo đã ghi nhận thành công */}
-                <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1.5 text-xs text-emerald-950">
-                  <div className="flex items-center gap-2 font-bold text-emerald-800">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>ĐÃ LƯU LỊCH SỬ NHẮC NỢ VÀO HỆ THỐNG THÀNH CÔNG</span>
-                  </div>
-                  <p className="text-[11px] text-emerald-900 leading-relaxed">
-                    Đã ghi nhận lần đôn đốc qua kênh <strong>{savedReminderDetails?.channel || remChannel}</strong> cho <strong>Phòng {activeSelectedDebt.roomCode}</strong> ({savedReminderDetails?.periods || activeSelectedDebt.periodCode}). Việc thanh toán sẽ thực hiện trên thông báo thu công nợ chính thức:
-                  </p>
-                </div>
-
-                <button type="button" onClick={() => { setShowReminderModal(false); openDebtPayment(selectedPeriodDebtItems.length ? selectedPeriodDebtItems : [activeSelectedDebt]); }}
-                  className="w-full px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 rounded-xl text-white text-xs font-bold cursor-pointer">
-                  Mở Chi tiết thanh toán tại Thông báo thanh toán → Thu công nợ
-                </button>
-                {/* QR hợp lệ chỉ được lấy từ thông báo Thu công nợ */}
-                <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm space-y-4 text-center">
-                  <div className="flex items-center justify-between text-xs border-b border-slate-100 pb-2">
-                    <span className="font-bold text-slate-800 flex items-center gap-1.5">
-                      <QrCode className="w-4 h-4 text-emerald-600" />
-                      Mã VietQR của thông báo thu công nợ đang hiệu lực
-                    </span>
-                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded">
-                      Dùng chung thông báo
-                    </span>
-                  </div>
-
-                  {reminderQrDetails.qrUrl ? (
-                    <div className="space-y-3">
-                      <div className="p-2 bg-slate-50 border border-slate-200 rounded-xl inline-block">
-                        <img
-                          src={reminderQrDetails.qrUrl}
-                          alt={`Mã VietQR nợ Phòng ${activeSelectedDebt.roomCode}`}
-                          className="w-52 h-52 object-contain mx-auto rounded-lg bg-white p-2 border border-slate-200 shadow-xs"
-                        />
-                      </div>
-                      <p className="text-[11px] text-slate-500">
-                        Quét mã bằng app Ngân hàng để thanh toán chính xác không cần nhập số tiền
-                      </p>
-
-                      {/* Chi tiết tài khoản */}
-                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-left space-y-1.5 text-[11px]">
-                        <div className="flex justify-between items-center">
-                          <span className="text-slate-500">Ngân hàng:</span>
-                          <strong className="text-slate-900">{reminderQrDetails.bankName}</strong>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-slate-500">Số tài khoản:</span>
-                          <div className="flex items-center gap-1.5">
-                            <strong className="font-mono text-slate-900 font-bold">{reminderQrDetails.accountNumber}</strong>
-                            <button
-                              type="button"
-                              onClick={() => handleCopyText(reminderQrDetails.accountNumber, 'accNum', 'Đã sao chép số tài khoản!')}
-                              className="text-blue-600 hover:text-blue-800 p-0.5"
-                              title="Sao chép số tài khoản"
-                            >
-                              <Copy className="w-3 h-3" />
-                            </button>
-                          </div>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-slate-500">Chủ tài khoản:</span>
-                          <strong className="text-slate-900 uppercase">{reminderQrDetails.accountHolder}</strong>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-slate-500">Số tiền thanh toán:</span>
-                          <strong className="font-mono text-red-700 font-bold text-xs">{reminderQrDetails.amount.toLocaleString('vi-VN')} đ</strong>
-                        </div>
-                        <div className="flex justify-between items-center pt-1 border-t border-slate-200">
-                          <span className="text-slate-500">Nội dung CK:</span>
-                          <div className="flex items-center gap-1.5">
-                            <strong className="font-mono text-blue-900 font-bold">{reminderQrDetails.transferContent}</strong>
-                            <button
-                              type="button"
-                              onClick={() => handleCopyText(reminderQrDetails.transferContent, 'remContent', 'Đã sao chép nội dung chuyển khoản!')}
-                              className="text-blue-600 hover:text-blue-800 p-0.5"
-                              title="Sao chép nội dung chuyển khoản"
-                            >
-                              <Copy className="w-3 h-3" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Các nút hành động thao tác với mã QR đã xuất */}
-                      <div className="grid grid-cols-2 gap-2 pt-1">
-                        <button
-                          type="button"
-                          onClick={() => handleDownloadQrImage()}
-                          className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
-                        >
-                          <Download className="w-3.5 h-3.5 text-slate-600" />
-                          Tải ảnh QR
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleCopyQrImage()}
-                          className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
-                        >
-                          <Copy className="w-3.5 h-3.5 text-slate-600" />
-                          {copiedField === 'qrImage' ? 'Đã sao chép!' : 'Sao chép ảnh QR'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleCopyText(getCustomerMessageText(), 'fullMsg', 'Đã sao chép nội dung tin nhắn nhắc nợ!')}
-                          className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
-                        >
-                          <FileText className="w-3.5 h-3.5 text-slate-600" />
-                          Sao chép tin nhắn
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenZalo()}
-                          className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-colors"
-                        >
-                          <Send className="w-3.5 h-3.5" />
-                          Gửi qua Zalo
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="p-6 text-slate-400">
-                      Chưa có mã QR thu công nợ tương ứng với toàn bộ các kỳ đang chọn. Hãy mở Thông báo thanh toán → Thu công nợ để lập hoặc xem thông báo chính thức.
-                    </div>
-                  )}
-                </div>
-
-                {/* Footer hoàn tất */}
-                <div className="flex justify-end pt-3 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={handleCloseReminderModal}
-                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold cursor-pointer shadow-xs flex items-center gap-1.5 transition-colors"
-                  >
-                    <Check className="w-4 h-4" />
-                    Hoàn tất & Đóng
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       )}

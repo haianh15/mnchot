@@ -120,6 +120,20 @@ export const ContractReturnTracking: React.FC<Props> = ({
     setMessage(null);
   };
 
+  const showContactForm = (room: Room) => {
+    const entry = liveRecords.find(r => r.room.roomCode === room.roomCode);
+    if (!entry) return;
+    setSelectedRoomCode(room.roomCode);
+    setContactAt(currentLocalDateTime());
+    setContactSource('điện thoại');
+    setContactResult('Chưa phản hồi');
+    setContactContent('');
+    setContactNextDate('');
+    setEditingDate(false);
+    setEditingContact(true);
+    setMessage(null);
+  };
+
   const saveDate = () => {
     if (!selected) return;
     if (!expectedDate || expectedDate < selected.contract.startDate ||
@@ -222,7 +236,7 @@ export const ContractReturnTracking: React.FC<Props> = ({
             <td className="p-3"><div className="flex gap-2 flex-wrap">
               <button className="font-semibold text-blue-700 hover:underline" onClick={() => onSelectContract(contract.id)}><FileText className="inline w-4 h-4 mr-1"/>Hợp đồng</button>
               {room && <button className="font-semibold text-amber-800 hover:underline" onClick={() => showDateForm(room)}>{returnDate ? 'Cập nhật ngày trả' : 'Ghi ngày trả'}</button>}
-              {room && <button className="font-semibold text-indigo-700 hover:underline" onClick={() => {setSelectedRoomCode(room.roomCode);setEditingContact(true);setEditingDate(false);setMessage(null);}}><MessageSquare className="inline w-4 h-4 mr-1"/>Liên hệ</button>}
+              {room && <button className="font-semibold text-indigo-700 hover:underline" onClick={() => showContactForm(room)}><MessageSquare className="inline w-4 h-4 mr-1"/>Liên hệ</button>}
               {room && onOpenRoom && <button className="text-slate-600 hover:underline" onClick={() => onOpenRoom(room.roomCode)}>Xem phòng</button>}
             </div></td>
           </tr>;
@@ -244,10 +258,12 @@ export const ContractReturnTracking: React.FC<Props> = ({
           <p className="text-slate-500">Chưa có ghi nhận liên hệ.</p>}
       </div>
     </details>}
-    {selected && (editingDate || editingContact) && <section className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 space-y-4">
+    {selected && (editingDate || editingContact) && <div className="fixed inset-0 z-[90] bg-slate-900/50 flex items-center justify-center p-3 sm:p-5" role="dialog" aria-modal="true" aria-label={editingDate ? 'Ghi nhận ngày dự kiến trả phòng' : 'Ghi nhận liên hệ khách thuê'}>
+      <section className="bg-white rounded-xl shadow-2xl border border-slate-200 p-4 sm:p-5 space-y-4 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
       <div className="flex justify-between items-center gap-3"><h3 className="font-bold text-base">{editingDate ? 'Ghi nhận ngày dự kiến trả' : 'Ghi nhận liên hệ'} · {selected.room.roomCode} ({selected.contract.id})</h3>
         <button type="button" onClick={() => {setEditingContact(false);setEditingDate(false);}} className="border rounded-lg px-3 py-1.5 text-sm">Đóng</button>
       </div>
+      {message && !message.success && <div role="alert" className="p-3 rounded-lg border border-rose-300 bg-rose-50 text-rose-800 text-sm">{message.text}</div>}
       {editingDate ? <>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
           <label>Ngày dự kiến trả phòng *<input type="date" value={expectedDate} onChange={e => setExpectedDate(e.target.value)} className="block mt-1 w-full rounded-lg border px-3 py-2"/></label>
@@ -267,7 +283,8 @@ export const ContractReturnTracking: React.FC<Props> = ({
         <label className="text-sm block">Nội dung liên hệ thực tế *<textarea value={contactContent} onChange={e=>setContactContent(e.target.value)} rows={3} className="block mt-1 w-full border rounded-lg px-3 py-2"/></label>
         <button onClick={saveContact} className="bg-blue-600 text-white rounded-lg px-4 py-2 font-semibold text-sm flex items-center gap-2"><Save className="w-4 h-4"/>Lưu liên hệ</button>
       </>}
-    </section>}
+      </section>
+    </div>}
     <button className="text-sm text-slate-600 flex items-center gap-1 hover:underline" onClick={onBack}><ArrowLeft className="w-4 h-4"/>Danh sách hợp đồng</button>
   </div>;
 };

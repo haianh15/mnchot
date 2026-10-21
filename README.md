@@ -78,3 +78,13 @@ Chạy kiểm thử: `node --test tests/*.test.cjs`.
 - QR nhắc nợ trong Công nợ không tạo mã chuyển khoản mới; chỉ hiện mã từ một thông báo thu công nợ tương ứng, còn hiệu lực và khớp đầy đủ các kỳ đang chọn. Lịch sử nhắc nợ vẫn được giữ; QR cũ đã thanh toán/thay thế sẽ không được dùng làm QR thanh toán mới.
 
 **Kiểm thử:** `node --test tests/*.test.cjs` — 45/45 đạt, gồm 11 ca cho điều hướng liên kết công nợ. Kiểm tra cú pháp 53/53 tệp TS/TSX đạt. Chưa xác minh được bản build và trình duyệt trực tiếp do môi trường thiếu thư viện npm; cần chạy `npm install && npm run build` trước triển khai.
+
+### Cập nhật 21/10: Nhắc nợ mở QR Thu công nợ
+Khi lưu lịch sử nhắc nợ trong Công nợ, hệ thống mở thẳng Chi tiết thanh toán của thông báo **Thu công nợ** còn hiệu lực. Nếu chưa có thông báo, hệ thống mở trình lập thông báo đã chọn đúng kỳ nợ. Nhật ký cũ cũng mở cùng màn hình chính thức, không dùng QR tạo riêng. Xem `BAO_CAO_CHUYEN_NHAC_NO_SANG_CHI_TIET_QR_21_10.md`.
+
+### Cập nhật 21/10/2026 – lập hợp đồng trực tiếp và theo dõi trả phòng
+
+- Bỏ màn hình trung gian “Ghi nhận điều kiện thuê” khỏi luồng lập hợp đồng; chọn **Lập hợp đồng** ở Quản lý hợp đồng / Quản lý phòng để tới dự thảo ngay.
+- Hai nút “Ghi/Cập nhật ngày trả” và “Liên hệ” trong Theo dõi hạn hợp đồng mở form ngay trong hộp thoại.
+- Các kiểm tra phòng, người đại diện và hợp đồng vẫn hoạt động tại bước tạo dự thảo.
+- Xem `BAO_CAO_SUA_LAP_HOP_DONG_VA_GHI_NGAY_TRA_21_10.md`.

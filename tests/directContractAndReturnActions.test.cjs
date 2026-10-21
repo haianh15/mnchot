@@ -1,0 +1,25 @@
+const { readFileSync } = require('node:fs');
+const assert = require('node:assert/strict');
+const path = require('node:path');
+const root = path.join(__dirname, '..', 'src');
+const text = (p) => readFileSync(path.join(root, p), 'utf8');
+const contracts = text('components/views/ContractsView.tsx');
+const rooms = text('components/views/RoomsView.tsx');
+const draft = text('components/views/contracts/HDT02DraftContract.tsx');
+const tracking = text('components/views/contracts/ContractReturnTracking.tsx');
+const app = text('App.tsx');
+function pass(name, condition) { assert.ok(condition, name); console.log('PASS ' + name); }
+pass('Không hiển thị màn ghi điều kiện thuê ở Quản lý hợp đồng', !contracts.includes('<HDT01LeaseConditions') && !contracts.includes("activeTab === 'conditions'"));
+pass('Nút lập hợp đồng ở danh sách chuyển thẳng sang dự thảo', /Lập hợp đồng<\/button>/.test(contracts) && /setActiveTab\('draft'\)/.test(contracts));
+pass('Phòng chuyển đúng mã phòng vào Quản lý hợp đồng', rooms.includes("onNavigate('contracts', { roomCode: room.roomCode, action: 'create' })"));
+pass('Nhận yêu cầu từ phòng mở ngay dự thảo không qua điều kiện', contracts.includes("initialAction === 'create' && initialRoomCode") && contracts.includes("setPendingCreateRoomCode(initialRoomCode)") && contracts.includes("setActiveTab('draft')"));
+pass('Form dự thảo nhận và ưu tiên đúng mã phòng đang chọn', draft.includes('initialRoomCode?: string') && draft.includes('initialRoomCode || initialCondition?.roomCode') && contracts.includes('initialRoomCode={pendingCreateRoomCode}'));
+pass('Lập dự thảo không yêu cầu mã phiếu điều kiện thuê', draft.includes("const leaseId = ''") && draft.includes("requestCode: matchedCond?.requestCode"));
+pass('Trước khi lưu vẫn kiểm tra điều kiện và đại diện phòng', draft.includes('checkLeaseConditionHDT01({') && draft.includes('findRepresentativeRoomConflict({roomCode: selectedRoomCode'));
+pass('Có thao tác mở form ngày trả từ từng phòng', tracking.includes('showDateForm(room)') && tracking.includes('setEditingDate(true)'));
+pass('Có thao tác mở form liên hệ từ từng phòng', tracking.includes('showContactForm(room)') && tracking.includes('setEditingContact(true)'));
+pass('Form bật lên ngay trong màn hình, không nằm dưới bảng', tracking.includes('fixed inset-0 z-[90]') && tracking.includes('role="dialog"') && tracking.includes('max-h-[90vh] overflow-y-auto'));
+pass('Form ngày trả ghi vào đúng lượt thuê', tracking.includes('updateExpectedReturnDatePH11_12({') && tracking.includes('leaseId: selected.contract.leaseId'));
+pass('Form liên hệ ghi theo đúng lượt thuê', tracking.includes('recordTenantContactPH13({') && tracking.includes('contactTimeActual: contactAt'));
+pass('Có hiển thị lỗi lưu ngay trong hộp thoại', tracking.includes('message && !message.success'));
+pass('App giữ tham số điều hướng phòng qua ContractsView', app.includes('initialRoomCode={target.roomCode}') && app.includes('initialAction={target.action}'));

@@ -5,7 +5,6 @@ import {
   FileText, Sliders, Edit3, Send, FileCheck, Calendar, RotateCcw,
   Sparkles, Layers, CheckCircle2, ShieldCheck
 } from 'lucide-react';
-import { HDT01LeaseConditions } from './contracts/HDT01LeaseConditions';
 import { HDT02DraftContract } from './contracts/HDT02DraftContract';
 import { HDT03SendAndNegotiate } from './contracts/HDT03SendAndNegotiate';
 import { HDT04ReceiveSignedContract } from './contracts/HDT04ReceiveSignedContract';
@@ -22,7 +21,6 @@ import { HDT07ActivateRenewal } from './contracts/HDT07ActivateRenewal';
 export type ContractTabKey =
   | 'overview'
   | 'settlement'
-  | 'conditions'
   | 'draft'
   | 'negotiate'
   | 'sign'
@@ -34,7 +32,6 @@ export type ContractTabKey =
 export const ContractsView: React.FC<{initialContractId?: string; initialRoomCode?: string; initialAction?: 'create' | 'return-plans'; initialLeaseId?: string; onBackToRooms?: (roomCode: string) => void; onOpenTenant?: (target: {tenantId: string; roomCode: string; leaseId: string; contractId: string}) => void}> = ({initialContractId, initialRoomCode, initialAction, initialLeaseId, onBackToRooms, onOpenTenant}) => {
   const {
     contracts,
-    leaseConditions,
     batchSchedules,
     settlementSlips,
     initialPaymentRecords,
@@ -65,7 +62,7 @@ export const ContractsView: React.FC<{initialContractId?: string; initialRoomCod
     } else if (initialAction === 'create' && initialRoomCode) {
       setSelectedContractId('');
       setPendingCreateRoomCode(initialRoomCode);
-      setActiveTab('conditions');
+      setActiveTab('draft');
     } else if (initialContractId) {
       setSelectedContractId(initialContractId);
       setActiveTab('overview');
@@ -124,7 +121,6 @@ export const ContractsView: React.FC<{initialContractId?: string; initialRoomCod
   };
 
   // Counts for Badges
-  const conditionsCount = leaseConditions.length;
   const draftOrNegotiatingCount = contracts.filter(c => c.status === 'Nháp' || c.status === 'Chờ khách ký').length;
   const renewalCount = contracts.filter(c => c.contractType === 'Hợp đồng nối tiếp').length;
 
@@ -140,7 +136,7 @@ export const ContractsView: React.FC<{initialContractId?: string; initialRoomCod
             <button onClick={()=>setActiveTab('schedules')} className="px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">Lịch hợp đồng chung</button>
             <button onClick={()=>openReturnTracking()} className="px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">Theo dõi hạn hợp đồng</button>
             <button onClick={()=>{setSelectedContractId('');openSettlement('list');}} className="px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">Quản lý quyết toán cọc</button>
-            <button onClick={()=>setActiveTab('conditions')} className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold">+ Lập hợp đồng</button>
+            <button onClick={()=>{ setSelectedConditionForDraft(null); setPendingCreateRoomCode(undefined); setSelectedContractId(''); setActiveTab('draft'); }} className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold">+ Lập hợp đồng</button>
           </div>
           <div className="flex flex-wrap items-center gap-2 mt-2">
             
@@ -242,7 +238,7 @@ export const ContractsView: React.FC<{initialContractId?: string; initialRoomCod
       {activeTab !== 'overview' && activeTab !== 'settlement' && activeTab !== 'expiry' && <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-wrap gap-3 items-center justify-between">
         <div>
           <p className="text-xs font-semibold text-blue-700">Quản lý hợp đồng</p>
-          <h1 className="font-bold text-lg">{{conditions:'Ghi nhận điều kiện thuê đã thống nhất',draft:'Lập dự thảo hợp đồng',negotiate:'Điều chỉnh dự thảo',sign:'Ghi nhận hợp đồng đã ký',expiry:'Theo dõi hạn hợp đồng và trả phòng',schedules:'Lịch đợt hợp đồng chung',renewal:'Lập hợp đồng nối tiếp',activate:'Ghi nhận ký hợp đồng nối tiếp'}[activeTab]}</h1>
+          <h1 className="font-bold text-lg">{{draft:'Lập dự thảo hợp đồng',negotiate:'Điều chỉnh dự thảo',sign:'Ghi nhận hợp đồng đã ký',expiry:'Theo dõi hạn hợp đồng và trả phòng',schedules:'Lịch đợt hợp đồng chung',renewal:'Lập hợp đồng nối tiếp',activate:'Ghi nhận ký hợp đồng nối tiếp'}[activeTab]}</h1>
         </div>
         <button onClick={()=>setActiveTab('overview')} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold hover:bg-slate-50">← Danh sách hợp đồng</button>
       </div>}
@@ -255,17 +251,9 @@ export const ContractsView: React.FC<{initialContractId?: string; initialRoomCod
       />}
       {/* Tab Panels */}
       <div>
-        {activeTab === 'conditions' && (
-          <HDT01LeaseConditions
-            initialRoomCode={pendingCreateRoomCode}
-            onInitialRoomConsumed={() => setPendingCreateRoomCode(undefined)}
-            onNavigateToTab={handleNavigateToTab}
-            onSelectConditionForDraft={handleSelectConditionForDraft}
-          />
-        )}
-
         {activeTab === 'draft' && (
           <HDT02DraftContract
+            initialRoomCode={pendingCreateRoomCode}
             initialCondition={selectedConditionForDraft}
             onNavigateToTab={handleNavigateToTab}
             onContractCreated={() => {
