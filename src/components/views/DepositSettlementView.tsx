@@ -185,7 +185,7 @@ export const DepositSettlementView: React.FC<{leaseId?: string; contractId?: str
     const isFinalBillConfirmed = !!finalBill && finalBill.isConfirmed;
 
     // Remaining debts from previous notices
-    const overdueNotices = paymentNotices.filter(n => n.roomCode === createSelectedRoom && n.leaseId === targetLeaseId && n.paymentStatus === 'Chưa thu' && n.status === 'Đang hiệu lực' && n.dueDate < new Date().toLocaleDateString('en-CA'));
+    const overdueNotices = paymentNotices.filter(n => n.noticeType !== 'DEBT' && n.roomCode === createSelectedRoom && n.leaseId === targetLeaseId && n.paymentStatus === 'Chưa thu' && n.status === 'Đang hiệu lực' && n.dueDate < new Date().toLocaleDateString('en-CA'));
     const overdueRentDebt = overdueNotices.reduce((sum, n) => sum + (n.breakdown?.nextRentAmount || 0), 0);
 
     // Asset damages from BG07

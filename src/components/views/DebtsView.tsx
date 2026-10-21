@@ -94,7 +94,7 @@ export const DebtsView: React.FC = () => {
 
   // Pre-process all notices with overdue metadata and deposit offsets
   const processedNotices = useMemo(() => {
-    return paymentNotices.map(n => {
+    return paymentNotices.filter(n => n.noticeType !== 'DEBT').map(n => {
       const room = rooms.find(r => r.roomCode === n.roomCode);
       const contract = contracts.find(c => c.roomCode === n.roomCode && (c.id === room?.currentContractId || c.status === 'Hiệu lực'));
       const activeReceipt = paymentReceipts.find(r => r.noticeId === n.id && r.status === 'Đang hiệu lực');
@@ -113,7 +113,7 @@ export const DebtsView: React.FC = () => {
         ? 0 : Math.max(0, n.totalAmount - handledByDeposit);
 
       // Overdue check based on dueDate
-      const due = new Date(n.dueDate);
+      const due = new Date(n.originalDueDate || n.dueDate);
       due.setHours(0, 0, 0, 0);
       const isOverdue = n.status === 'Đang hiệu lực' && !isPaid && uncollectedBalance > 0 && todayDateOnly(new Date()).getTime() > due.getTime();
 

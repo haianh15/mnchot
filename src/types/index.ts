@@ -898,9 +898,21 @@ export interface ReceivableReconciliation {
   notes?: string;
 }
 
+/** Các khoản nợ gốc hiển thị trong thông báo thu công nợ từ bản A. */
+export interface PaymentNoticeItem {
+  name: string;
+  amount: number;
+  note?: string;
+}
+
 export interface PaymentNotice {
   id: string;
   noticeCode: string;
+  /** PERIOD là thông báo tháng; DEBT chỉ gom các thông báo quá hạn gốc, không tạo nghĩa vụ mới. */
+  noticeType?: 'PERIOD' | 'DEBT';
+  debtPeriods?: string[];
+  debtNoticeIds?: string[];
+  tenantName?: string;
   roomCode: string;
   leaseId: string;
   periodCode: string;
@@ -925,6 +937,7 @@ export interface PaymentNotice {
     waterUsage?: number;
     waterRate?: number;
     serviceFees: { name: string; amount: number }[];
+    items?: PaymentNoticeItem[];
     adjustmentAmount?: number;
     adjustmentReason?: string;
   };

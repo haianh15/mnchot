@@ -347,6 +347,8 @@ interface AppContextType {
   paymentNotices: PaymentNotice[];
   generatePaymentNotice07_2: (billId: string, dueDate: string, reconciliationId?: string) => { success: boolean; noticeId?: string; message: string };
   replacePaymentNotice07_2: (oldNoticeId: string, reason?: string) => { success: boolean; noticeId?: string; message: string };
+  createDebtPaymentNotice: (roomCode: string, selectedDebtNoticeIds: string[], dueDate: string, bankAccountId?: string) => { success: boolean; noticeId?: string; message: string };
+  updateNoticeDueDate: (noticeId: string, newDueDate: string) => { success: boolean; message: string };
 
   // Payment Receipts (QT08)
   paymentReceipts: PaymentReceipt[];
@@ -4262,7 +4264,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // BR-UC07.1-01, Nợ cũ chỉ để tra cứu, không cộng dồn vào tổng kỳ mới
     const overdueDebt = paymentNotices.find(n =>
-      n.roomCode === bill.roomCode && n.leaseId === bill.leaseId &&
+      n.noticeType !== 'DEBT' && n.roomCode === bill.roomCode && n.leaseId === bill.leaseId &&
       n.paymentStatus === 'Chưa thu' &&
       n.status === 'Đang hiệu lực' &&
       n.periodCode !== bill.periodCode
@@ -4401,7 +4403,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     // Kiểm tra thông báo đang hiệu lực (BR-UC07.2-01)
-    const existingActive = paymentNotices.find(n => n.roomCode === bill.roomCode && n.periodCode === bill.periodCode && n.status === 'Đang hiệu lực');
+    const existingActive = paymentNotices.find(n => n.noticeType !== 'DEBT' && n.roomCode === bill.roomCode && n.periodCode === bill.periodCode && n.status === 'Đang hiệu lực');
     if (existingActive) {
       return {
         success: false,
@@ -4474,6 +4476,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const replacePaymentNotice07_2 = (oldNoticeId: string, reason?: string) => {
     const oldNotice = paymentNotices.find(n => n.id === oldNoticeId);
     if (!oldNotice) return { success: false, message: 'EF-01: Không tìm thấy thông báo cũ.' };
+    // Thông báo công nợ đang gộp các kỳ gốc: chặn thay đổi QR nguồn gây sai tổng tiền.
+    if (oldNotice.noticeType !== 'DEBT') {
+      const debtBundle = paymentNotices.find(n => n.noticeType === 'DEBT' && n.status === 'Đang hiệu lực' && n.paymentStatus === 'Chưa thu' && n.debtNoticeIds?.includes(oldNoticeId));
+      if (debtBundle) return { success: false, message: `${oldNotice.noticeCode} đang nằm trong ${debtBundle.noticeCode}. Hãy xử lý thông báo gộp trước khi thay thế khoản gốc.` };
+    }
+
 
     // Không thay thế thông báo Đã thu
     if (oldNotice.paymentStatus === 'Đã thu') {
@@ -4522,6 +4530,75 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { success: true, noticeId: newId, message: `Đã phát hành thông báo thay thế (${newCode})! Giữ nguyên hạn gốc ${oldNotice.originalDueDate} và vô hiệu hóa mã QR cũ.` };
   };
 
+
+  // ==================== A: THÔNG BÁO THU CÔNG NỢ (QT07) ====================
+  // Chỉ tạo thêm một yêu cầu chuyển khoản gộp; các thông báo kỳ nguồn vẫn là chứng từ gốc.
+  const createDebtPaymentNotice = (
+    roomCode: string, selectedDebtNoticeIds: string[], dueDate: string, bankAccountId?: string
+  ): { success: boolean; noticeId?: string; message: string } => {
+    const today = new Date();
+    const todayISO = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    if (!roomCode.trim() || !selectedDebtNoticeIds.length || new Set(selectedDebtNoticeIds).size !== selectedDebtNoticeIds.length)
+      return { success: false, message: 'Hãy chọn phòng và ít nhất một khoản công nợ không trùng lặp.' };
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate) || dueDate < todayISO)
+      return { success: false, message: 'Hạn thanh toán phải là ngày hợp lệ, không trước ngày lập thông báo.' };
+    const bank = bankAccountId ? bankAccounts.find(b => b.id === bankAccountId) : activeBankAccount;
+    if (!bank) return { success: false, message: 'Chưa có tài khoản ngân hàng nhận tiền hợp lệ.' };
+
+    const originals = selectedDebtNoticeIds.map(id => paymentNotices.find(n => n.id === id));
+    if (originals.some(n => !n || n.noticeType === 'DEBT' || n.roomCode !== roomCode || n.status !== 'Đang hiệu lực' || n.paymentStatus !== 'Chưa thu' || (n.originalDueDate || n.dueDate) >= todayISO))
+      return { success: false, message: 'Có khoản không còn quá hạn, không cùng phòng hoặc đã được thanh toán/thay thế. Hãy tải lại danh sách.' };
+    const sources = originals as PaymentNotice[];
+    // Không gom hai lượt thuê của cùng phòng, tránh gán tiền nợ cho người đại diện khác.
+    if (new Set(sources.map(n => n.leaseId)).size !== 1)
+      return { success: false, message: 'Chỉ được gom các kỳ công nợ trong cùng một lượt thuê.' };
+    const existing = paymentNotices.find(n => n.noticeType === 'DEBT' && n.status === 'Đang hiệu lực' && n.paymentStatus === 'Chưa thu' && n.debtNoticeIds?.some(id => selectedDebtNoticeIds.includes(id)));
+    if (existing) return { success: false, message: `Khoản nợ đã thuộc ${existing.noticeCode} đang hiệu lực. Không được tạo QR thu trùng.` };
+    // Tiền cọc đã cấn trừ một phần tại QT05: không cho phát hành QR bằng số tiền gốc chưa trừ.
+    for (const n of sources) {
+      const settlement = settlementSlips.find(sl => sl.roomCode === roomCode && sl.leaseId === n.leaseId && sl.step58Published && ['Đã có kết quả – chờ ký biên bản', 'Hoàn tất'].includes(sl.status));
+      const deduction = (settlement?.deductions || []).filter(d => d.category === 'Công nợ kỳ trước' && (d.id === 'ded_overdue_' + n.id || d.description.includes(n.noticeCode))).reduce((sum, d) => sum + d.amount, 0);
+      if (deduction > 0) return { success: false, message: `Khoản ${n.noticeCode} đã cấn trừ cọc ${deduction.toLocaleString('vi-VN')} đ. Hãy xử lý chênh lệch trước khi lập QR, tránh thu dư.` };
+    }
+    const totalAmount = sources.reduce((sum, n) => sum + n.totalAmount, 0);
+    if (!Number.isFinite(totalAmount) || totalAmount <= 0) return { success: false, message: 'Không có dư nợ dương để thu.' };
+    const stamp = Date.now().toString(36);
+    const room = rooms.find(r => r.roomCode === roomCode);
+    const contract = contracts.find(c => c.leaseId === sources[0].leaseId && c.roomCode === roomCode);
+    const items = sources.map(n => ({ name: `Công nợ ${n.periodCode} (TB: ${n.noticeCode})`, amount: n.totalAmount, note: `Hạn gốc: ${n.originalDueDate || n.dueDate}` }));
+    const code = `TBCN-${roomCode.replace(/\D/g, '')}-${stamp.toUpperCase()}`;
+    const notice: PaymentNotice = {
+      id: `not_debt_${roomCode}_${stamp}`, noticeCode: code, noticeType: 'DEBT',
+      debtPeriods: sources.map(n => n.periodCode), debtNoticeIds: sources.map(n => n.id),
+      tenantName: contract?.tenantName || room?.currentTenantName || 'Khách thuê',
+      roomCode, leaseId: sources[0].leaseId,
+      periodCode: sources.map(n => n.periodCode).join(', '),
+      servicePeriod: `Công nợ ${sources.map(n => n.periodCode).join(', ')}`,
+      nextRentPeriod: 'Thu công nợ các kỳ trước', dueDate,
+      originalDueDate: dueDate, totalAmount, status: 'Đang hiệu lực', paymentStatus: 'Chưa thu',
+      breakdown: { nextRentAmount: 0, electricityAmount: 0, waterAmount: 0, serviceFees: [], items },
+      qrBankSnapshot: { bankName: bank.bankName, accountNumber: bank.accountNumber,
+        accountHolder: bank.accountHolder,
+        transferContent: `THU NO ${roomCode} ${stamp}`.slice(0, 50), amount: totalAmount },
+      createdAt: new Date().toISOString()
+    };
+    setPaymentNotices(prev => [notice, ...prev]);
+    logSecurity('DEBT_PAYMENT_NOTICE_CREATED', `Tạo ${code} cho ${roomCode}, ${sources.length} kỳ, tổng ${totalAmount} đ`);
+    return { success: true, noticeId: notice.id, message: `Đã lập thông báo thu công nợ ${code} thành công.` };
+  };
+
+  // Tính năng ở bản A: ghi nhận lịch hẹn thanh toán (không đổi hạn gốc originalDueDate).
+  const updateNoticeDueDate = (noticeId: string, newDueDate: string): { success: boolean; message: string } => {
+    const target = paymentNotices.find(n => n.id === noticeId);
+    if (!target || target.status !== 'Đang hiệu lực' || target.paymentStatus !== 'Chưa thu')
+      return { success: false, message: 'Không được đổi hạn của thông báo không còn hiệu lực/chưa thanh toán.' };
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(newDueDate))
+      return { success: false, message: 'Ngày hẹn không hợp lệ.' };
+    setPaymentNotices(prev => prev.map(n => n.id === noticeId ? {...n, dueDate: newDueDate} : n));
+    logSecurity('UPDATE_NOTICE_DUEDATE', `Đổi hạn hẹn cho ${noticeId} thành ${newDueDate}; giữ hạn gốc ${target.originalDueDate}`);
+    return { success: true, message: 'Đã cập nhật ngày hẹn thanh toán; hạn gốc được giữ để kiểm tra công nợ.' };
+  };
+
   // ==================== PAYMENT RECEIPTS (QT08: UC08.1 -> UC08.2) ====================
   const confirmPaymentReceipt08_2 = (
     noticeId: string,
@@ -4541,6 +4618,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (notice.paymentStatus === 'Đã thu') {
       return { success: false, message: 'AF-04 / EF-02: Thông báo này đã được xác nhận thu đủ trước đó.' };
     }
+    if (notice.noticeType === 'DEBT') {
+      if (!notice.debtNoticeIds?.length || notice.debtNoticeIds.some(id => {
+        const source = paymentNotices.find(n => n.id === id);
+        return !source || source.status !== 'Đang hiệu lực' || source.paymentStatus !== 'Chưa thu';
+      })) return { success: false, message: 'Các khoản nợ nguồn đã thay đổi. Hãy kiểm tra/thay thế thông báo công nợ trước khi thu.' };
+      // Không xác nhận chuyển khoản toàn bộ nếu trong thời gian chờ nợ đã được cấn trừ cọc.
+      const offsetAfterIssue = notice.debtNoticeIds.some(id => {
+        const source = paymentNotices.find(n => n.id === id);
+        if (!source) return false;
+        const settlement = settlementSlips.find(sl => sl.roomCode === source.roomCode && sl.leaseId === source.leaseId && sl.step58Published && ['Đã có kết quả – chờ ký biên bản', 'Hoàn tất'].includes(sl.status));
+        return (settlement?.deductions || []).some(d => d.category === 'Công nợ kỳ trước' && d.amount > 0 && (d.id === 'ded_overdue_' + source.id || d.description.includes(source.noticeCode)));
+      });
+      if (offsetAfterIssue) return {success: false, message: 'Đã phát sinh cấn trừ cọc sau khi lập QR công nợ. Vui lòng đối chiếu lại trước khi thu, tránh thu trùng.'};
+    } else {
+      const grouped = paymentNotices.find(n => n.noticeType === 'DEBT' && n.status === 'Đang hiệu lực' && n.paymentStatus === 'Chưa thu' && n.debtNoticeIds?.includes(noticeId));
+      if (grouped) return { success: false, message: `Khoản này đang nằm trong ${grouped.noticeCode}. Hãy thu bằng thông báo công nợ hoặc thay thế/hủy thông báo gộp trước.` };
+    }
+
 
     // Chỉ xác nhận khi tiền thực vào tài khoản đúng đủ số của QR
     if (amount !== notice.totalAmount) {
@@ -4591,10 +4686,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setPaymentReceipts(prev => [receipt, ...prev]);
-    setPaymentNotices(prev => prev.map(n => n.id === noticeId ? {
-      ...n,
-      paymentStatus: 'Đã thu'
-    } : n));
+    setPaymentNotices(prev => prev.map(n => {
+      const belongsToDebtCollection = notice.noticeType === 'DEBT' && notice.debtNoticeIds?.includes(n.id);
+      return n.id === noticeId || belongsToDebtCollection ? {...n, paymentStatus: 'Đã thu' as const} : n;
+    }));
 
     logSecurity('PAYMENT_CONFIRMED_08_2', `Notice ${notice.noticeCode} confirmed collected ${amount.toLocaleString('vi-VN')} đ via txn ${transactionCode}`);
     return { success: true, message: 'Xác nhận thu đủ thành công ! Tiền thuê kỳ sau đã trả trước và dịch vụ đã thu.' };
@@ -4635,10 +4730,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } : r));
 
     // Hoàn tác trạng thái thông báo thanh toán tương ứng về Chưa thu
-    setPaymentNotices(prev => prev.map(n => n.id === receipt.noticeId ? {
-      ...n,
-      paymentStatus: 'Chưa thu'
-    } : n));
+    const refundedNotice = paymentNotices.find(n => n.id === receipt.noticeId);
+    setPaymentNotices(prev => prev.map(n => {
+      const belongsToDebtCollection = refundedNotice?.noticeType === 'DEBT' && refundedNotice.debtNoticeIds?.includes(n.id);
+      if (n.id !== receipt.noticeId && !belongsToDebtCollection) return n;
+      const independentlyPaid = paymentReceipts.some(r => r.noticeId === n.id && r.id !== receiptId && r.status === 'Đang hiệu lực');
+      return independentlyPaid ? n : {...n, paymentStatus: 'Chưa thu' as const};
+    }));
 
     logSecurity('PAYMENT_REVERTED_08_2', `Receipt ${receipt.transactionCode} invalidated: ${trimmedReason}. Source txn preserved.`);
     return { success: true, message: 'Đã sửa xác nhận thu nhầm (AF-03)! Giao dịch nguồn được bảo toàn trong lịch sử kiểm toán và thông báo thanh toán đã quay lại trạng thái Chưa thu.' };
@@ -4888,6 +4986,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       paymentNotices,
       generatePaymentNotice07_2,
       replacePaymentNotice07_2,
+      createDebtPaymentNotice,
+      updateNoticeDueDate,
 
       paymentReceipts,
       confirmPaymentReceipt08_2,

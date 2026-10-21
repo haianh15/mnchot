@@ -47,3 +47,14 @@ Sau khi `npm install`, chạy `npm run test:handover` (có thêm 29 trường h�
 ## Đồng bộ vòng đời phòng toàn hệ thống (21/10/2026)
 
 Quy trình ký hợp đồng → bàn giao → nhận phòng → đang thuê → trả phòng → lập lần thuê mới/gia hạn dùng chung bộ xử lý `src/utils/roomLifecycle.ts`. Tất cả phòng và hợp đồng được đối chiếu theo mã phòng, mã hợp đồng, `leaseId`, chứng từ và sự kiện nhận/trả thực tế. Không có nhánh điều kiện riêng cho mã phòng P.101, P.909 hoặc phòng mẫu khác. Xem báo cáo `BAO_CAO_DONG_BO_LOGIC_TOAN_BO_PHONG_21_10_2026.md` và chạy `node tests/globalRoomWorkflow.test.cjs` để kiểm tra.
+
+## Quy tắc người đại diện một phòng (21/10/2026)
+- Một hồ sơ khách đại diện chỉ được liên kết với **một phòng chưa kết thúc thuê**; hệ thống chặn tạo/ký hợp đồng ở phòng thứ hai nếu trùng hồ sơ/CCCD (hoặc trùng cả họ tên + SĐT khi thiếu CCCD).
+- Có thể ký hợp đồng nối tiếp cho **chính phòng đó** theo đúng điều kiện gia hạn, hoặc đại diện phòng mới sau khi **phòng trước đã hoàn tất trả**.
+- Chi tiết thay đổi và kiểm thử: `BAO_CAO_RANG_BUOC_MOT_NGUOI_DAI_DIEN_MOT_PHONG_21_10.md`.
+
+## Bản hợp nhất chức năng thanh toán/thu tiền/công nợ từ A (21/10/2026)
+
+Giữ nguyên bản B làm nền và bổ sung hai module từ A: `PaymentNoticesAView.tsx` (lập thông báo thu công nợ theo phòng/kỳ) và `DebtsAView.tsx` (công nợ xem theo kỳ hoặc gom phòng). Luồng Thu tiền của B được bổ sung thông tin ngày hẹn từ A và chống thu trùng theo QR gộp. **Xem `BAO_CAO_HOP_NHAT_CHUC_NANG_A_VAO_B_21_10_2026.md` để biết chức năng, nguyên tắc tránh cộng trùng và giới hạn kiểm thử.**
+
+Chạy kiểm thử: `node --test tests/*.test.cjs`.

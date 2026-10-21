@@ -9,6 +9,12 @@ import {
   Calendar, User, Lock, Sparkles
 } from 'lucide-react';
 
+const formatDateDMY = (dateStr?: string): string => {
+  if (!dateStr) return '—';
+  const parts = dateStr.slice(0, 10).split('-');
+  return parts.length === 3 && parts[0].length === 4 ? `${parts[2]}/${parts[1]}/${parts[0]}` : dateStr;
+};
+
 export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initialNoticeId}) => {
   const {
     paymentNotices,
@@ -16,6 +22,7 @@ export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initi
     confirmPaymentReceipt08_2,
     revertPaymentReceipt08_2,
     activeBankAccount,
+    debtPromises,
     currentUser
   } = useApp();
 
@@ -76,7 +83,7 @@ export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initi
     if (noticeStatusFilter === 'ACTIVE' && n.status !== 'Đang hiệu lực') return false;
     if (noticeStatusFilter === 'REPLACED' && n.status !== 'Đã thay thế') return false;
 
-    const isOverdue = n.paymentStatus === 'Chưa thu' && new Date(n.dueDate) < new Date();
+    const isOverdue = n.paymentStatus === 'Chưa thu' && new Date(n.originalDueDate || n.dueDate) < new Date();
     if (paymentStatusFilter === 'UNPAID' && n.paymentStatus !== 'Chưa thu') return false;
     if (paymentStatusFilter === 'PAID' && n.paymentStatus !== 'Đã thu') return false;
     if (paymentStatusFilter === 'OVERDUE' && (!isOverdue || n.paymentStatus !== 'Chưa thu')) return false;
@@ -99,14 +106,14 @@ export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initi
   });
 
   // Financial Stats
-  const totalReceivable = paymentNotices.filter(n => n.status === 'Đang hiệu lực').reduce((sum, n) => sum + n.totalAmount, 0);
+  const totalReceivable = paymentNotices.filter(n => n.status === 'Đang hiệu lực' && n.noticeType !== 'DEBT').reduce((sum, n) => sum + n.totalAmount, 0);
 
-  const totalCollected = paymentNotices.filter(n => n.status === 'Đang hiệu lực' && n.paymentStatus === 'Đã thu').reduce((sum, n) => sum + n.totalAmount, 0);
+  const totalCollected = paymentNotices.filter(n => n.status === 'Đang hiệu lực' && n.noticeType !== 'DEBT' && n.paymentStatus === 'Đã thu').reduce((sum, n) => sum + n.totalAmount, 0);
 
   const totalUncollected = totalReceivable - totalCollected;
 
   const overdueCount = paymentNotices.filter(
-    n => n.status === 'Đang hiệu lực' && n.paymentStatus === 'Chưa thu' && new Date(n.dueDate) < new Date()
+    n => n.status === 'Đang hiệu lực' && n.noticeType !== 'DEBT' && n.paymentStatus === 'Chưa thu' && new Date(n.originalDueDate || n.dueDate) < new Date()
   ).length;
 
   const revertedReceiptsCount = paymentReceipts.filter(r => r.status === 'Không còn hiệu lực').length;
@@ -119,6 +126,11 @@ export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initi
     }
     if (notice.paymentStatus === 'Đã thu') {
       alert('Thông báo này đã được xác nhận thu đủ. Không thực hiện xác nhận thu lần nữa.');
+      return;
+    }
+    const bundled = paymentNotices.find(n => n.noticeType === 'DEBT' && n.status === 'Đang hiệu lực' && n.paymentStatus === 'Chưa thu' && n.debtNoticeIds?.includes(notice.id));
+    if (bundled) {
+      alert(`Khoản này đã nằm trong thông báo công nợ ${bundled.noticeCode}. Vui lòng thu theo mã QR của thông báo công nợ.`);
       return;
     }
 
@@ -274,8 +286,10 @@ export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initi
                 Không tìm thấy thông báo thanh toán nào phù hợp với bộ lọc. </div>
             ): (
               filteredNotices.map((n) => {
-                const isOverdue = n.paymentStatus === 'Chưa thu' && new Date(n.dueDate) < new Date();
+                const isOverdue = n.paymentStatus === 'Chưa thu' && new Date(n.originalDueDate || n.dueDate) < new Date();
                 const relatedReceipt = paymentReceipts.find(r => r.noticeId === n.id && r.status === 'Đang hiệu lực');
+                const relatedPromise = debtPromises.find(p => (p.noticeId === n.id || p.roomCode === n.roomCode) && p.hasPromiseDate && p.promisedDate);
+                const bundledNotice = n.noticeType === 'DEBT' ? null : paymentNotices.find(p => p.noticeType === 'DEBT' && p.status === 'Đang hiệu lực' && p.paymentStatus === 'Chưa thu' && p.debtNoticeIds?.includes(n.id));
 
                 return (
                   <div
@@ -303,8 +317,11 @@ export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initi
                             {n.paymentStatus === 'Đã thu' ? 'Đã thu': isOverdue ? 'Quá hạn': 'Chưa thu'}
                           </span>
                         </div>
-                        <div className="text-slate-500 text-[11px]">
-                          Hạn thanh toán: <strong className="font-mono text-slate-700">{n.dueDate}</strong> · Nội dung CK: <strong className="font-mono text-slate-800">{n.qrBankSnapshot.transferContent}</strong>
+                        <div className="text-slate-500 text-[11px] flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <span>Hạn thanh toán: <strong className="font-mono text-slate-700">{formatDateDMY(n.originalDueDate || n.dueDate)}</strong></span>
+                          {relatedPromise?.promisedDate && <span className="text-blue-700">Hẹn trả: <strong>{formatDateDMY(relatedPromise.promisedDate)}</strong></span>}
+                          {bundledNotice && <span className="text-amber-700 font-semibold">Thu theo {bundledNotice.noticeCode}</span>}
+                          <span>· Nội dung CK: <strong className="font-mono text-slate-800">{n.qrBankSnapshot.transferContent}</strong></span>
                         </div>
                       </div>
 
@@ -324,7 +341,7 @@ export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initi
                             <Eye className="w-3.5 h-3.5" />
                           </button>
 
-                          {n.status === 'Đang hiệu lực' && n.paymentStatus === 'Chưa thu' && (
+                          {n.status === 'Đang hiệu lực' && n.paymentStatus === 'Chưa thu' && !bundledNotice && (
                             <button
                               onClick={() => openConfirmModal(n)}
                               className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs flex items-center gap-1.5 shadow-xs cursor-pointer"
@@ -923,7 +940,7 @@ export const PaymentReceiptsView: React.FC<{initialNoticeId?: string}> = ({initi
                 <span>Trạng thái thanh toán:</span> <span className="font-bold text-emerald-700">{inspectNotice.paymentStatus}</span>
               </div>
               <div className="flex justify-between">
-                <span>Hạn thanh toán:</span> <span className="font-mono font-bold">{inspectNotice.dueDate}</span>
+                <span>Hạn thanh toán:</span> <span className="font-mono font-bold">{formatDateDMY(inspectNotice.originalDueDate || inspectNotice.dueDate)}</span>
               </div>
 
               <div className="p-3 bg-slate-100 rounded-xl space-y-1">

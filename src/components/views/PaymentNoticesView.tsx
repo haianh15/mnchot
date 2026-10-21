@@ -46,7 +46,7 @@ export const PaymentNoticesView: React.FC<PaymentNoticesViewProps> = ({ onNaviga
 
   // UC07.2 State
   const [selectedNotice, setSelectedNotice] = useState<PaymentNotice | null>(
-    paymentNotices[0] || null
+    paymentNotices.find(n => n.noticeType !== 'DEBT') || null
   );
   const [pendingOpenNoticeId, setPendingOpenNoticeId] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -326,6 +326,7 @@ export const PaymentNoticesView: React.FC<PaymentNoticesViewProps> = ({ onNaviga
 
   // Filtered payment notices list
   const filteredNotices = paymentNotices.filter(n => {
+    if (n.noticeType === 'DEBT') return false;
     if (noticeFilter === 'ACTIVE') return n.status === 'Đang hiệu lực';
     if (noticeFilter === 'REPLACED') return n.status === 'Đã thay thế';
     if (noticeFilter === 'UNPAID') return n.paymentStatus === 'Chưa thu';

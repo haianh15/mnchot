@@ -45,8 +45,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
   const totalTenants = tenants.length;
   const activeContracts = contracts.filter((c: Contract) => c.status === 'Hiệu lực').length;
 
-  const unpaidNotices = paymentNotices.filter((n: PaymentNotice) => n.paymentStatus === 'Chưa thu' && n.status === 'Đang hiệu lực');
-  const overdueNotices = unpaidNotices.filter((n: PaymentNotice) => new Date(n.dueDate) < new Date());
+  const unpaidNotices = paymentNotices.filter((n: PaymentNotice) => n.noticeType !== 'DEBT' && n.paymentStatus === 'Chưa thu' && n.status === 'Đang hiệu lực');
+  const overdueNotices = unpaidNotices.filter((n: PaymentNotice) => new Date(n.originalDueDate || n.dueDate) < new Date());
   const totalOverdueAmount = overdueNotices.reduce((sum: number, n: PaymentNotice) => sum + n.totalAmount, 0);
 
   const totalCollectedThisMonth = paymentReceipts

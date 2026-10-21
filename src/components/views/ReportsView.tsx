@@ -183,7 +183,7 @@ export const ReportsView: React.FC = () => {
   // Available periods from notices
   const availablePeriods = useMemo(() => {
     const set = new Set<string>();
-    paymentNotices.forEach(n => { if (n.periodCode) set.add(n.periodCode); });
+    paymentNotices.forEach(n => { if (n.noticeType !== 'DEBT' && n.periodCode) set.add(n.periodCode); });
     return Array.from(set).sort();
   }, [paymentNotices]);
 
@@ -203,7 +203,7 @@ export const ReportsView: React.FC = () => {
   const activeNotices = useMemo(() => {
     if (simulateBC02_EF01) return [];
 
-    let list = paymentNotices.filter(n => n.status === 'Đang hiệu lực');
+    let list = paymentNotices.filter(n => n.noticeType !== 'DEBT' && n.status === 'Đang hiệu lực');
 
     if (bc02PeriodFilter !== 'Tất cả') {
       list = list.filter(n => n.periodCode === bc02PeriodFilter);
@@ -223,17 +223,25 @@ export const ReportsView: React.FC = () => {
     return list;
   }, [paymentNotices, bc02PeriodFilter, bc02RoomFilter, simulateBC02_EF01, simulateBC02_EF02]);
 
-  // Active Receipts - Only active receipts
+  // Thực thu ngân hàng: một giao dịch gộp nhiều khoản nợ được phân bổ đúng
+  // về các kỳ gốc trong báo cáo, không nhân đôi tổng số tiền giao dịch.
   const activeReceipts = useMemo(() => {
-    let list = paymentReceipts.filter(r => r.status === 'Đang hiệu lực');
-    if (bc02RoomFilter !== 'Tất cả') {
-      list = list.filter(r => r.roomCode === bc02RoomFilter);
-    }
-    if (bc02PeriodFilter !== 'Tất cả') {
-      list = list.filter(r => r.periodCode === bc02PeriodFilter);
-    }
+    let list = paymentReceipts.filter(r => r.status === 'Đang hiệu lực').flatMap(r => {
+      const notice = paymentNotices.find(n => n.id === r.noticeId);
+      if (notice?.noticeType !== 'DEBT' || !notice.debtNoticeIds?.length) return [r];
+      return notice.debtNoticeIds.flatMap((id, index) => {
+        const source = paymentNotices.find(n => n.id === id);
+        if (!source) return [];
+        return [{...r, id: `${r.id}_allocated_${index}`, periodCode: source.periodCode,
+          amountReceived: source.totalAmount,
+          // Ghi rõ đây là dòng phân bổ; giao dịch ngân hàng nguồn vẫn chỉ tồn tại một lần.
+          transactionCode: `${r.transactionCode} (phân bổ ${source.noticeCode})` }];
+      });
+    });
+    if (bc02RoomFilter !== 'Tất cả') list = list.filter(r => r.roomCode === bc02RoomFilter);
+    if (bc02PeriodFilter !== 'Tất cả') list = list.filter(r => r.periodCode === bc02PeriodFilter);
     return list;
-  }, [paymentReceipts, bc02RoomFilter, bc02PeriodFilter]);
+  }, [paymentReceipts, paymentNotices, bc02RoomFilter, bc02PeriodFilter]);
 
   // Tổng phải thu gốc = Tiền thuê kỳ đầu PH-07 (1 lần) + Các nghĩa vụ TT-03
   const totalReceivableFromNotices = activeNotices.reduce((sum, n) => sum + n.totalAmount, 0);
@@ -257,7 +265,7 @@ export const ReportsView: React.FC = () => {
   // Công nợ quá hạn: Phần Chưa thu đã qua hạn thanh toán trong thông báo
   const now = new Date();
   const totalOverdueDebt = useMemo(() => {
-    return activeNotices.filter(n => n.paymentStatus === 'Chưa thu' && new Date(n.dueDate) < now).reduce((sum, n) => sum + n.totalAmount, 0);
+    return activeNotices.filter(n => n.paymentStatus === 'Chưa thu' && new Date(n.originalDueDate || n.dueDate) < now).reduce((sum, n) => sum + n.totalAmount, 0);
   }, [activeNotices, now]);
 
   // Breakdown lines for Table
@@ -1729,9 +1737,9 @@ export const ReportsView: React.FC = () => {
               {/* Nguồn 2: Thông báo thu tiền TT-03 */}
               <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl space-y-2">
                 <strong className="font-bold text-blue-900 block">
-                  2. Thông báo thu tiền định kỳ - {paymentNotices.length} thông báo: </strong>
+                  2. Thông báo thu tiền định kỳ - {paymentNotices.filter(n => n.noticeType !== 'DEBT').length} thông báo: </strong>
                 <div className="space-y-1.5 text-[11px] max-h-40 overflow-y-auto">
-                  {paymentNotices.map(n => (
+                  {paymentNotices.filter(n => n.noticeType !== 'DEBT').map(n => (
                     <div key={n.id} className="p-2 bg-white rounded border border-blue-200 flex justify-between items-center">
                       <div>
                         <span className="font-mono font-bold text-blue-800">{n.noticeCode}</span> ({n.roomCode} - Kỳ {n.periodCode}): <strong>{n.totalAmount.toLocaleString('vi-VN')} đ</strong>
