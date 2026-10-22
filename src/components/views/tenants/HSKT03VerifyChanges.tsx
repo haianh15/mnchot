@@ -237,7 +237,7 @@ export const HSKT03VerifyChanges: React.FC<HSKT03Props> = ({ onNavigateToTab, on
                   const t = tenants.find(item => item.id === p.tenantId);
                   return (
                     <option key={p.id} value={p.id}>
-                      {p.id} (v{p.version}) - {t?.fullName || p.tenantId} [{p.verificationResult}] </option>
+                      {p.id} (v{p.version}) - {t?.fullName || p.tenantId}{p.verificationResult === 'Chưa xác minh' ? '' : ` [${p.verificationResult}]`} </option>
                   );
                 })}
               </select>
@@ -275,7 +275,7 @@ export const HSKT03VerifyChanges: React.FC<HSKT03Props> = ({ onNavigateToTab, on
                         selectedProposal.verificationResult === 'Chưa đạt' ? 'bg-red-100 text-red-800':
                         'bg-amber-100 text-amber-800'
                       }`}>
-                        Kết quả: {selectedProposal.verificationResult}
+                        Kết quả: {selectedProposal.verificationResult === 'Chưa xác minh' ? 'Chờ đối chiếu' : selectedProposal.verificationResult}
                       </span>
                       {selectedProposal.verifiedAt && (
                         <div className="text-[10px] text-slate-400 mt-0.5">Xác minh lúc: {new Date(selectedProposal.verifiedAt).toLocaleTimeString()}</div>
@@ -358,7 +358,7 @@ export const HSKT03VerifyChanges: React.FC<HSKT03Props> = ({ onNavigateToTab, on
                                  'bg-amber-600 text-white border-amber-600'): 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                           }`}
                         >
-                          {res}
+                          {res === 'Chưa xác minh' ? 'Chờ đối chiếu' : res}
                         </button>
                       ))}
                     </div>
@@ -366,12 +366,12 @@ export const HSKT03VerifyChanges: React.FC<HSKT03Props> = ({ onNavigateToTab, on
 
                   <div>
                     <label className="block font-semibold text-slate-700 mb-1">
-                      Lý do / Căn cứ chưa xác minh </label>
+                      Lý do / Căn cứ cần đối chiếu thêm </label>
                     <input
                       type="text"
                       value={verifyReason}
                       onChange={(e) => setVerifyReason(e.target.value)}
-                      placeholder="Ghi rõ lý do nếu Chưa đạt hoặc Chưa xác minh..."
+                      placeholder="Ghi rõ lý do khi chưa đạt hoặc còn chờ đối chiếu..."
                       className="w-full p-2 border border-slate-300 rounded-lg"
                     />
                   </div>
@@ -507,7 +507,7 @@ export const HSKT03VerifyChanges: React.FC<HSKT03Props> = ({ onNavigateToTab, on
                              'bg-amber-600 text-white border-amber-600'): 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                       }`}
                     >
-                      {res}
+                      {res === 'Chưa xác minh' ? 'Chờ đối chiếu' : res}
                     </button>
                   ))}
                 </div>

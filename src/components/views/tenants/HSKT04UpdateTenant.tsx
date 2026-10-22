@@ -91,7 +91,7 @@ export const HSKT04UpdateTenant: React.FC<HSKT04Props> = ({
 
     if (prop.verificationResult !== 'Đạt' || !prop.isValid) {
       setActionMsg({
-        text: `Bộ dữ liệu ${prop.id} có trạng thái [${prop.verificationResult}]. Cần có kết quả ĐẠT còn hiệu lực để lưu thay đổi.`,
+        text: `Bộ dữ liệu ${prop.id} có trạng thái [${prop.verificationResult === 'Chưa xác minh' ? 'Chờ đối chiếu' : prop.verificationResult}]. Cần có kết quả ĐẠT còn hiệu lực để lưu thay đổi.`,
         type: 'warning'
       });
     } else {
@@ -248,7 +248,7 @@ export const HSKT04UpdateTenant: React.FC<HSKT04Props> = ({
                 <div><strong>SĐT hiện tại:</strong> {currentTenant.phoneNumber}</div>
                 <div><strong>CCCD hiện tại:</strong> {currentTenant.idNumber || 'Chưa cung cấp'}</div>
                 <div><strong>Địa chỉ:</strong> {currentTenant.address || 'Chưa có'}</div>
-                <div><strong>Tình trạng giấy tờ:</strong> {currentTenant.paperStatus} ({currentTenant.verificationStatus})</div>
+                <div><strong>Tình trạng giấy tờ:</strong> {currentTenant.paperStatus}{currentTenant.verificationStatus !== 'Chưa xác minh' ? ` (${currentTenant.verificationStatus})` : ''}</div>
               </div>
             )}
           </div>
@@ -280,7 +280,7 @@ export const HSKT04UpdateTenant: React.FC<HSKT04Props> = ({
                         p.verificationResult === 'Chưa đạt' ? 'bg-red-100 text-red-800':
                         'bg-amber-100 text-amber-800'
                       }`}>
-                        {p.verificationResult}
+                        {p.verificationResult === 'Chưa xác minh' ? 'Chờ đối chiếu' : p.verificationResult}
                       </span>
                     </div>
                     <div className="text-[11px] text-slate-600 mt-1 line-clamp-1">{p.evidenceNote}</div>

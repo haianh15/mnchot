@@ -162,7 +162,7 @@ export const HSKT01RegisterTenant: React.FC<HSKT01Props> = ({ onNavigateToTab, o
     // Tách tình trạng cung cấp khỏi kết quả xác minh
     if (paperStatus === 'Chưa cung cấp') {
       isPreliminary = true;
-      warnings.push('Khách chưa cung cấp giấy tờ -> Tạo Hồ sơ sơ bộ, trạng thái "Chưa xác minh". Tuyệt đối không sinh số giả.');
+      warnings.push('Khách chưa cung cấp giấy tờ -> Tạo hồ sơ sơ bộ. Tuyệt đối không sinh số giả.');
     } else if (verificationStatus === 'Không hợp lệ') {
       if (trimmedPhone) {
         isPreliminary = true;
@@ -445,13 +445,14 @@ export const HSKT01RegisterTenant: React.FC<HSKT01Props> = ({ onNavigateToTab, o
                           <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium w-fit ${t.paperStatus === 'Đã cung cấp' ? 'bg-slate-100 text-slate-700': 'bg-red-50 text-red-700'}`}>
                             {t.paperStatus}
                           </span>
-                          <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold w-fit ${
-                            t.verificationStatus === 'Đã xác minh hợp lệ' ? 'bg-emerald-100 text-emerald-800':
-                            t.verificationStatus === 'Không hợp lệ' ? 'bg-red-100 text-red-800':
-                            'bg-amber-100 text-amber-800'
-                          }`}>
-                            {t.verificationStatus}
-                          </span>
+                          {t.verificationStatus !== 'Chưa xác minh' && (
+                            <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold w-fit ${
+                             t.verificationStatus === 'Đã xác minh hợp lệ' ? 'bg-emerald-100 text-emerald-800':
+                              'bg-red-100 text-red-800'
+                            }`}>
+                              {t.verificationStatus}
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="py-2.5 px-3">
@@ -712,7 +713,7 @@ export const HSKT01RegisterTenant: React.FC<HSKT01Props> = ({ onNavigateToTab, o
                       onChange={(e) => setVerificationStatus(e.target.value as any)}
                       className="w-full p-2 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100 disabled:text-slate-400"
                     >
-                      <option value="Chưa xác minh">Chưa xác minh</option>
+                      <option value="Chưa xác minh">Chưa bổ sung hồ sơ</option>
                       <option value="Đã xác minh hợp lệ">Đã xác minh hợp lệ</option>
                       <option value="Không hợp lệ">Không hợp lệ (Cảnh báo )</option>
                     </select>
@@ -721,7 +722,7 @@ export const HSKT01RegisterTenant: React.FC<HSKT01Props> = ({ onNavigateToTab, o
 
                 {paperStatus === 'Chưa cung cấp' && (
                   <div className="p-2 bg-amber-50 border border-amber-200 rounded text-[11px] text-amber-800">
-                    <strong></strong> Khách chưa cung cấp giấy tờ. Hệ thống ghi "Chưa xác minh" và tuyệt đối không tạo số giả. </div>
+                    <strong></strong> Khách chưa cung cấp giấy tờ. Hồ sơ được lưu ở chế độ sơ bộ và hệ thống không tạo số giả. </div>
                 )}
 
                 {paperStatus === 'Đã cung cấp' && verificationStatus === 'Không hợp lệ' && (

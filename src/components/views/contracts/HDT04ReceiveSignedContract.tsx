@@ -96,7 +96,7 @@ export const HDT04ReceiveSignedContract: React.FC<HDT04Props> = ({
     if (isPreliminary && (!confirmVerified || !verifiedIdNumber.trim())) {
       alert(
         'LỖI CHẶN KÝ:\n' +
-        'Khách thuê hiện là Hồ sơ sơ bộ / Chưa xác minh giấy tờ!\n' +
+        'Khách thuê hiện là hồ sơ sơ bộ hoặc còn thiếu giấy tờ đối chiếu!\n' +
         'Bắt buộc nhập số CCCD thật, đính kèm ảnh đối chiếu bản gốc và tích chọn xác nhận đã đối chiếu trực tiếp.'
       );
       return;

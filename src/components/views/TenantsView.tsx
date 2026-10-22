@@ -92,7 +92,7 @@ export const TenantsView: React.FC<{initialTenantId?: string; initialRoomCode?: 
                 <span className="rounded-xl bg-blue-50 text-blue-700 p-3"><UserRound className="w-5 h-5"/></span>
                 <div>
                   <h2 className="font-bold text-lg">{selectedTenant.fullName}</h2>
-                  <p className="text-xs text-slate-500">Mã hồ sơ: {selectedTenant.id} · {selectedTenant.verificationStatus}</p>
+                  <p className="text-xs text-slate-500">Mã hồ sơ: {selectedTenant.id}{selectedTenant.verificationStatus !== 'Chưa xác minh' ? ` · ${selectedTenant.verificationStatus}` : ''}</p>
                 </div>
               </div>
               <div className="flex gap-2 flex-wrap">
@@ -113,7 +113,7 @@ export const TenantsView: React.FC<{initialTenantId?: string; initialRoomCode?: 
                 ['CCCD / Định danh',selectedTenant.idNumber || 'Chưa cung cấp'],
                 ['Địa chỉ',selectedTenant.address || 'Chưa có'],
                 ['Tình trạng giấy tờ',selectedTenant.paperStatus],
-                ['Kết quả xác minh',selectedTenant.verificationStatus],
+                ...(selectedTenant.verificationStatus === 'Chưa xác minh' ? [] : [['Kết quả xác minh', selectedTenant.verificationStatus] as const]),
                 ['Phòng (theo hợp đồng)',latestContract?.roomCode || 'Chưa có hợp đồng'],
                 ['Hợp đồng',latestContract?.id || 'Chưa có'],
                 ['Liên kết ký hợp đồng', latestContract?.isSignedPaper ? (!latestContract.actualCheckInDate ? 'Đã ký – chờ nhận phòng' : 'Đã ký – đã nhận phòng') : latestContract ? 'Chưa ký hợp đồng' : 'Chưa có hợp đồng'],
