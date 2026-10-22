@@ -1241,7 +1241,9 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                     onClick={() => setShowPayment07Modal(true)}
                     className="p-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 rounded-lg text-xs font-medium text-left transition-colors cursor-pointer"
                   >
-                    Thu tiền cọc &amp; thuê đầu </button>}
+                    {relatedPaymentStatus.valid ? 'Xem cọc & thuê đầu đã thu'
+                      : initialPaymentRecords.some(p => p.roomCode === selectedRoom.roomCode && p.leaseId === relatedContract?.leaseId)
+                        ? 'Kiểm tra chứng từ cọc & thuê đầu' : 'Thu tiền cọc & thuê đầu'} </button>}
 
                   {selectedRoom.status === 'Trống' && Boolean(getActiveRoomContract(selectedRoom)) && <button
                     type="button"
@@ -2329,10 +2331,14 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
       {showPayment07Modal && selectedRoom && (() => {
         const targetContract = getActiveRoomContract(selectedRoom);
         const isRenewal = targetContract?.contractType === 'Hợp đồng nối tiếp';
+        const paymentStatus = getInitialPaymentStatus(targetContract, contracts, initialPaymentRecords);
+        // Đã có chứng từ của lượt thuê này thì chỉ xem/đính chính, không tạo thu trùng.
+        // Kiểm tra theo cả phòng + lượt thuê để không hiện form thu mới khi liên kết HĐ cũ chưa chuẩn.
         const initialPayment = targetContract ? initialPaymentRecords.find(p => p.roomCode === selectedRoom.roomCode &&
-          p.leaseId === targetContract.leaseId && p.contractId === targetContract.id) : undefined;
+          p.leaseId === targetContract.leaseId) : undefined;
+        const paymentMatchesContract = Boolean(initialPayment && initialPayment.contractId === targetContract?.id);
         const depositAmt = targetContract?.depositAmount ?? 0;
-        const rentAmt = targetContract?.monthlyRent ?? 0;
+        const rentAmt = targetContract?.firstMonthRentAmount ?? targetContract?.monthlyRent ?? 0;
         const totalReq = depositAmt + rentAmt;
 
         return (
@@ -2344,7 +2350,8 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                   <div>
                     <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-800"></span>
                     <h3 className="font-bold text-slate-900 text-base">
-                      Đối chiếu tiền cọc và tiền thuê đầu đã nhận </h3>
+                      {isRenewal ? 'Thông tin cọc gốc và tiền thuê đầu' : initialPayment
+                        ? 'Tiền cọc và tiền thuê đầu đã ghi nhận' : 'Đối chiếu tiền cọc và tiền thuê đầu đã nhận'} </h3>
                   </div>
                 </div>
                 <button
@@ -2368,6 +2375,13 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                     <span>Mã cọc gốc kế thừa:</span>
                     <span className="font-mono font-bold text-purple-900">{targetContract.initialDepositCode || 'COC-' + selectedRoom.roomCode + '-L1'}</span>
                   </div>
+                  {paymentStatus.valid && paymentStatus.payment && (
+                    <div className="grid grid-cols-2 gap-2 rounded border border-purple-200 bg-white p-3 text-xs">
+                      <div>Cọc gốc đã thu: <strong>{paymentStatus.payment.depositAmount.toLocaleString('vi-VN')} đ</strong></div>
+                      <div>Thuê kỳ đầu đã thu: <strong>{paymentStatus.payment.firstMonthRentAmount.toLocaleString('vi-VN')} đ</strong></div>
+                      <div className="col-span-2 border-t pt-2 font-bold">Đã đối chiếu · Không thu lại hai khoản này</div>
+                    </div>
+                  )}
                 </div>
               ): (
                 <>
@@ -2399,7 +2413,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                   </p>
 
                   {/* Chế độ đính chính thông tin chứng cứ */}
-                  {pay07CorrectionMode ? (
+                  {pay07CorrectionMode && initialPayment && paymentMatchesContract ? (
                     <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl space-y-2.5 text-amber-950">
                       <div className="flex items-center justify-between">
                         <strong className="text-xs font-bold flex items-center gap-1.5">
@@ -2465,8 +2479,26 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                           Lưu đính chính chứng cứ </button>
                       </div>
                     </div>
-                  ): (
-                    /* Form nhập thông tin thanh toán bình thường */
+                  ) : initialPayment ? (
+                    <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 space-y-3 text-emerald-950">
+                      <div className="flex items-center gap-2 font-bold text-sm">
+                        <CheckCircle2 className="h-4 w-4" />
+                        {paymentStatus.valid ? 'Đã đối chiếu tiền cọc và tiền thuê kỳ đầu' : 'Đã có chứng từ thu tiền cho lượt thuê này'}
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-lg bg-white p-3 border border-emerald-200">
+                        <div>Tiền cọc đã nhận: <strong className="block text-indigo-800 text-sm">{initialPayment.depositAmount.toLocaleString('vi-VN')} đ</strong></div>
+                        <div>Tiền thuê kỳ đầu đã nhận: <strong className="block text-blue-800 text-sm">{initialPayment.firstMonthRentAmount.toLocaleString('vi-VN')} đ</strong></div>
+                        <div className="sm:col-span-2 border-t pt-2 font-bold">Tổng đã ghi nhận: {initialPayment.actualAmount.toLocaleString('vi-VN')} đ</div>
+                      </div>
+                      <p className="text-[11px]">Đã ghi nhận ngày {initialPayment.receivedDate}, mã giao dịch {initialPayment.transactionCode}. Không cần nhập lại khoản thu này.</p>
+                      {!paymentStatus.valid && (
+                        <p className="rounded-lg border border-amber-300 bg-amber-50 p-2 text-amber-950 font-medium" role="alert">
+                          Chứng từ hiện có cần kiểm tra: {paymentStatus.message}. Không được tạo phiếu thu trùng; hãy đối chiếu hồ sơ hiện có.
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    /* Chỉ hiển thị form nhập cho lượt thuê chưa có chứng từ. */
                     <div className="space-y-3">
                       <div>
                         <label className="block font-semibold text-slate-700 mb-1">
@@ -2549,7 +2581,9 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                         <button
                           type="button"
                           onClick={() => setPay07CorrectionMode(true)}
-                          className="text-blue-600 hover:text-blue-800 underline text-xs font-semibold cursor-pointer"
+                          disabled={!paymentMatchesContract}
+                          title={!paymentMatchesContract ? 'Chứng từ đang liên kết hợp đồng khác; cần đối chiếu lại hồ sơ' : undefined}
+                          className="text-blue-600 hover:text-blue-800 underline text-xs font-semibold cursor-pointer disabled:text-slate-400 disabled:cursor-not-allowed"
                         >
                           Đính chính chứng từ </button>
                       </div>
@@ -2566,11 +2600,11 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setShowPayment07Modal(false)}
+                  onClick={() => { setShowPayment07Modal(false); setPay07CorrectionMode(false); }}
                   className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium cursor-pointer"
                 >
                   Đóng </button>
-                {!isRenewal && (
+                {!isRenewal && !initialPayment && (
                   <button
                     type="button"
                     onClick={() => {
