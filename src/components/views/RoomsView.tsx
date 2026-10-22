@@ -875,7 +875,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
           Ngày dự kiến trả và Số ngày còn lại/Quá ngày trả (chỉ xem, không sửa, nếu có); Có kế hoạch trả có thể đồng thời Đang thuê.
           Nhãn thời hạn hợp đồng theo Nhãn phản hồi hiện hành theo  (nếu có căn cứ): Chưa phản hồi, Đã phản hồi – Chưa xác nhận ngày trả, Đã phản hồi – Đã xác nhận ngày trả, hoặc Đã phản hồi – Tiếp tục thuê; chưa từng liên hệ và chưa có căn cứ phản hồi hiển thị “Chưa có ghi nhận liên hệ”, không gán Chưa phản hồi.
           Hiển thị riêng Đã cọc và Đã thanh toán tiền thuê kỳ đầu (kèm kỳ thuê trả trước, chỉ xem, không sửa từ ); không gộp hai khoản.
-          Chi tiết phòng có nút Chỉnh sửa thông tin phòng (mở ).
+          Chi tiết phòng có nút Chỉnh sửa thông tin phòng.
           Các liên kết Xem hợp đồng, Xem hồ sơ khách thuê, Xem bàn giao, Xem kế hoạch trả (mở, thẻ Kế hoạch trả) và Xem thông tin cọc mở hồ sơ liên quan. */}
       {isRoomDetailOpen && selectedRoom && subTab === 'list' && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
@@ -908,13 +908,13 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                 >
                   <ShieldCheck className="w-3.5 h-3.5" />
                   Kiểm tra cho thuê </button>
-                {/* 4. Nút Chỉnh sửa thông tin phòng (mở ) */}
+                {/* 4. Nút Chỉnh sửa thông tin phòng */}
                 <button
                   onClick={handleOpenEditModal}
                   className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
                 >
                   <Edit3 className="w-3.5 h-3.5" />
-                  Chỉnh sửa thông tin phòng (mở ) </button>
+                  Chỉnh sửa thông tin phòng </button>
                 <button
                   onClick={closeRoomDetails}
                   aria-label="Đóng chi tiết phòng"
@@ -1307,7 +1307,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
         </div>
       )}
 
-      {/* ==================== 4. CHỈNH SỬA THÔNG TIN PHÒNG (MỞ ) ==================== */}
+      {/* ==================== 4. CHỈNH SỬA THÔNG TIN PHÒNG  ==================== */}
       {showEditModal && selectedRoom && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full p-6 space-y-4">
