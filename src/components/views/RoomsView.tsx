@@ -173,6 +173,15 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
       showToast('error', 'Chưa có hợp đồng đã ký nên chưa thể lập biên bản nhận phòng.');
       return;
     }
+    // Đã có biên bản hoàn tất: xác nhận phòng là nghiệp vụ PH05 riêng, không lập lại BG03.
+    if (tab === 'handover' && room.status === 'Trống' &&
+        getVacantNextStep(room).label === 'Xác nhận nhận phòng') {
+      closeRoomDetails();
+      setActiveCheckInRoomCode(room.roomCode);
+      setCheckInStage(0);
+      setSubTab('checkin');
+      return;
+    }
     // Bàn giao nhận phải đi theo HĐ mới đã ký, không lấy biên bản của lượt thuê trước.
     const handover = tab === 'handover' && room.status !== 'Trống' ? getCurrentRoomHandover(room) : undefined;
     closeRoomDetails();
@@ -748,7 +757,21 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                                     {getVacantNextStep(room).label}
                                   </button>
                                   {Boolean(getActiveRoomContract(room)) && <button
-                                    onClick={() => { setSelectedRoom(room); setActiveCheckInRoomCode(room.roomCode); setCheckInStage(0); setSubTab('checkin'); }}
+                                    onClick={() => {
+                                      const contract = getActiveRoomContract(room);
+                                      const existing = contract && getLeaseContractChain(contract, contracts).map(c =>
+                                        handoverReports.find(h => h.roomCode === room.roomCode &&
+                                          h.leaseId === c.leaseId && h.contractId === c.id &&
+                                          (h.status === 'Đã lập' || h.status === 'Đã xác nhận'))).find(Boolean);
+                                      if (existing) {
+                                        closeRoomDetails();
+                                        onNavigate?.('handover', { roomCode: room.roomCode, leaseId: contract?.leaseId,
+                                          contractId: contract?.id, handoverMode: 'view' });
+                                      } else {
+                                        setSelectedRoom(room); setActiveCheckInRoomCode(room.roomCode);
+                                        setCheckInStage(0); setSubTab('checkin');
+                                      }
+                                    }}
                                     className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded text-[11px] font-semibold transition-colors cursor-pointer flex items-center gap-1"
                                     title="Kiểm tra điều kiện nhận phòng "
                                   >
@@ -1275,12 +1298,6 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
 
 
 
-                  {selectedRoom.status !== 'Trống' && relatedContract && (<button
-                    type="button"
-                    onClick={() => setShowContactModal(true)}
-                    className="p-2.5 bg-sky-50 hover:bg-sky-100 text-sky-800 rounded-lg text-xs font-medium text-left transition-colors cursor-pointer"
-                  >
-                    Ghi nhận liên hệ &amp; phản hồi </button>)}
 
                   {selectedRoom.status !== 'Trống' && relatedContract && (<button
                     type="button"
@@ -2600,7 +2617,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => { setShowPayment07Modal(false); setPay07CorrectionMode(false); }}
+                  onClick={() => setShowPayment07Modal(false)}
                   className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium cursor-pointer"
                 >
                   Đóng </button>
@@ -3890,7 +3907,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                     Kế thừa nguyên vẹn từ hợp đồng ban đầu, không thu cọc lại </span>
                 </div>
                 <span className="font-mono font-bold text-indigo-700 text-sm">
-                  {(extCheck.activeContract?.depositAmount || 3500000).toLocaleString('vi-VN')} đ </span>
+                  {extCheck.activeContract?.depositAmount != null ? `${extCheck.activeContract.depositAmount.toLocaleString('vi-VN')} đ` : 'Chưa xác minh'} </span>
               </div>
 
               {/* Footer hành động */}

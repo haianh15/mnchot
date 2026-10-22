@@ -30,6 +30,7 @@ function scope(overrides={}) {
   const base={rooms:[room],contracts:[original],initialPaymentRecords:[payment],inventoryRecords:[inventory],handoverConditions:[condition],handoverReports:[],handoverReturnReports:[],assetComparisonResults:[],incidents:[], currentUser:{fullName:'Chủ nhà'},logSecurity:()=>{}};
   const ctx={...base,...overrides};
   ctx.verifyHandoverSource=(roomCode,leaseId,contractId)=>validSource(ctx.rooms,ctx.contracts,roomCode,leaseId,contractId);
+  ctx.verifyReturnLeaseSource=(roomCode,leaseId,contractId)=>ctx.verifyHandoverSource(roomCode,leaseId,contractId) || (ctx.rooms.some(r=>r.roomCode===roomCode && r.status==='Trống') && ctx.contracts.some(c=>c.roomCode===roomCode && c.leaseId===leaseId && c.id===contractId && c.isSignedPaper) && ctx.returnInspections?.some(i=>i.roomCode===roomCode && i.leaseId===leaseId && i.step305Confirmed) && ctx.handoverReturnReports?.some(h=>h.roomCode===roomCode && h.leaseId===leaseId));
   ctx.setHandoverReports=updater=>{ctx.handoverReports=updater(ctx.handoverReports)};
   ctx.setIncidents=updater=>{ctx.incidents=updater(ctx.incidents)};
   ctx.setAssetComparisonResults=updater=>{ctx.assetComparisonResults=updater(ctx.assetComparisonResults)};

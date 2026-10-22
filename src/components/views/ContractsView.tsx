@@ -29,7 +29,7 @@ export type ContractTabKey =
   | 'renewal'
   | 'activate';
 
-export const ContractsView: React.FC<{initialContractId?: string; initialRoomCode?: string; initialAction?: 'create' | 'return-plans'; initialLeaseId?: string; onBackToRooms?: (roomCode: string) => void; onOpenTenant?: (target: {tenantId: string; roomCode: string; leaseId: string; contractId: string}) => void}> = ({initialContractId, initialRoomCode, initialAction, initialLeaseId, onBackToRooms, onOpenTenant}) => {
+export const ContractsView: React.FC<{initialContractId?: string; initialRoomCode?: string; initialAction?: 'create' | 'return-plans' | 'settlement'; initialLeaseId?: string; onBackToHandover?: (ref: {roomCode:string; leaseId:string; contractId:string}) => void; onBackToRooms?: (roomCode: string) => void; onOpenTenant?: (target: {tenantId: string; roomCode: string; leaseId: string; contractId: string}) => void}> = ({initialContractId, initialRoomCode, initialAction, initialLeaseId, onBackToHandover, onBackToRooms, onOpenTenant}) => {
   const {
     contracts,
     batchSchedules,
@@ -56,7 +56,12 @@ export const ContractsView: React.FC<{initialContractId?: string; initialRoomCod
     setActiveTab('expiry');
   };
   useEffect(() => {
-    if (initialAction === 'return-plans') {
+    if (initialAction === 'settlement' && initialContractId) {
+      setSelectedContractId(initialContractId);
+      setSettlementMode('view');
+      setSettlementOpenId('');
+      setActiveTab('settlement');
+    } else if (initialAction === 'return-plans') {
       setSelectedContractId(initialContractId || '');
       openReturnTracking({roomCode: initialRoomCode, leaseId: initialLeaseId, contractId: initialContractId});
     } else if (initialAction === 'create' && initialRoomCode) {
@@ -231,7 +236,10 @@ export const ContractsView: React.FC<{initialContractId?: string; initialRoomCod
         </div>
       )}
       {activeTab === 'settlement' && (selectedContract || settlementMode === 'list') && <div className="space-y-3">
-        <button type="button" onClick={returnToContractList} className="px-3 py-2 border rounded-lg text-sm bg-white">← Danh sách hợp đồng</button>
+        {initialAction === 'settlement' && selectedContract && onBackToHandover ?
+          <button type="button" onClick={() => onBackToHandover({roomCode:selectedContract.roomCode, leaseId:selectedContract.leaseId, contractId:selectedContract.id})}
+            className="px-3 py-2 border rounded-lg text-sm bg-white">← Quay lại bàn giao tài sản</button> :
+          <button type="button" onClick={returnToContractList} className="px-3 py-2 border rounded-lg text-sm bg-white">← Danh sách hợp đồng</button>}
         <DepositSettlementView key={`${settlementMode}-${selectedContract?.leaseId || 'all'}-${settlementOpenId}`} leaseId={settlementMode === 'list' ? undefined : selectedContract?.leaseId} contractId={selectedContract?.id} initialMode={settlementMode} initialSlipId={settlementOpenId} onCreateClose={returnToContractList} />
       </div>}
       {/* Action screens are contextual. The page no longer exposes every UC as a navigation tab. */}

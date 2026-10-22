@@ -18,6 +18,26 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onNavigateToNotices }) =
     paymentNotices
   } = useApp();
 
+  // Sao lưu dữ liệu nghiệp vụ trên trình duyệt trước khi chuyển sang cơ sở dữ liệu tập trung.
+  const exportLocalBusinessData = () => {
+    const records: Record<string, unknown> = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith('mini_apt_') ||
+          /auth|owner|session|password|securityLogs/i.test(key)) continue;
+      const value = localStorage.getItem(key);
+      if (!value) continue;
+      try { records[key] = JSON.parse(value); } catch { /* Bỏ giá trị lỗi định dạng. */ }
+    }
+    const payload = JSON.stringify({schema:'ccmn-business-backup-v1',exportedAt:new Date().toISOString(),records}, null, 2);
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(new Blob([payload], {type:'application/json'}));
+    link.href = url;
+    link.download = `ccmn-du-lieu-${new Date().toISOString().slice(0,10)}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const currentPrice = priceHistory[0];
 
   // Utility Price Form State 
@@ -121,6 +141,16 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onNavigateToNotices }) =
             <h1 className="text-lg font-bold text-slate-900">Cài đặt</h1>
           </div>
         </div>
+      </div>
+
+      {/* Sao lưu thủ công trước khi chuyển sang máy khác hoặc kết nối CSDL. */}
+      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-bold text-amber-950">Sao lưu dữ liệu nghiệp vụ trên máy này</h2>
+          <p className="text-xs text-amber-900 mt-1">Dữ liệu vẫn đang lưu trong trình duyệt, chưa đồng bộ nhiều máy. File sao lưu có thể chứa thông tin khách thuê, cần bảo quản riêng tư.</p>
+        </div>
+        <button type="button" onClick={exportLocalBusinessData}
+          className="px-4 py-2 rounded-lg bg-amber-800 text-white text-sm font-semibold hover:bg-amber-900 shrink-0">Tải bản sao lưu JSON</button>
       </div>
 
       {/* Grid of Configurations */}
