@@ -38,6 +38,45 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onNavigateToNotices }) =
     URL.revokeObjectURL(url);
   };
 
+  const [restoreError, setRestoreError] = useState<string | null>(null);
+  // Khôi phục thủ công từ file của chính người dùng; không tự nhập dữ liệu ở máy khác.
+  const restoreLocalBusinessData = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setRestoreError(null);
+    if (file.size > 10 * 1024 * 1024 || !file.name.toLowerCase().endsWith('.json')) {
+      setRestoreError('Chỉ nhận tệp JSON sao lưu tối đa 10 MB.');
+      return;
+    }
+    try {
+      const backup = JSON.parse(await file.text());
+      if (backup?.schema !== 'ccmn-business-backup-v1' || !backup.records ||
+          typeof backup.records !== 'object' || Array.isArray(backup.records)) {
+        throw new Error('Tệp không phải bản sao lưu nghiệp vụ hợp lệ của ứng dụng.');
+      }
+      const entries = Object.entries(backup.records as Record<string, unknown>)
+        .filter(([key, value]) => key.startsWith('mini_apt_') &&
+          !/auth|owner|session|password|securityLogs/i.test(key) &&
+          typeof value === 'object' && value !== null);
+      if (!entries.length) throw new Error('Bản sao lưu không chứa dữ liệu nghiệp vụ hợp lệ.');
+      if (!window.confirm(`Khôi phục ${entries.length} nhóm dữ liệu từ ${file.name}? Dữ liệu trên máy hiện tại có thể bị ghi đè. Hãy tải bản sao lưu hiện tại trước khi xác nhận.`)) return;
+      const originals = entries.map(([key]) => [key, localStorage.getItem(key)] as const);
+      try {
+        for (const [key, value] of entries) localStorage.setItem(key, JSON.stringify(value));
+      } catch {
+        for (const [key, previous] of originals) {
+          try { if (previous === null) localStorage.removeItem(key); else localStorage.setItem(key, previous); }
+          catch { /* Có thể cần hỗ trợ khôi phục thủ công nếu trình duyệt hết dung lượng. */ }
+        }
+        throw new Error('Khôi phục chưa hoàn tất do lỗi lưu trữ. Hệ thống đã thử trả lại dữ liệu trước thao tác.');
+      }
+      window.location.reload();
+    } catch (error) {
+      setRestoreError(error instanceof Error ? error.message : 'Không thể đọc hoặc khôi phục bản sao lưu.');
+    }
+  };
+
   const currentPrice = priceHistory[0];
 
   // Utility Price Form State 
@@ -149,9 +188,16 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onNavigateToNotices }) =
           <h2 className="text-sm font-bold text-amber-950">Sao lưu dữ liệu nghiệp vụ trên máy này</h2>
           <p className="text-xs text-amber-900 mt-1">Dữ liệu vẫn đang lưu trong trình duyệt, chưa đồng bộ nhiều máy. File sao lưu có thể chứa thông tin khách thuê, cần bảo quản riêng tư.</p>
         </div>
-        <button type="button" onClick={exportLocalBusinessData}
-          className="px-4 py-2 rounded-lg bg-amber-800 text-white text-sm font-semibold hover:bg-amber-900 shrink-0">Tải bản sao lưu JSON</button>
+        <div className="flex flex-col gap-2 shrink-0">
+          <button type="button" onClick={exportLocalBusinessData}
+            className="px-4 py-2 rounded-lg bg-amber-800 text-white text-sm font-semibold hover:bg-amber-900">Tải bản sao lưu JSON</button>
+          <label className="px-4 py-2 rounded-lg bg-white border border-amber-700 text-amber-900 text-sm font-semibold text-center cursor-pointer">
+            Khôi phục từ bản sao lưu JSON
+            <input type="file" accept="application/json,.json" className="sr-only" onChange={restoreLocalBusinessData} />
+          </label>
+        </div>
       </div>
+      {restoreError && <div role="alert" className="p-3 border border-red-300 bg-red-50 rounded-lg text-red-800 text-xs">{restoreError}</div>}
 
       {/* Grid of Configurations */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

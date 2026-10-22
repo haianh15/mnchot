@@ -17,17 +17,20 @@ function getFunction(name) {
 }
 const {loadTs} = require('./loadTs.cjs');
 const validSource = loadTs('src/utils/handoverValidation.ts').hasValidHandoverSource;
+const { buildVerifiedAssetComparison, hasDuplicateAssetNames } = loadTs('src/utils/assetComparisonValidation.ts');
+const { getLeaseContractChain } = loadTs('src/utils/roomLinks.ts');
 assert.equal(typeof validSource, 'function');
 const original = {id:'HD-1',roomCode:'P.101',leaseId:'L1',isSignedPaper:true,contractType:'Hợp đồng lần đầu',status:'Đã ký',depositAmount:4000000,firstMonthRentAmount:4000000};
 const room={roomCode:'P.101',currentLeaseId:'L1',currentContractId:'HD-1',status:'Đang thuê'};
 const payment={roomCode:'P.101',leaseId:'L1',contractId:'HD-1',depositAmount:4000000,firstMonthRentAmount:4000000};
-const inventory={id:'inv1',roomCode:'P.101',linkedLeaseId:'L1',linkedContractId:'HD-1',inventoryStatus:'Đã hoàn tất'};
+const inventory={id:'inv1',roomCode:'P.101',linkedLeaseId:'L1',linkedContractId:'HD-1',inventoryStatus:'Đã hoàn tất',items:[{assetId:'ast1',name:'Bàn',actualQuantity:2,physicalCondition:'Bình thường'}]};
+const returnInspection={id:'r1',roomCode:'P.101',leaseId:'L1',contractId:'HD-1',step304Status:'Đã nhận lại',step305Confirmed:true,items:[{name:'Bàn',inspected:true,quantity:2,condition:'Bình thường'}]};
 const condition={id:'cond1',roomCode:'P.101',linkedLeaseId:'L1',linkedContractId:'HD-1',status:'Đã hoàn tất',meterPhotos:['actual.jpg'],initialElectricityKwh:0,initialWaterM3:0};
 const report={id:'report1',reportNumber:'BB-P101-L1',roomCode:'P.101',leaseId:'L1',contractId:'HD-1',date:'2026-10-20',giverName:'Chủ nhà',receiverName:'Khách',status:'Đã lập',tenantSignedPaper:'Chưa ký',ownerSignedPaper:'Chưa ký',version:1,createdAt:'2026-10-20',initialElectricityKwh:0,initialWaterM3:0};
 let passed=0;
 function check(label, fn) { fn(); passed++; console.log('PASS',label); }
 function scope(overrides={}) {
-  const base={rooms:[room],contracts:[original],initialPaymentRecords:[payment],inventoryRecords:[inventory],handoverConditions:[condition],handoverReports:[],handoverReturnReports:[],assetComparisonResults:[],incidents:[], currentUser:{fullName:'Chủ nhà'},logSecurity:()=>{}};
+  const base={rooms:[room],contracts:[original],initialPaymentRecords:[payment],inventoryRecords:[inventory],returnInspections:[returnInspection],handoverConditions:[condition],handoverReports:[],handoverReturnReports:[],assetComparisonResults:[],incidents:[], currentUser:{fullName:'Chủ nhà'},logSecurity:()=>{},getLeaseContractChain,buildVerifiedAssetComparison,hasDuplicateAssetNames};
   const ctx={...base,...overrides};
   ctx.verifyHandoverSource=(roomCode,leaseId,contractId)=>validSource(ctx.rooms,ctx.contracts,roomCode,leaseId,contractId);
   ctx.verifyReturnLeaseSource=(roomCode,leaseId,contractId)=>ctx.verifyHandoverSource(roomCode,leaseId,contractId) || (ctx.rooms.some(r=>r.roomCode===roomCode && r.status==='Trống') && ctx.contracts.some(c=>c.roomCode===roomCode && c.leaseId===leaseId && c.id===contractId && c.isSignedPaper) && ctx.returnInspections?.some(i=>i.roomCode===roomCode && i.leaseId===leaseId && i.step305Confirmed) && ctx.handoverReturnReports?.some(h=>h.roomCode===roomCode && h.leaseId===leaseId));
@@ -55,7 +58,9 @@ check('Hợp đồng nối tiếp không tạo thêm biên bản gốc',()=>{let
 check('Ghi sự cố cho sai lần thuê bị chặn',()=>{let c=scope();assert.equal(invoke('recordIncidentBG04',c,{id:'i1',roomCode:'P.101',leaseId:'L2',description:'Bóng đèn hỏng'}).success,false)});
 check('Ghi sự cố cho đúng phòng và lần thuê',()=>{let c=scope();assert.equal(invoke('recordIncidentBG04',c,{id:'i1',roomCode:'P.101',leaseId:'L1',description:'Bóng đèn hỏng'}).success,true);assert.equal(c.incidents.length,1)});
 check('Kết quả đối chiếu của hợp đồng khác bị từ chối',()=>assert.equal(invoke('saveAssetComparisonResultBG07',scope(),{id:'c1',roomCode:'P.101',leaseId:'L1',contractId:'HD-X'}).success,false));
-check('Kết quả đối chiếu đúng lần thuê được ghi nhận',()=>{let c=scope();assert.equal(invoke('saveAssetComparisonResultBG07',c,{id:'c1',roomCode:'P.101',leaseId:'L1',contractId:'HD-1'}).success,true);assert.equal(c.assetComparisonResults.length,1)});
+check('Chưa có bảng so sánh chi tiết thì không thể ghi kết quả đối chiếu',()=>{let c=scope();assert.equal(invoke('saveAssetComparisonResultBG07',c,{id:'c1',roomCode:'P.101',leaseId:'L1',contractId:'HD-1',hasDifference:false}).success,false)});
+check('Kết quả đã so sánh đủ tài sản đúng lần thuê mới được ghi nhận',()=>{let c=scope();const checked=buildVerifiedAssetComparison(inventory,returnInspection);assert.equal(checked.valid,true);assert.equal(invoke('saveAssetComparisonResultBG07',c,{id:'c1',roomCode:'P.101',leaseId:'L1',contractId:'HD-1',hasDifference:false,comparisonDetails:checked.details}).success,true);assert.equal(c.assetComparisonResults.length,1)});
+check('Kết quả đối chiếu khác nguồn tài sản không thể lưu',()=>{let c=scope();const checked=buildVerifiedAssetComparison(inventory,returnInspection);checked.details[0].qtyReturn=7;assert.equal(invoke('saveAssetComparisonResultBG07',c,{id:'c2',roomCode:'P.101',leaseId:'L1',contractId:'HD-1',hasDifference:false,comparisonDetails:checked.details}).success,false)});
 check('Phòng không có biên bản ký thật không được hoàn tất trả',()=>{
   const c=scope({handoverReports:[], returnInspections:[{id:'r1',roomCode:'P.101',contractId:'HD-1',leaseId:'L1',step304Status:'Đã nhận lại',step305Confirmed:true}]});
   c.getConfirmedRoomHandover=()=>undefined;

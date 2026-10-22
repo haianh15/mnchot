@@ -930,7 +930,7 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                   title="Kiểm tra khả năng cho thuê "
                 >
                   <ShieldCheck className="w-3.5 h-3.5" />
-                  Kiểm tra cho thuê </button>
+                  Kiểm tra khả năng cho thuê </button>
                 {/* 4. Nút Chỉnh sửa thông tin phòng */}
                 <button
                   onClick={handleOpenEditModal}

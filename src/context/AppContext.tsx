@@ -9,6 +9,7 @@ import { hasValidHandoverSource, validateReturnConfirmation } from '../utils/han
 import { canCreateRenewalContract, blocksNewLeaseOnVacantRoom } from '../utils/contractEligibility';
 import { getPendingSignedRoomContract, pendingSignedContractsForRoom, reconcileRoomWorkflowLinks } from '../utils/roomLifecycle';
 import { findRepresentativeRoomConflict } from '../utils/representativeRoom';
+import { buildVerifiedAssetComparison, hasDuplicateAssetNames } from '../utils/assetComparisonValidation';
 import { repairSeedRepresentatives } from '../utils/repairSeedRepresentatives';
 import {
   UserAccount,
@@ -383,6 +384,8 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Store failures are visible: a successful click must not hide a failed browser write.
+  const [storageFailure, setStorageFailure] = useState<string | null>(null);
   // Storage helpers
   const getStored = <T,>(key: string, defaultVal: T): T => {
     try {
@@ -398,6 +401,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.setItem(`mini_apt_${key}`, JSON.stringify(val));
     } catch (e) {
       console.error('LocalStorage write error', e);
+      setStorageFailure(prev => prev || `Không lưu được dữ liệu '${key}' trên thiết bị này (có thể đầy dung lượng hoặc bị chặn). Hãy xuất bản sao lưu ở Cài đặt và không tiếp tục nhập giao dịch mới trước khi xử lý.`);
     }
   };
 
@@ -1789,7 +1793,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const room = rooms.find(r => r.roomCode === roomCode);
     const contract = contracts.find(c => c.roomCode === roomCode && c.leaseId === leaseId &&
       c.id === contractId && c.isSignedPaper);
-    return Boolean(room && room.status === 'Trống' && contract &&
+    // An old lease remains processable even when the room is occupied by a NEW lease.
+    return Boolean(room && contract &&
+      (room.status === 'Trống' || Boolean(room.currentLeaseId && room.currentLeaseId !== leaseId)) &&
       returnInspections.some(i => i.roomCode === roomCode && i.leaseId === leaseId &&
         i.step305Confirmed && i.step304Status === 'Đã nhận lại') &&
       handoverReturnReports.some(h => h.roomCode === roomCode && h.leaseId === leaseId));
@@ -1797,6 +1803,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // ==================== HANDOVER & ASSETS METHODS (QT02) ====================
   const saveInventoryBG01 = (record: InventoryRecord) => {
+    if (hasDuplicateAssetNames(record.items) ||
+        new Set(record.items.map(i => i.assetId)).size !== record.items.length)
+      return { success: false, message: 'Có tài sản trùng tên/mã hoặc thiếu tên trong kiểm kê. Mỗi tài sản chỉ được ghi một dòng duy nhất.' };
     if (!verifyHandoverSource(record.roomCode, record.linkedLeaseId, record.linkedContractId))
       return { success: false, message: 'Cần chọn hợp đồng đã ký đúng phòng và lần thuê trước khi lưu kiểm kê.' };
     if (handoverReports.some(r => r.roomCode === record.roomCode && r.leaseId === record.linkedLeaseId &&
@@ -1961,6 +1970,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const recordReturnInspectionBG09 = (inspection: ReturnInspection) => {
+    if (hasDuplicateAssetNames(inspection.items))
+      return { success: false, message: 'Danh sách tài sản trả phòng có dòng trùng tên hoặc thiếu tên; hãy kiểm tra trước khi lưu.' };
     if (!verifyHandoverSource(inspection.roomCode, inspection.leaseId, inspection.contractId))
       return { success: false, message: 'Biên bản nhận lại phải gắn với hợp đồng đã ký đúng phòng/lần thuê.' };
     const room = rooms.find(r => r.roomCode === inspection.roomCode);
@@ -2047,6 +2058,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const prior = assetComparisonResults.find(r => r.id === result.id || (r.roomCode === result.roomCode && r.leaseId === result.leaseId));
     if (prior && (prior.roomCode !== result.roomCode || prior.leaseId !== result.leaseId))
       return { success: false, message: 'Mã kết quả đối chiếu đã thuộc phòng hoặc lần thuê khác.' };
+    const contract = contracts.find(c => c.id === result.contractId && c.roomCode === result.roomCode && c.leaseId === result.leaseId);
+    const chain = getLeaseContractChain(contract, contracts);
+    const sourceInventory = inventoryRecords.find(i => i.roomCode === result.roomCode && i.linkedLeaseId === result.leaseId &&
+      chain.some(c => c.id === i.linkedContractId && c.isSignedPaper));
+    const inspection = returnInspections.find(i => i.roomCode === result.roomCode && i.leaseId === result.leaseId && i.step305Confirmed);
+    const verified = buildVerifiedAssetComparison(sourceInventory, inspection);
+    if (!verified.valid) return { success: false, message: verified.message };
+    const submittedDetails = result.comparisonDetails || prior?.comparisonDetails;
+    if (!submittedDetails?.length || JSON.stringify(submittedDetails) !== JSON.stringify(verified.details) ||
+        result.hasDifference !== verified.hasDifference)
+      return { success: false, message: 'Chưa nhấn So sánh toàn bộ tài sản, hoặc dữ liệu nhận/trả đã thay đổi. Hãy so sánh lại trước khi lưu.' };
+    // On BG07 updates, preserve the verified snapshot from BG06 rather than lose it.
+    result = { ...result, comparisonDetails: verified.details };
     setAssetComparisonResults(prev => {
       const idx = prev.findIndex(r => r.id === result.id || (r.roomCode === result.roomCode && r.leaseId === result.leaseId));
       if (idx >= 0) {
@@ -5178,6 +5202,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       resetAllToSeedData
     }}>
       {children}
+      {storageFailure && <div role="alert" className="fixed z-[100] left-3 right-3 top-3 bg-red-100 text-red-950 border-2 border-red-600 rounded-xl p-4 text-sm font-semibold shadow-xl">
+        {storageFailure} <button type="button" className="ml-3 underline" onClick={() => setStorageFailure(null)}>Đóng thông báo</button>
+      </div>}
     </AppContext.Provider>
   );
 };

@@ -322,6 +322,8 @@ export interface HandoverReport {
   confirmedAt?: string;
   initialElectricityKwh: number;
   initialWaterM3: number;
+  /** Ghi chú bổ sung độc lập, không thay đổi nội dung biên bản giấy gốc. */
+  supplements?: { id: string; content: string; createdAt: string; createdBy: string }[];
 }
 
 export interface AssetIncident {
@@ -369,6 +371,7 @@ export interface ReturnInspection {
   version: number;
   items: {
     name: string;
+    assetId?: string;
     inspected: boolean;
     quantity: number;
     condition: string;
@@ -399,6 +402,10 @@ export interface AssetComparisonResult {
   leaseId: string;
   contractId?: string;
   hasDifference: boolean; // Từ BG06 (chỉ xem, không sửa)
+  comparisonDetails?: {
+    assetId: string; assetName: string; qtyReceive: number; qtyReturn: number;
+    condReceive: string; condReturn: string;
+  }[]; // Ảnh chụp các dòng đã đối chiếu, xác minh với nguồn khi lưu.
   hasPendingWork: boolean; // Còn nội dung cần xử lý? (Có / Không)
   pendingWorkNote?: string; // Nội dung phát sinh hoặc căn cứ đã xử lý
   solutionPlan?: string; // Phương án xử lý

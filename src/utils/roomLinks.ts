@@ -72,5 +72,10 @@ export function getVacantRoomNextStep(
   if (phase === 'conflict') return { label: 'Kiểm tra hợp đồng trùng', tab: 'contracts' };
   if (phase === 'vacant' || !signedContract) return { label: 'Lập hợp đồng', tab: 'contracts' };
   if (phase === 'check-in-ready') return { label: 'Xác nhận nhận phòng', tab: 'handover' };
+  // Đã lập biên bản nhưng còn chờ ký: xem/bổ sung biên bản cũ, không lập lại.
+  const alreadyCreated = reports.some(r => r.roomCode === room.roomCode &&
+    r.leaseId === signedContract.leaseId && r.contractId === signedContract.id &&
+    r.status === 'Đã lập');
+  if (alreadyCreated) return { label: 'Xem biên bản nhận phòng', tab: 'handover' };
   return { label: 'Lập biên bản nhận phòng', tab: 'handover' };
 }

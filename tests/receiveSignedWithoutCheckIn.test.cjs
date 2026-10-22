@@ -1,0 +1,11 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const s = fs.readFileSync('src/components/views/HandoverAssetsView.tsx','utf8');
+const app = fs.readFileSync('src/context/AppContext.tsx','utf8');
+assert(s.includes('Lưu biên bản đã ký, chưa nhận phòng'), 'independent signed-report button');
+assert(s.includes('confirmHandoverSignaturesBG03(existingReport.id, true, true,\n                      paperLocation, signedDocumentScanUrl);'), 'independent sign-only action never calls check-in');
+assert(s.includes('receiveRepresentativeConflict?.message'), 'show duplicate-room reason before signing');
+assert(s.includes('receiveIdentityIssue.message'), 'show identity mismatch before signing');
+assert(app.includes('const representativeConflict = findRepresentativeRoomConflict'), 'duplicate protection intact');
+assert(app.includes('if (!checkInResult.success) return checkInResult'), 'atomic combined check-in remains guarded');
+console.log('PASS: independent signed BG03 action, warnings, PH05 duplicate guard intact.');

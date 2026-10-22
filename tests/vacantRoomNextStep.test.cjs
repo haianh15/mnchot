@@ -21,9 +21,12 @@ test('Phòng chờ nhận sau khi đã ký hiện Lập biên bản nhận phòn
   assert.equal(step.label,'Lập biên bản nhận phòng');
   assert.equal(step.tab,'handover');
 });
-test('Phòng có biên bản nháp/Đã lập nhưng chưa xác nhận vẫn tiếp tục lập biên bản', () => {
-  const step = getVacantRoomNextStep(vacant,[signed],[],[{...handover,status:'Đã lập'}]);
-  assert.equal(step.label,'Lập biên bản nhận phòng');
+test('Biên bản Nháp vẫn được lập tiếp nhưng Đã lập thì chỉ xem và bổ sung', () => {
+  const draft = getVacantRoomNextStep(vacant,[signed],[],[{...handover,status:'Nháp'}]);
+  const created = getVacantRoomNextStep(vacant,[signed],[],[{...handover,status:'Đã lập'}]);
+  assert.equal(draft.label,'Lập biên bản nhận phòng');
+  assert.equal(created.label,'Xem biên bản nhận phòng');
+  assert.equal(created.tab,'handover');
 });
 test('Phòng đã có biên bản đủ chữ ký, chưa chuyển Đang thuê thì hiện Xác nhận nhận phòng', () => {
   const step = getVacantRoomNextStep(vacant,[signed],[],[handover]);

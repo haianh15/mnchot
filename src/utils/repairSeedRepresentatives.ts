@@ -1,9 +1,9 @@
 import type { Tenant, Contract, LeaseConditionDraft } from '../types';
 
 /**
- * Sửa riêng hai liên kết mẫu sai trong phiên bản cũ: hợp đồng CHƯA ký của P.103/P.202
- * đã tham chiếu mã hồ sơ người ở P.303/P.201. Không đổi thông tin người đã ký giấy,
- * không suy diễn danh tính và không thay các hồ sơ người dùng tự chỉnh sửa.
+ * Sửa riêng hai liên kết mẫu sai trong phiên bản cũ: hợp đồng P.103/P.202
+ * đã tham chiếu mã hồ sơ người ở P.303/P.201. Hợp đồng đã ký chỉ sửa mã liên kết
+ * khi đã có chứng cứ CCCD đúng. Không đổi nội dung giấy, không suy diễn danh tính.
  * Phần mềm chống trùng cho dữ liệu mới bằng findRepresentativeRoomConflict.
  */
 const CORRECTIONS = [
@@ -31,10 +31,27 @@ export function repairSeedRepresentatives(state: State): State & {
 
   for (const fix of CORRECTIONS) {
     const contract = contracts.find(c => c.id === fix.contractId && c.roomCode === fix.roomCode);
-    if (!contract || contract.isSignedPaper || contract.contractType !== 'Hợp đồng lần đầu' ||
-        contract.status !== fix.status || contract.requestCode !== fix.requestCode ||
+    if (!contract || contract.contractType !== 'Hợp đồng lần đầu' ||
+        contract.requestCode !== fix.requestCode ||
         contract.tenantName !== fix.name || contract.tenantPhone !== fix.phone ||
         (contract.tenantId !== fix.oldTenantId && contract.tenantId !== fix.newTenantId)) continue;
+
+    // Only repair a proven wrong foreign-key for the two known seed contracts.
+    // A signed contract MUST already contain the correct ID in its recorded
+    // identity evidence. We never invent or overwrite a signed name or ID.
+    if (contract.isSignedPaper) {
+      if (!['Đã ký', 'Chờ hiệu lực', 'Hiệu lực'].includes(contract.status)) continue;
+      const signedIdentity = contract.tenantIdNumber?.trim();
+      const verifiedIdentity = contract.verifiedTenantIdNumber?.trim();
+      if ((signedIdentity && signedIdentity !== fix.idNumber) ||
+          (verifiedIdentity && verifiedIdentity !== fix.idNumber) ||
+          (!signedIdentity && !verifiedIdentity)) {
+        if (contract.tenantId === fix.oldTenantId) {
+          conflicts.push(`Phòng ${fix.roomCode}: hợp đồng ${fix.contractId} đã ký nhưng chưa có chứng cứ CCCD khớp người trong yêu cầu thuê; cần đối chiếu hồ sơ thực tế.`);
+        }
+        continue;
+      }
+    } else if (contract.status !== fix.status) continue;
 
     // CCCD là định danh, không tạo hồ sơ trùng số; nếu số đã thuộc người khác thì
     // chặn tự sửa và yêu cầu người quản lý kiểm tra hồ sơ gốc.

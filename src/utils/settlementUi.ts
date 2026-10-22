@@ -5,7 +5,8 @@ export const terminalSettlementStatuses = ['Đã có kết quả – chờ ký b
 
 export function getCurrentSettlementSlip(slips: DepositSettlementSlip[], leaseId: string, roomCode?: string) {
   return [...slips].filter(s => s.leaseId === leaseId && (!roomCode || s.roomCode === roomCode) && s.status !== 'Đã hủy')
-    .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''))[0] || null;
+    .sort((a, b) => (b.version - a.version) ||
+      (b.updatedAt || '').localeCompare(a.updatedAt || '') || b.id.localeCompare(a.id))[0] || null;
 }
 
 export function isLastContractOfLease(contract: Contract, contracts: Contract[]) {
