@@ -22,10 +22,11 @@ function ctx(overrides={}) {
   const data={rooms:[room],contracts:[contract],handoverReports:[receive],handoverReturnReports:[],returnInspections:[],returnPlans:[],roomHistory:[],currentUser:{fullName:'Chủ nhà'},logSecurity:()=>{},...overrides};
   data.verifyHandoverSource=(code,lease,cid)=>data.rooms.some(r=>r.roomCode===code&&r.currentLeaseId===lease&&r.status!=='Trống')&&data.contracts.some(c=>c.id===cid&&c.leaseId===lease&&c.roomCode===code&&c.isSignedPaper);
   data.getConfirmedRoomHandover=(ct,all,reports)=>reports.find(r=>r.contractId===ct?.id&&r.leaseId===ct?.leaseId&&r.roomCode===ct?.roomCode&&r.status==='Đã xác nhận');
-  data.setHandoverReturnReports=f=>{data.handoverReturnReports=f(data.handoverReturnReports)};
-  data.setRooms=f=>{data.rooms=f(data.rooms)};
-  data.setReturnPlans=f=>{data.returnPlans=f(data.returnPlans)};
-  data.setRoomHistory=f=>{data.roomHistory=f(data.roomHistory)};
+  data.persistCritical=()=>({success:true});
+  data.setHandoverReturnReports=f=>{data.handoverReturnReports=typeof f==='function'?f(data.handoverReturnReports):f};
+  data.setRooms=f=>{data.rooms=typeof f==='function'?f(data.rooms):f};
+  data.setReturnPlans=f=>{data.returnPlans=typeof f==='function'?f(data.returnPlans):f};
+  data.setRoomHistory=f=>{data.roomHistory=typeof f==='function'?f(data.roomHistory):f};
   return data;
 }
 function run(name,scope,...args){return vm.runInNewContext(business(name),scope)(...args)}

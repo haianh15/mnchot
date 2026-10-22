@@ -32,11 +32,12 @@ function check(label, fn) { fn(); passed++; console.log('PASS',label); }
 function scope(overrides={}) {
   const base={rooms:[room],contracts:[original],initialPaymentRecords:[payment],inventoryRecords:[inventory],returnInspections:[returnInspection],handoverConditions:[condition],handoverReports:[],handoverReturnReports:[],assetComparisonResults:[],incidents:[], currentUser:{fullName:'Chủ nhà'},logSecurity:()=>{},getLeaseContractChain,buildVerifiedAssetComparison,hasDuplicateAssetNames};
   const ctx={...base,...overrides};
+  ctx.persistCritical=()=>({success:true});
   ctx.verifyHandoverSource=(roomCode,leaseId,contractId)=>validSource(ctx.rooms,ctx.contracts,roomCode,leaseId,contractId);
   ctx.verifyReturnLeaseSource=(roomCode,leaseId,contractId)=>ctx.verifyHandoverSource(roomCode,leaseId,contractId) || (ctx.rooms.some(r=>r.roomCode===roomCode && r.status==='Trống') && ctx.contracts.some(c=>c.roomCode===roomCode && c.leaseId===leaseId && c.id===contractId && c.isSignedPaper) && ctx.returnInspections?.some(i=>i.roomCode===roomCode && i.leaseId===leaseId && i.step305Confirmed) && ctx.handoverReturnReports?.some(h=>h.roomCode===roomCode && h.leaseId===leaseId));
-  ctx.setHandoverReports=updater=>{ctx.handoverReports=updater(ctx.handoverReports)};
+  ctx.setHandoverReports=updater=>{ctx.handoverReports=typeof updater==='function'?updater(ctx.handoverReports):updater};
   ctx.setIncidents=updater=>{ctx.incidents=updater(ctx.incidents)};
-  ctx.setAssetComparisonResults=updater=>{ctx.assetComparisonResults=updater(ctx.assetComparisonResults)};
+  ctx.setAssetComparisonResults=updater=>{ctx.assetComparisonResults=typeof updater==='function'?updater(ctx.assetComparisonResults):updater};
   return ctx;
 }
 function invoke(fn,ctx,...args){return vm.runInNewContext(getFunction(fn),ctx)(...args)}
@@ -72,8 +73,8 @@ check('Trả phòng được ghi Trống đúng lần thuê sau khi có biên b�
     handoverReturnReports:[{id:'ret1',roomCode:'P.101',contractId:'HD-1',leaseId:'L1',status:'Nháp'}],
     returnPlans:[],roomHistory:[]});
   c.getConfirmedRoomHandover=(contract,arr,reports)=> reports.find(r=>r.contractId===contract?.id && r.status==='Đã xác nhận');
-  c.setRooms=updater=>{c.rooms=updater(c.rooms)};c.setReturnPlans=updater=>{c.returnPlans=updater(c.returnPlans)};
-  c.setRoomHistory=updater=>{c.roomHistory=updater(c.roomHistory)};
+  c.setRooms=updater=>{c.rooms=typeof updater==='function'?updater(c.rooms):updater};c.setReturnPlans=updater=>{c.returnPlans=typeof updater==='function'?updater(c.returnPlans):updater};
+  c.setRoomHistory=updater=>{c.roomHistory=typeof updater==='function'?updater(c.roomHistory):updater};
   assert.equal(invoke('confirmReturnStep305AndVacantPH08',c,'P.101','L1','2026-10-20').success,true);
   assert.equal(c.rooms[0].status,'Trống');assert.equal(c.rooms[0].currentLeaseId,undefined);
 });

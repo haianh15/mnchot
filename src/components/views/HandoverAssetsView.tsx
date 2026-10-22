@@ -79,6 +79,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
     recordReturnInspectionBG09,
     confirmReturnInspectionStep305,
     correctReturnInspectionStep305,
+    confirmReturnCorrectionBG09,
     saveAssetComparisonResultBG07,
     initHandoverReturnReportDraftBG08,
     syncDepositSettlementBG10,
@@ -3231,6 +3232,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
               {is305Confirmed && (
                 <div className="flex items-center gap-2">
                   <button
+                    disabled={Boolean(returnInspectionTarget?.correctionProposal)}
                     onClick={() => setShowCorrectionModal(true)}
                     className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg font-semibold flex items-center gap-1 cursor-pointer"
                   >
@@ -3240,6 +3242,18 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                 </div>
               )}
             </div>
+
+            {returnInspectionTarget?.correctionProposal && (
+              <div className="p-3 rounded-lg bg-amber-50 border border-amber-300 text-amber-950 space-y-2">
+                <strong>Đề nghị đính chính đang chờ Chủ nhà xác nhận</strong>
+                <p>Đề nghị chuyển: {returnInspectionTarget.correctionProposal.newStatus} · Lý do: {returnInspectionTarget.correctionProposal.reason}</p>
+                <p>Kết quả đã xác nhận trước đó vẫn giữ nguyên cho đến khi duyệt.</p>
+                <button type="button" className="rounded-lg bg-amber-700 text-white px-3 py-2 font-semibold"
+                  onClick={() => {const result=confirmReturnCorrectionBG09(selectedRoomCode,targetContract?.leaseId || ''); showToast(result.success ? 'success':'error', result.message);}}>
+                  Chủ nhà xác nhận đính chính
+                </button>
+              </div>
+            )}
 
             {/* Phiếu Nháp được tạo ngay từ đầu bàn giao trả, không phải đợi 3.05. */}
             {!existingReturnReport && (
@@ -4558,7 +4572,7 @@ export const HandoverAssetsView: React.FC<{initialRoomCode?: string; initialLeas
                 }}
                 className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-semibold cursor-pointer"
               >
-                Xác nhận đính chính </button>
+                Gửi đề nghị đính chính </button>
             </div>
           </div>
         </div>

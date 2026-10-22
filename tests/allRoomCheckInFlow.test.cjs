@@ -46,8 +46,9 @@ test('Một xác nhận cập nhật đồng thời phòng hợp đồng khách 
   assert(checkin.includes('currentContractId: contract.id'));
   assert(checkin.includes('currentLeaseId: contract.leaseId'));
   assert(checkin.includes('totalOccupants: 1 + coTenants.filter('));
-  assert(checkin.includes('setContracts(prev =>'));
-  assert(checkin.includes('setLeaseStartEvents(prev =>'));
+  assert(checkin.includes('setContracts(nextContracts)'));
+  assert(checkin.includes('persistCritical({rooms:nextRooms,contracts:nextContracts'));
+  assert(checkin.includes('setLeaseStartEvents(nextStarts'));
 });
 test('Biên bản đã ký từ trước có nút xác nhận nhận phòng chung mọi phòng', () => {
   assert(hv.includes("existingReport?.status === 'Đã xác nhận' && selectedRoom?.status === 'Trống'"));

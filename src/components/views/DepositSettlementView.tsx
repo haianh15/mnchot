@@ -2,7 +2,7 @@ import { toUserMessage } from '../../utils/userMessages';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { DepositSettlementSlip, DeductionItem, SettlementContactLog } from '../../types';
-import { canEditSettlement, canRecordSettlement, getCurrentSettlementSlip, terminalSettlementStatuses } from '../../utils/settlementUi';
+import { canEditSettlement, canRecordSettlement, getCurrentSettlementSlip, terminalSettlementStatuses, matchesSettlementGroup } from '../../utils/settlementUi';
 import {
   Scale, Plus, CheckCircle2, AlertCircle, Clock, FileCheck, ArrowRight,
   Landmark, AlertTriangle, MessageSquare, History, X, Search, Filter,
@@ -96,25 +96,22 @@ export const DepositSettlementView: React.FC<{leaseId?: string; contractId?: str
   // -------------------------------------------------------------
   // Filtered slips list
   // -------------------------------------------------------------
-  const filteredSlips = useMemo(() => {
-    return settlementSlips.filter(slip => {
-      if (leaseId && slip.leaseId !== leaseId) return false;
-      if (contractFocus && slip.roomCode !== contractFocus.roomCode) return false;
-      const matchSearch =
-        slip.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        slip.roomCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        slip.leaseId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        slip.contractChain?.some(id => id.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        contracts.some(c => c.roomCode === slip.roomCode && c.leaseId === slip.leaseId && c.tenantName.toLowerCase().includes(searchQuery.toLowerCase()));
-
-      if (!matchSearch) return false;
-
-      if (statusFilter === 'all') return true;
-      // The dropdown exposes only the seven agreed business statuses.
-      if (statusFilter === 'Hoàn tất') return slip.status === 'Hoàn tất';
-      return slip.status === statusFilter;
-    });
-  }, [settlementSlips, searchQuery, statusFilter, leaseId, contractId, contracts]);
+  // Counts and filtered list share exactly the same scope and group semantics.
+  const scopedSlips = useMemo(() => settlementSlips.filter(slip =>
+    (!leaseId || slip.leaseId === leaseId) &&
+    (!contractFocus || slip.roomCode === contractFocus.roomCode)
+  ), [settlementSlips, leaseId, contractId, contracts]);
+  const countGroup = (group: string) => scopedSlips.filter(s => matchesSettlementGroup(s.status, group)).length;
+  const filteredSlips = useMemo(() => scopedSlips.filter(slip => {
+    const q = searchQuery.trim().toLocaleLowerCase('vi');
+    const matchSearch = !q || slip.id.toLocaleLowerCase('vi').includes(q) ||
+      slip.roomCode.toLocaleLowerCase('vi').includes(q) ||
+      slip.leaseId.toLocaleLowerCase('vi').includes(q) ||
+      slip.contractChain?.some(id => id.toLocaleLowerCase('vi').includes(q)) ||
+      contracts.some(c => c.roomCode === slip.roomCode && c.leaseId === slip.leaseId &&
+        c.tenantName.toLocaleLowerCase('vi').includes(q));
+    return Boolean(matchSearch && matchesSettlementGroup(slip.status, statusFilter));
+  }), [scopedSlips, searchQuery, statusFilter, contracts]);
 
   useEffect(() => {
     if (filteredSlips.length > 0 && !filteredSlips.some(s=>s.id === selectedSlipId)) setSelectedSlipId(filteredSlips[0].id);
@@ -677,7 +674,7 @@ export const DepositSettlementView: React.FC<{leaseId?: string; contractId?: str
           className={`p-3 rounded-xl border cursor-pointer transition-all text-xs space-y-1 ${statusFilter === 'all' ? 'border-blue-500 bg-blue-50/40 shadow-sm': 'border-slate-200 bg-white hover:border-slate-300'}`}
         >
           <div className="text-slate-500 font-medium">Tất cả hồ sơ</div>
-          <div className="text-xl font-bold font-mono text-slate-900">{filteredSlips.length}</div>
+          <div className="text-xl font-bold font-mono text-slate-900">{countGroup('all')}</div>
           <div className="text-[11px] text-slate-400">Toàn bộ phiếu quyết toán</div>
         </div>
 
@@ -687,7 +684,7 @@ export const DepositSettlementView: React.FC<{leaseId?: string; contractId?: str
         >
           <div className="text-amber-800 font-medium">Đang trao đổi</div>
           <div className="text-xl font-bold font-mono text-amber-700">
-            {settlementSlips.filter(s => ['Đang lập', 'Không đồng ý', 'Không liên hệ được'].includes(s.status)).length}
+            {countGroup('pending')}
           </div>
           <div className="text-[11px] text-amber-600">Đang lập / Không đồng ý</div>
         </div>
@@ -698,7 +695,7 @@ export const DepositSettlementView: React.FC<{leaseId?: string; contractId?: str
         >
           <div className="text-emerald-800 font-medium">Khách đồng ý</div>
           <div className="text-xl font-bold font-mono text-emerald-700">
-            {settlementSlips.filter(s => s.status === 'Khách đồng ý').length}
+            {countGroup('agreed')}
           </div>
           <div className="text-[11px] text-emerald-600">Sẵn sàng ghi nhận QTC-03</div>
         </div>
@@ -709,7 +706,7 @@ export const DepositSettlementView: React.FC<{leaseId?: string; contractId?: str
         >
           <div className="text-red-800 font-medium">Tranh chấp</div>
           <div className="text-xl font-bold font-mono text-red-700">
-            {settlementSlips.filter(s => s.status === 'Tranh chấp').length}
+            {countGroup('dispute')}
           </div>
           <div className="text-[11px] text-red-600">Khóa sửa / Chờ mở lại</div>
         </div>
@@ -720,7 +717,7 @@ export const DepositSettlementView: React.FC<{leaseId?: string; contractId?: str
         >
           <div className="text-indigo-800 font-medium">Đã có quyết toán cọc (Chờ )</div>
           <div className="text-xl font-bold font-mono text-indigo-700">
-            {settlementSlips.filter(s => terminalSettlementStatuses.includes(s.status)).length}
+            {countGroup('published')}
           </div>
           <div className="text-[11px] text-indigo-600">Đã phát hành kết quả</div>
         </div>

@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { validateBusinessBackup } from '../../utils/backupValidation';
+import { commitBusinessStorage } from '../../utils/businessStorage';
 import { useApp } from '../../context/AppContext';
 import { ServiceFeeConfig } from '../../types';
 import { Settings, Landmark, Zap, Droplets, Plus, Save, RotateCcw, AlertTriangle, History, CheckCircle2 } from 'lucide-react';
@@ -50,27 +52,16 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onNavigateToNotices }) =
       return;
     }
     try {
-      const backup = JSON.parse(await file.text());
-      if (backup?.schema !== 'ccmn-business-backup-v1' || !backup.records ||
-          typeof backup.records !== 'object' || Array.isArray(backup.records)) {
-        throw new Error('Tệp không phải bản sao lưu nghiệp vụ hợp lệ của ứng dụng.');
-      }
-      const entries = Object.entries(backup.records as Record<string, unknown>)
-        .filter(([key, value]) => key.startsWith('mini_apt_') &&
-          !/auth|owner|session|password|securityLogs/i.test(key) &&
-          typeof value === 'object' && value !== null);
-      if (!entries.length) throw new Error('Bản sao lưu không chứa dữ liệu nghiệp vụ hợp lệ.');
-      if (!window.confirm(`Khôi phục ${entries.length} nhóm dữ liệu từ ${file.name}? Dữ liệu trên máy hiện tại có thể bị ghi đè. Hãy tải bản sao lưu hiện tại trước khi xác nhận.`)) return;
-      const originals = entries.map(([key]) => [key, localStorage.getItem(key)] as const);
-      try {
-        for (const [key, value] of entries) localStorage.setItem(key, JSON.stringify(value));
-      } catch {
-        for (const [key, previous] of originals) {
-          try { if (previous === null) localStorage.removeItem(key); else localStorage.setItem(key, previous); }
-          catch { /* Có thể cần hỗ trợ khôi phục thủ công nếu trình duyệt hết dung lượng. */ }
-        }
-        throw new Error('Khôi phục chưa hoàn tất do lỗi lưu trữ. Hệ thống đã thử trả lại dữ liệu trước thao tác.');
-      }
+      const backup: unknown = JSON.parse(await file.text());
+      const problems = validateBusinessBackup(backup);
+      if (problems.length) throw new Error(`Từ chối khôi phục vì dữ liệu không hợp lệ:\n${problems.join('\n')}`);
+      const entries = Object.entries((backup as {records: Record<string,unknown>}).records);
+      if (!window.confirm(`Đã kiểm tra ${entries.length} nhóm dữ liệu. Tạo tệp sao lưu hiện tại trước khi khôi phục? Dữ liệu của máy này sẽ bị thay thế nếu bạn tiếp tục.`)) return;
+      // Emergency snapshot is downloaded before the destructive write; the user can keep it offline.
+      exportLocalBusinessData();
+      if (!window.confirm('Đã tải tệp sao lưu hiện tại? Xác nhận khôi phục bản JSON mới và tải lại ứng dụng.')) return;
+      const result = commitBusinessStorage(Object.fromEntries(entries), localStorage);
+      if (!result.success) throw new Error(result.message);
       window.location.reload();
     } catch (error) {
       setRestoreError(error instanceof Error ? error.message : 'Không thể đọc hoặc khôi phục bản sao lưu.');
@@ -197,7 +188,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onNavigateToNotices }) =
           </label>
         </div>
       </div>
-      {restoreError && <div role="alert" className="p-3 border border-red-300 bg-red-50 rounded-lg text-red-800 text-xs">{restoreError}</div>}
+      {restoreError && <div role="alert" className="p-3 border border-red-300 bg-red-50 rounded-lg text-red-800 text-xs whitespace-pre-wrap">{restoreError}</div>}
 
       {/* Grid of Configurations */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

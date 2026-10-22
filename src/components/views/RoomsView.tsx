@@ -22,7 +22,6 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
     returnPlans,
     contactLogs,
     initialPaymentRecords,
-    missingConditionLogs,
     leaseStartEvents,
     contracts,
     tenants,
@@ -36,7 +35,6 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
     recordInitialPaymentPH07,
     correctInitialPaymentPH07,
     confirmCheckInPH05,
-    saveMissingConditionPH06,
     updateExpectedReturnDatePH11_12,
     autoCancelReturnPlanPH14,
     checkExtensionResultPH15,
@@ -201,7 +199,6 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
   const [showCheckRentableModal, setShowCheckRentableModal] = useState(false);
   const [checkRentableRoom, setCheckRentableRoom] = useState<Room | null>(null);
   const [simulateEF01, setSimulateEF01] = useState(false);
-  const [showMissingConditionModal, setShowMissingConditionModal] = useState(false);
   const [showExtensionModal, setShowExtensionModal] = useState(false);
 
   // Specific Related Profile Modals
@@ -216,14 +213,14 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
     if (subTab !== 'list' || showAddModal || showEditModal ||
         showCheckInModal || showPayment07Modal || showReturnModal ||
         showExpectedDateModal || showContactModal || showCheckRentableModal ||
-        showMissingConditionModal || showExtensionModal ||
+        showExtensionModal ||
         showContractModal || showTenantModal || showHandoverModal || showDepositModal) {
       setIsRoomDetailOpen(false);
     }
   }, [subTab, showAddModal, showEditModal,
       showCheckInModal, showPayment07Modal, showReturnModal,
       showExpectedDateModal, showContactModal, showCheckRentableModal,
-      showMissingConditionModal, showExtensionModal,
+      showExtensionModal,
       showContractModal, showTenantModal, showHandoverModal, showDepositModal]);
 
   // Toast feedback state
@@ -277,10 +274,6 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
   const [checkInHandoverSigned, setCheckInHandoverSigned] = useState(false);
 
   // Missing Condition 06 Form ()
-  const [missingNotes, setMissingNotes] = useState('');
-  const [missingIsStop, setMissingIsStop] = useState(false);
-  const [missingStopReason, setMissingStopReason] = useState('Chưa rõ lý do');
-  const [missingStopContent, setMissingStopContent] = useState('');
 
   // Return Check 08 Form ()
   const [returnChecked, setReturnChecked] = useState(false);
@@ -1246,18 +1239,6 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-700 block">
                   8. Các chức năng nghiệp vụ liên quan </span>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {selectedRoom.status === 'Trống' && <button
-                    type="button"
-                    onClick={() => {
-                      setCheckRentableRoom(selectedRoom);
-                      setSimulateEF01(false);
-                      setShowCheckRentableModal(true);
-                    }}
-                    className="p-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-semibold text-left transition-colors cursor-pointer flex items-center gap-1.5"
-                  >
-                    <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Kiểm tra khả năng cho thuê </span>
-                  </button>}
 
                   {selectedRoom.status === 'Trống' && Boolean(getActiveRoomContract(selectedRoom)) && <button
                     type="button"
@@ -1282,12 +1263,6 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                   >
                     Ghi/Cập nhật ngày dự kiến trả </button>)}
 
-                  {selectedRoom.status === 'Trống' && Boolean(getActiveRoomContract(selectedRoom)) && (<button
-                    type="button"
-                    onClick={() => setShowMissingConditionModal(true)}
-                    className="p-2.5 bg-orange-50 hover:bg-orange-100 text-orange-800 rounded-lg text-xs font-medium text-left transition-colors cursor-pointer"
-                  >
-                    Ghi nhận điều kiện còn thiếu </button>)}
 
                   {selectedRoom.status !== 'Trống' && relatedContract && (<button
                     type="button"
@@ -3029,20 +3004,9 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
               {!allFourPassed && (
                 <div className="p-3.5 rounded-xl border space-y-2 text-xs">
                   {twoPaymentsPassed ? (
-                    <div className="bg-orange-50/90 p-3 rounded-lg border border-orange-200 text-orange-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div>
-                        <strong className="text-orange-950 font-bold block">Thiếu hiệu lực hợp đồng hoặc bàn giao:</strong>
-                        <span className="block text-[11px] text-orange-900 mt-0.5">
-                          Hai khoản cọc 1 tháng và tiền thuê đầu 1 tháng đã ĐẠT và liên kết đúng. Bạn có thể mở <strong></strong> để theo dõi phần điều kiện còn thiếu. </span>
-                      </div>
-                      <button
-                        onClick={() => {
-                          setShowCheckInModal(false);
-                          setShowMissingConditionModal(true);
-                        }}
-                        className="px-3.5 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-bold text-xs cursor-pointer shrink-0 shadow-xs"
-                      >
-                        Mở Ghi nhận còn thiếu → </button>
+                    <div className="bg-orange-50 p-3 rounded-lg border border-orange-200 text-orange-950 text-xs">
+                      <strong>Thiếu điều kiện nhận phòng</strong>
+                      <p>Hãy bổ sung hợp đồng hoặc biên bản nhận phòng còn thiếu trong hồ sơ liên quan. Không cần lập phiếu “Ghi nhận điều kiện còn thiếu” riêng.</p>
                     </div>
                   ): (
                     <div className="bg-red-50 p-3 rounded-lg border border-red-200 text-red-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -3158,217 +3122,6 @@ export const RoomsView: React.FC<{onNavigate?: (tab: 'contracts' | 'tenants' | '
                   )}
                 </div>
               </div>
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* ==================== 1.6. GHI NHẬN ĐIỀU KIỆN CÒN THIẾU () ==================== */}
-      {showMissingConditionModal && selectedRoom && (() => {
-        const targetContract = getActiveRoomContract(selectedRoom);
-        const report = getCurrentRoomHandover(selectedRoom);
-        const twoPaymentsPassed = getInitialPaymentStatus(targetContract, contracts, initialPaymentRecords).valid;
-        const roomLogs = missingConditionLogs.filter(m => m.roomCode === selectedRoom.roomCode);
-
-        return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-xl w-full p-6 space-y-4 max-h-[92vh] overflow-y-auto text-xs">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5 text-orange-600" />
-                  <div>
-                    <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-orange-100 text-orange-800"></span>
-                    <h3 className="font-bold text-slate-900 text-base">
-                      Ghi nhận điều kiện còn thiếu: <span className="font-mono text-orange-700">{selectedRoom.roomCode}</span>
-                    </h3>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowMissingConditionModal(false)}
-                  className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 cursor-pointer"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* Kiểm tra điều kiện tiên quyết: 2 khoản tiền phải Đạt */}
-              {!twoPaymentsPassed ? (
-                <div className="p-4 bg-red-50 border-2 border-red-300 rounded-xl space-y-2 text-red-900">
-                  <strong className="block font-bold">Khóa chức năng theo </strong>
-                  <p className="text-xs leading-relaxed">
-                    Chức năng chỉ được mở khi hai khoản tiền cọc 1 tháng và tiền thuê đầu 1 tháng đã được xác minh Đạt tại. Hiện tại phòng {selectedRoom.roomCode} chưa hoàn tất thu đủ. </p>
-                  <div className="flex justify-end pt-2">
-                    <button
-                      onClick={() => {
-                        setShowMissingConditionModal(false);
-                        setShowPayment07Modal(true);
-                      }}
-                      className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded font-semibold text-xs cursor-pointer"
-                    >
-                      Chuyển sang tra soát </button>
-                  </div>
-                </div>
-              ): (
-                <>
-                  {/* Trạng thái chỉ đọc */}
-                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5 text-[11px] text-slate-700">
-                    <div className="flex justify-between">
-                      <span>Hiệu lực hợp đồng:</span>
-                      <strong className="text-slate-900">{targetContract?.status || 'Chưa ký'}</strong>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Biên bản bàn giao Biên bản nhận phòng:</span>
-                      <strong className="text-slate-900">{report?.status || 'Chưa có biên bản nhận phòng'}</strong>
-                    </div>
-                    <div className="flex justify-between text-emerald-800 font-semibold pt-1 border-t border-slate-200">
-                      <span>Xác nhận thu đủ 1 tháng cọc + 1 tháng thuê đầu:</span>
-                      <span>ĐÃ ĐẠT </span>
-                    </div>
-                  </div>
-
-                  {/* Form Ghi nhận điều kiện còn thiếu hoặc khách dừng thủ tục */}
-                  <div className="space-y-3">
-                    <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl space-y-2">
-                      <label className="flex items-center gap-2 cursor-pointer font-semibold text-amber-950">
-                        <input
-                          type="checkbox"
-                          checked={missingIsStop}
-                          onChange={(e) => setMissingIsStop(e.target.checked)}
-                          className="rounded border-amber-300 text-amber-600"
-                        />
-                        <span>Khách chủ động dừng làm thủ tục thuê </span>
-                      </label>
-
-                      {missingIsStop && (
-                        <div className="space-y-2 pt-1 border-t border-amber-200 text-xs">
-                          <div>
-                            <label className="block font-semibold text-slate-700 mb-1">Lý do dừng</label>
-                            <select
-                              value={missingStopReason}
-                              onChange={(e) => setMissingStopReason(e.target.value)}
-                              className="w-full px-2.5 py-1.5 border border-slate-300 rounded bg-white"
-                            >
-                              <option value="Chưa rõ lý do">Chưa rõ lý do</option>
-                              <option value="Khách đổi kế hoạch công việc/chỗ ở">Khách đổi kế hoạch công việc/chỗ ở</option>
-                              <option value="Khách không đồng ý hiện trạng bàn giao">Khách không đồng ý hiện trạng bàn giao</option>
-                              <option value="Lý do cá nhân khác">Lý do cá nhân khác</option>
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block font-semibold text-slate-700 mb-1">Nội dung trao đổi thực tế</label>
-                            <textarea
-                              rows={2}
-                              value={missingStopContent}
-                              onChange={(e) => setMissingStopContent(e.target.value)}
-                              placeholder="Chi tiết phản hồi khi khách dừng thủ tục..."
-                              className="w-full px-2.5 py-1.5 border border-slate-300 rounded bg-white"
-                            />
-                          </div>
-                          <span className="text-[10px] text-amber-900 block">
-                            * Căn cứ Ghi nhận sự kiện riêng, không tự hủy hợp đồng, không tự hoàn tiền hay đổi trạng thái phòng. </span>
-                        </div>
-                      )}
-                    </div>
-
-                    {!missingIsStop && (
-                      <div>
-                        <label className="block font-semibold text-slate-700 mb-1">
-                          Nội dung ghi chú điều kiện còn thiếu <span className="text-red-500">*</span>
-                        </label>
-                        <textarea
-                          rows={3}
-                          value={missingNotes}
-                          onChange={(e) => setMissingNotes(e.target.value)}
-                          placeholder="Ví dụ: Chờ khách bổ sung bản ký tay biên bản Biên bản nhận phòng, hẹn ngày 18/10 hoàn tất..."
-                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs"
-                        />
-                        <span className="text-[10px] text-slate-400 block mt-0.5">
-                          * Ghi chú không được để trống khi lưu điều kiện còn thiếu. </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Lịch sử ghi nhận điều kiện còn thiếu của phòng */}
-                  {roomLogs.length > 0 && (
-                    <div className="pt-2 border-t border-slate-100 space-y-1.5">
-                      <span className="font-semibold text-slate-700 block text-[11px]">Lịch sử ghi nhận trước đó:</span>
-                      <div className="space-y-1 max-h-36 overflow-y-auto">
-                        {roomLogs.map((log) => (
-                          <div key={log.id} className="p-2 bg-slate-50 border border-slate-200 rounded text-[11px] space-y-0.5">
-                            <div className="flex justify-between font-bold text-slate-800">
-                              <span>Trạng thái: {log.status}</span>
-                              <span className="font-mono text-slate-500 text-[10px]">{log.loggedAt.substring(0, 16).replace('T', ' ')}</span>
-                            </div>
-                            <p className="text-slate-600">{log.notes || log.tenantStopContent}</p>
-                            <span className="text-[10px] text-slate-400 block">Người ghi: {log.loggedBy}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-100">
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowMissingConditionModal(false);
-                          (setActiveCheckInRoomCode(selectedRoom?.roomCode || ''), setCheckInStage(0), setSubTab('checkin'));
-                        }}
-                        className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-blue-700 rounded text-xs font-semibold cursor-pointer"
-                      >
-                        Kiểm tra lại </button>
-                      <button
-                        type="button"
-                        onClick={() => { setShowMissingConditionModal(false); setShowContractModal(true); }}
-                        className="px-2 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs font-medium cursor-pointer"
-                      >
-                        Xem HĐ </button>
-                      <button
-                        type="button"
-                        onClick={() => { setShowMissingConditionModal(false); setShowHandoverModal(true); }}
-                        className="px-2 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs font-medium cursor-pointer"
-                      >
-                        Xem bàn giao </button>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setShowMissingConditionModal(false)}
-                        className="px-3.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg font-medium cursor-pointer"
-                      >
-                        Hủy </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const res = saveMissingConditionPH06({
-                            roomCode: selectedRoom.roomCode,
-                            contractId: (selectedRoom.currentContractId || getActiveRoomContract(selectedRoom)?.id || ''),
-                            leaseId: (selectedRoom.currentLeaseId || getActiveRoomContract(selectedRoom)?.leaseId || ''),
-                            missingContractEffect: !targetContract || targetContract.status !== 'Hiệu lực',
-                            missingHandover: !report || report.status !== 'Đã xác nhận',
-                            notes: missingNotes,
-                            isTenantStoppedProcedure: missingIsStop,
-                            tenantStopReason: missingIsStop ? missingStopReason: undefined,
-                            tenantStopContent: missingIsStop ? missingStopContent: undefined
-                          });
-                          if (res.success) {
-                            setShowMissingConditionModal(false);
-                            setMissingNotes('');
-                            setMissingIsStop(false);
-                            showToast('success', toUserMessage(res.message));
-                          } else {
-                            showToast('error', toUserMessage(res.message));
-                          }
-                        }}
-                        className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-semibold cursor-pointer shadow-xs"
-                      >
-                        Lưu ghi nhận </button>
-                    </div>
-                  </div>
-                </>
-              )}
             </div>
           </div>
         );

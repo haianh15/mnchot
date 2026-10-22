@@ -39,3 +39,15 @@ export function canRecordSettlement(slip: DepositSettlementSlip) {
     slip.tenantAgreementEvidence?.schemeVersion === slip.version &&
     slip.tenantAgreementEvidence?.agreedAmount === slip.calculatedResult;
 }
+
+/** Shared group predicate for both quick-filter cards and the slip list. */
+export function matchesSettlementGroup(status: DepositSettlementSlip['status'], group: string): boolean {
+  switch (group) {
+    case 'all': return true;
+    case 'pending': return ['Đang lập', 'Không đồng ý', 'Không liên hệ được'].includes(status);
+    case 'agreed': return status === 'Khách đồng ý';
+    case 'dispute': return status === 'Tranh chấp';
+    case 'published': return terminalSettlementStatuses.includes(status);
+    default: return status === group;
+  }
+}

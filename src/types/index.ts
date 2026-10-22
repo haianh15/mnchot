@@ -368,6 +368,9 @@ export interface ReturnInspection {
   isDraft?: boolean;
   correctionStatus?: 'Bình thường' | 'Đính chính chờ xác nhận' | 'Sai lệch cần xử lý';
   correctionNote?: string;
+  /** Proposal does not modify the approved inspection until owner confirms it. */
+  correctionProposal?: {newStatus:'Đã nhận lại'|'Chưa nhận lại'; reason:string; evidence:string; proposedAt:string; proposedBy:string};
+  correctionHistory?: {version:number; status:string; confirmed:boolean; evidence?:string; correctedAt:string; reason:string}[];
   version: number;
   items: {
     name: string;
