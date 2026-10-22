@@ -9,6 +9,7 @@ import { hasValidHandoverSource, validateReturnConfirmation } from '../utils/han
 import { canCreateRenewalContract, blocksNewLeaseOnVacantRoom } from '../utils/contractEligibility';
 import { getPendingSignedRoomContract, pendingSignedContractsForRoom, reconcileRoomWorkflowLinks } from '../utils/roomLifecycle';
 import { findRepresentativeRoomConflict } from '../utils/representativeRoom';
+import { repairSeedRepresentatives } from '../utils/repairSeedRepresentatives';
 import {
   UserAccount,
   AuthSession,
@@ -500,6 +501,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       reconciledBy: 'Quản lý Nguyễn Văn An'
     }
   ]));
+
+  // Chỉ sửa tham chiếu sai của hai hợp đồng mẫu CHƯA ký trong dữ liệu trình duyệt cũ.
+  // Hồ sơ ký thật hoặc đã sửa không bị thay tên/người đại diện tự động.
+  useEffect(() => {
+    const repaired = repairSeedRepresentatives({ tenants, contracts, leaseConditions });
+    if (repaired.tenants !== tenants) setTenants(repaired.tenants);
+    if (repaired.contracts !== contracts) setContracts(repaired.contracts);
+    if (repaired.leaseConditions !== leaseConditions) setLeaseConditions(repaired.leaseConditions);
+    if (repaired.conflicts.length) console.warn('Cần đối chiếu hồ sơ người đại diện:', repaired.conflicts);
+  }, []);
 
   // Sync state to local storage on changes
   useEffect(() => { setStored('reportSnapshots', reportSnapshots); }, [reportSnapshots]);

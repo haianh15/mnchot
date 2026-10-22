@@ -432,6 +432,32 @@ export const INITIAL_TENANTS: Tenant[] = [
     createdAt: '2026-10-14T09:00:00Z',
     createdBy: 'Nguyễn Văn An',
     notes: 'Khách mới đăng ký thuê phòng 303'
+  },
+  // Hai khách được nêu trong yêu cầu thuê phòng P.103/P.202 có hồ sơ riêng.
+  // CCCD và số điện thoại lấy từ YCTN tương ứng; chưa tự xác nhận giấy tờ.
+  {
+    id: 'ten_seed_103_vdt',
+    fullName: 'Vũ Đình Toàn',
+    phoneNumber: '0915667788',
+    idNumber: '030095001234',
+    address: '',
+    paperStatus: 'Chưa cung cấp',
+    verificationStatus: 'Chưa xác minh',
+    requestAdmissionCode: 'YCTN-2026-002',
+    createdAt: '2026-10-15T16:30:00Z',
+    createdBy: 'Hệ thống'
+  },
+  {
+    id: 'ten_seed_202_dmn',
+    fullName: 'Đoàn Minh Nhật',
+    phoneNumber: '0944556677',
+    idNumber: '025098007766',
+    address: '',
+    paperStatus: 'Chưa cung cấp',
+    verificationStatus: 'Chưa xác minh',
+    requestAdmissionCode: 'YCTN-2026-003',
+    createdAt: '2026-10-16T10:00:00Z',
+    createdBy: 'Hệ thống'
   }
 ];
 
@@ -609,6 +635,7 @@ export const INITIAL_LEASE_CONDITIONS: LeaseConditionDraft[] = [
   {
     id: 'COND-2026-002',
     requestCode: 'YCTN-2026-002',
+    tenantId: 'ten_seed_103_vdt',
     prospectiveTenantName: 'Vũ Đình Toàn',
     prospectivePhone: '0915667788',
     prospectiveIdNumber: '030095001234',
@@ -656,6 +683,7 @@ export const INITIAL_LEASE_CONDITIONS: LeaseConditionDraft[] = [
   {
     id: 'COND-2026-003',
     requestCode: 'YCTN-2026-003',
+    tenantId: 'ten_seed_202_dmn',
     prospectiveTenantName: 'Đoàn Minh Nhật',
     prospectivePhone: '0944556677',
     prospectiveIdNumber: '025098007766',
@@ -923,8 +951,9 @@ export const INITIAL_CONTRACTS: Contract[] = [
     requestCode: 'YCTN-2026-003',
     leaseId: 'THUE-202-L2',
     roomCode: 'P.202',
-    tenantId: 'ten_03',
+    tenantId: 'ten_seed_202_dmn',
     tenantName: 'Đoàn Minh Nhật',
+    tenantIdNumber: '025098007766',
     tenantPhone: '0944556677',
     batchCode: 'DOT-2026-K11',
     startDate: '2026-11-01',
@@ -947,8 +976,9 @@ export const INITIAL_CONTRACTS: Contract[] = [
     requestCode: 'YCTN-2026-002',
     leaseId: 'THUE-103-L1',
     roomCode: 'P.103',
-    tenantId: 'ten_10',
+    tenantId: 'ten_seed_103_vdt',
     tenantName: 'Vũ Đình Toàn',
+    tenantIdNumber: '030095001234',
     tenantPhone: '0915667788',
     batchCode: 'DOT-2026-K10',
     startDate: '2026-10-20',
@@ -973,7 +1003,7 @@ export const INITIAL_CONTRACTS: Contract[] = [
     roomCode: 'P.102',
     tenantId: 'ten_02',
     tenantName: 'Lê Thị Cúc',
-    tenantPhone: '0912345678',
+    tenantPhone: '0987654321',
     batchCode: 'DOT-2026-K11',
     startDate: '2026-11-01',
     endDate: '2027-05-01',
